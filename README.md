@@ -1,0 +1,476 @@
+# Signal Dashboard
+
+A Stripe-inspired market environment dashboard for swing traders, with light and dark mode support. Pulls live market data, computes a weighted **Market Quality Score**, and outputs a clear trading signal. Includes Signa.ai stock signals with entry/stop/target, options intelligence, fundamentals, Fibonacci levels, moving average heat bars, and structured AI market analysis.
+
+Auto-refreshes every 45 seconds. No brokerage account or paid data subscription required.
+
+---
+
+## Layout
+
+```
+┌─ SIGNAL DASHBOARD ──────────────────────── MODE [Swing] [Day]  [◐ Dark] ─┐
+│  ● LIVE  SPY 739.17 ▲  QQQ 708.93 ▲  VIX 18.43  TNX 4.59%  XLF ▲ …    │
+├───────────────────────────────────────────────────────────────────────────┤
+│  WATCHLIST  [Default]  [AI-MEM ×]  [+ New list]                           │
+│  [Search ticker…]  [Analyze →]    AAPL ×  NVDA ×                         │
+│                                                                             │
+│  ┌─ SIGNA.AI SIGNAL ──────────────────────────────────────────────────┐   │
+│  │  ● LONG  Grade A  Stage 3 — Mark-up  87% conf.  Risk: Low          │   │
+│  │  ENTRY $181.00  STOP $174.50  TARGET $198.00  2.3×                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ MOVING AVERAGES ──────────────────────────────────────────────────┐   │
+│  │  EMA5   ████████████▌·········  +1.2%  $180.12                     │   │
+│  │  EMA21  ···········▌████████    -0.8%  $183.80                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ OPTIONS INTELLIGENCE ─────────────────────────────────────────────┐   │
+│  │  BULLISH  High confidence  C/P 1.8  GEX flip $178                   │   │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ FUNDAMENTALS ─────────────────────────────────────────────────────┐   │
+│  │  P/E 24.1  Fwd P/E 21.8  Revenue +18%  Margin 26%  ROE 38%         │   │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ SECTOR PERFORMANCE ───────────────────────────────────────────────┐   │
+│  │  ▸ QQQ Nasdaq 100  ████████  +2.1%  ▲50d                           │   │
+│  │      SMH Semiconductors  ██████  +3.4%  ▲50d                        │   │
+│  │    XLF Financials  ██████    +1.4%  ▲50d                            │   │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ SIGNA.AI · Market Analysis ──────────────────────────────────────┐   │
+│  │  ENVIRONMENT: Bull trend | VIX 18.4                                 │   │
+│  │  → SPY above all major MAs  ✓ Breadth expanding  ⚠ FOMC in 3d     │   │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Features
+
+| Feature | Detail |
+|---|---|
+| Light / Dark mode | Header toggle persists preference to localStorage; zero-flicker init via inline script |
+| Signa.ai signal | LONG/SHORT direction, Grade, Stage, Confidence, Risk — pill badges at top of stock panel |
+| Stock watchlist — named groups | Create named watchlist groups; "Save to Watchlist" opens group picker dropdown; ticker persists per browser |
+| Options Intelligence | Options flow (C/P, premium, notable trades), dark pool (off-exchange vol, fills), gamma exposure (GEX, flip point, key strikes) — synthesized with directional assessment |
+| Fundamentals panel | Valuation, Growth, Profitability, Financial Health, Ownership & Analyst — always rendered, empty state when unavailable |
+| Fibonacci levels | 9 auto-computed retracement + extension levels from 52-week high/low |
+| Moving averages — heat bars | EMA5, EMA21, EMA55, SMA200; centered heat bar (green right if above, red left if below) |
+| Sector heatmap — accordion | 14 sectors; click ▸ to expand sub-sectors (SMH, IGV, XBI, TAN, Gold, Silver, Copper, Crude Oil, and more) |
+| Market Quality Score | Weighted 0–100 across 5 categories (Volatility 20%, Trend 25%, Breadth 20%, Momentum 25%, Macro 10%) |
+| Execution Window Score | Separate 0–100 evaluating near-term setup follow-through |
+| Live ticker bar | SPY, QQQ, IWM, VIX, TNX, all sector ETFs scrolling |
+| Structured terminal analysis | Signa output parsed into sections; plain text for Gemini/template fallback |
+| Mode toggle | Swing Trading / Day Trading pill |
+| Alert banner | FOMC event (within 72h), VIX spike (>30) warnings |
+| Auto-refresh | Every 45 seconds with manual refresh and "updated Xs ago" counter |
+
+---
+
+## Scoring System
+
+```
+Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×25% + Macro×10%
+```
+
+| Score | Decision | Guidance |
+|---|---|---|
+| 80–100 | YES BUY / YES SELL | Full position sizing |
+| 60–79 | CAUTION | Half size, A+ setups only |
+| < 60 | NO | Avoid trading, preserve capital |
+
+### Category Inputs
+
+**Volatility (20%)** — VIX level (tiered), VIX 5d slope, VIX 1yr percentile rank
+
+**Trend (25%)** — SPY vs 20/50/200d MA · QQQ vs 50d MA · SPY RSI(14) · regime (uptrend / downtrend / chop)
+
+**Breadth (20%)** — % of 11 sector ETFs above 50d MA · IWM vs SPY 5d relative return
+
+**Momentum (25%)** — Sectors outperforming SPY (5d) · leadership quality (growth vs defensive rotation)
+
+**Macro (10%)** — 10Y Treasury level + 30d trend · Dollar Index slope · Fed stance · FOMC proximity (−15 pts within 72h)
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Vite 5 + Tailwind CSS v4 |
+| Backend | Node.js 20 + Express 4 + TypeScript 5 |
+| Data | Yahoo Finance v8 Chart API (free, no key) |
+| Stock signals + AI | Signa.ai API (optional `SIGNA_API_KEY`) |
+| AI analysis fallback | Google Gemini 1.5 Flash (optional `GEMINI_API_KEY`) |
+| Caching | NodeCache, 30-second TTL |
+| Frontend hosting | Cloudflare Pages |
+| Backend hosting | Railway (Node.js) |
+
+---
+
+## Project Structure
+
+```
+signal-dashboard/
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx                    # Main layout, polling, theme
+│   │   ├── components/
+│   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
+│   │   │   ├── FundamentalsPanel.tsx  # Valuation/growth/margins section
+│   │   │   ├── ModeToggle.tsx         # Swing / Day mode pill
+│   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma
+│   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors
+│   │   │   ├── SignaCard.tsx          # Signa.ai signal card
+│   │   │   ├── Skeleton.tsx           # Loading shimmer skeletons
+│   │   │   ├── StockPanel.tsx         # Full stock analysis panel
+│   │   │   ├── StockSearch.tsx        # Search bar + named watchlist groups
+│   │   │   ├── TerminalAnalysis.tsx   # Structured AI market analysis
+│   │   │   └── TickerBar.tsx          # Scrolling live ticker
+│   │   ├── hooks/
+│   │   │   ├── useMarketData.ts       # 45s polling + secondsAgo counter
+│   │   │   ├── useStockData.ts        # Stock/Signa data fetch on ticker change
+│   │   │   ├── useTheme.ts            # Light/dark mode toggle (localStorage)
+│   │   │   └── useWatchlist.ts        # Named watchlist groups (localStorage)
+│   │   ├── lib/
+│   │   │   ├── api.ts                 # fetch wrappers for backend routes
+│   │   │   ├── colors.ts              # CSS custom property design tokens
+│   │   │   └── stockApi.ts            # Stock-specific API client
+│   │   └── types/
+│   │       ├── market.ts              # MarketResponse, SectorData, etc.
+│   │       └── stock.ts               # StockResponse, SignaData, OptionsInsight, FundamentalsData, etc.
+│   ├── index.html
+│   ├── vite.config.ts                 # /api proxy to :3001
+│   └── package.json
+│
+├── backend/
+│   ├── src/
+│   │   ├── index.ts                   # Express entry point
+│   │   ├── routes/
+│   │   │   ├── market.ts              # GET /api/market-data, POST /api/refresh
+│   │   │   └── stock.ts               # GET /api/stock/:symbol
+│   │   ├── services/
+│   │   │   ├── ai.ts                  # Signa → Gemini → template priority chain
+│   │   │   ├── marketData.ts          # Parallel data fetch orchestration
+│   │   │   ├── scoring.ts             # 5 market scoring functions
+│   │   │   └── stockScoring.ts        # Stock score + Fibonacci + Moving Averages
+│   │   └── lib/
+│   │       ├── cache.ts               # NodeCache wrapper (30s TTL)
+│   │       ├── fomc.ts                # FOMC calendar + Fed stance (update annually)
+│   │       ├── signaClient.ts         # Signa.ai API client
+│   │       ├── technical.ts           # SMA, EMA, RSI, slope, percentile utils
+│   │       └── yahooClient.ts         # Yahoo Finance v8 Chart API client
+│   ├── .env.example
+│   └── package.json
+│
+├── package.json      # Root: concurrently dev, install:all
+├── DESIGN.md         # Stripe-inspired design tokens (source of truth)
+├── CLAUDE.md         # AI assistant onboarding guide
+├── CHANGELOG.md      # Version history
+├── PROMPT.md         # Full reconstruction specification
+└── README.md         # This file
+```
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 20+
+- npm 10+
+
+### Setup
+
+```bash
+# 1. Clone
+git clone https://github.com/loopnestdev/signal-dashboard.git
+cd signal-dashboard
+
+# 2. Install all dependencies (root + frontend + backend)
+npm run install:all
+
+# 3. Configure backend environment
+cp backend/.env.example backend/.env
+# Edit backend/.env — see Environment Variables below
+
+# 4. Start both servers
+npm run dev
+```
+
+Frontend: http://localhost:5173  
+Backend: http://localhost:3001
+
+The frontend proxies `/api/*` to `:3001` via Vite's dev proxy — no CORS config needed locally.
+
+### Environment Variables
+
+**`backend/.env`**
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `PORT` | No | `3001` | Backend HTTP port |
+| `FRONTEND_URL` | No | `http://localhost:5173` | CORS allowed origin |
+| `SIGNA_API_KEY` | No | — | Signa.ai API key — enables stock signals, options intelligence, fundamentals, and AI market analysis |
+| `GEMINI_API_KEY` | No | — | Google AI Studio key — used as AI analysis fallback when `SIGNA_API_KEY` is absent |
+| `AI_PROVIDER` | No | `gemini` | Set to `none` to skip Gemini entirely and always use template analysis |
+
+**Priority chain for AI market analysis:** Signa.ai → Gemini 1.5 Flash → built-in template
+
+- With `SIGNA_API_KEY`: Signa provides analysis; Gemini is not called.
+- With `GEMINI_API_KEY` only: Gemini generates analysis.
+- With neither key: a built-in template is used.
+- `AI_PROVIDER=none`: forces template regardless of keys.
+
+All scoring, market data, Fibonacci, and moving averages work fully without any API keys.
+
+---
+
+## Deployment
+
+### Overview
+
+```
+User → Cloudflare (WAF + CDN) → Cloudflare Pages (React SPA)
+                                        ↓ /api/*
+                               Railway (Express backend)
+                                        ↓
+                               Yahoo Finance API (free)
+                               Signa.ai API (optional)
+                               Google Gemini API (optional)
+```
+
+### GitHub Deployment Environments
+
+When both services are connected to your GitHub repo, you will see multiple entries under the **Deployments** tab:
+
+| GitHub environment name | Service | Trigger |
+|---|---|---|
+| **Production** | Cloudflare Pages — frontend | Push to main branch |
+| **Preview** | Cloudflare Pages — frontend | Every pull request |
+| **`{project}` / production** | Railway — backend | Push to main branch |
+
+> Railway names its GitHub deployment environment after your Railway project name (e.g., `moat-finder / production`). Cloudflare Pages always uses `Production` and `Preview`.
+
+---
+
+### Backend — Railway
+
+Railway auto-detects Node.js, runs `npm start`, and provides HTTPS out of the box.
+
+**Step 1 — Create Railway project**
+
+1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
+2. Select your repository
+3. Set the **Root Directory** to `backend` in **Settings → Source** (Railway may not auto-detect this)
+
+**Step 2 — Set environment variables**
+
+In Railway → your service → **Variables**, add:
+
+| Key | Value |
+|---|---|
+| `PORT` | `3001` |
+| `FRONTEND_URL` | `https://your-app.pages.dev` (your Cloudflare Pages URL — fill in after the next section) |
+| `SIGNA_API_KEY` | Your Signa.ai API key (get it from [app.getsigna.ai](https://app.getsigna.ai)) |
+| `GEMINI_API_KEY` | Your key from [aistudio.google.com](https://aistudio.google.com) *(optional — only needed if you don't have a Signa key)* |
+
+> `AI_PROVIDER` and `PORT` have sensible defaults — only add them if you want to override.
+
+**Step 3 — Configure start command**
+
+Railway should pick up `"start": "tsx src/index.ts"` from `backend/package.json` automatically.  
+If not, set **Start Command** to `npm start`.
+
+**Step 4 — Get your Railway URL**
+
+After deploy, Railway gives you a public URL like:
+```
+https://signal-dashboard-production.up.railway.app
+```
+
+Copy this — you'll need it for Cloudflare Pages.
+
+---
+
+### Frontend — Cloudflare Pages
+
+**Step 1 — Create a Pages project**
+
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+2. Select your repository
+
+**Step 2 — Build settings**
+
+| Setting | Value |
+|---|---|
+| Framework preset | Vite |
+| Root directory | `frontend` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Node.js version | `20` |
+
+**Step 3 — Environment variables**
+
+In **Settings → Environment Variables**, add:
+
+| Variable | Environment | Value |
+|---|---|---|
+| `VITE_API_URL` | Production | `https://signal-dashboard-production.up.railway.app` |
+
+Replace with your actual Railway URL.
+
+**Step 4 — Deploy**
+
+Click **Save and Deploy**. Your frontend will be live at:
+```
+https://signal-dashboard.pages.dev
+```
+
+**Step 5 — Update CORS on Railway**
+
+Go back to Railway → Variables and update `FRONTEND_URL` to your Cloudflare Pages URL:
+```
+FRONTEND_URL=https://signal-dashboard.pages.dev
+```
+
+Railway redeploys automatically on variable changes.
+
+---
+
+### Custom Domain (Optional)
+
+**Cloudflare Pages custom domain:**
+1. Pages project → **Custom domains** → Add domain
+2. Cloudflare DNS: CNAME pointing to `signal-dashboard.pages.dev`
+
+**Railway custom domain:**
+1. Railway service → **Settings → Networking** → **Add Custom Domain**
+2. Cloudflare DNS: CNAME pointing to Railway's provided target
+3. Update `VITE_API_URL` in Cloudflare Pages env vars to your custom API domain
+
+---
+
+### Cloudflare WAF / Security (Optional)
+
+Cloudflare Pages is automatically behind Cloudflare's WAF. For additional protection:
+
+1. **Rate limiting** — Security → WAF → Rate Limiting Rules: `(http.request.uri.path contains "/api")` → max 60 req/min
+2. **Bot Fight Mode** — Security → Bots → **Bot Fight Mode: On**
+
+---
+
+### CI / CD
+
+Both Railway and Cloudflare Pages auto-deploy on every push to the main branch. No additional CI configuration needed.
+
+- **Cloudflare Pages** builds a preview deployment for every PR (visible as `Preview` in GitHub Deployments)
+- **Railway** deploys from the configured branch via **Settings → Source → Branch**
+
+---
+
+## API Reference
+
+### `GET /api/market-data`
+
+Returns the full market data payload. Cached 30 seconds server-side.
+
+| Field | Type | Description |
+|---|---|---|
+| `decision` | `YES_BUY \| YES_SELL \| CAUTION \| NO` | Trading signal |
+| `marketQualityScore` | `number` | Weighted 0–100 |
+| `executionWindowScore` | `number` | Separate 0–100 |
+| `categories` | `object` | Scores + metrics for each of 5 categories |
+| `sectors` | `array` | 14 sector ETFs with 1d/5d/20d returns and MA flags |
+| `subsectors` | `array` | 13 sub-sector ETFs with same fields |
+| `regime` | `uptrend \| downtrend \| chop` | Market regime |
+| `analysis` | `string` | AI-generated or template analysis |
+| `ticker` | `array` | Ticker bar items |
+| `alerts` | `array` | Active alerts (FOMC, VIX spike) |
+| `fromCache` | `boolean` | Whether from 30s cache |
+| `timestamp` | `string` | ISO timestamp of last fetch |
+
+### `POST /api/refresh`
+
+Invalidates the cache. Next `GET /api/market-data` fetches fresh data.
+
+### `GET /api/stock/:symbol`
+
+Returns stock analysis for a symbol. Includes technical score, sector ETF score, composite score, Signa.ai signal, Fibonacci levels, moving averages, options intelligence, and fundamentals.
+
+### `GET /health`
+
+Health check. Returns `{ status: "ok", ts: "..." }`.
+
+---
+
+## Data Sources
+
+| Metric | Source | Notes |
+|---|---|---|
+| SPY, QQQ, IWM prices + history | Yahoo Finance v8 Chart API | Free, no key |
+| VIX (^VIX) | Yahoo Finance | 2-year history for percentile |
+| 10Y Treasury (^TNX) | Yahoo Finance | Level + 20d slope |
+| Dollar Index (UUP) | Yahoo Finance | UUP ETF as DXY proxy |
+| Sector ETFs | Yahoo Finance | QQQ, XLF, XLE, XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC, SPY, PDBC, NASA |
+| Sub-sector ETFs | Yahoo Finance | SMH, IGV, XBI, IHI, URA, XOP, KRE, ICLN, TAN, GC=F, SI=F, COPX, CL=F |
+| FOMC dates | Hardcoded | `backend/src/lib/fomc.ts` — update annually |
+| Fed stance | Hardcoded | `backend/src/lib/fomc.ts` — update as conditions change |
+| Stock signals | Signa.ai API | Entry/stop/target, triggers, risk, EMAs (requires `SIGNA_API_KEY`) |
+| Options flow + dark pool + gamma | Signa.ai API | Synthesized into directional assessment (requires `SIGNA_API_KEY`) |
+| Fundamentals | Signa.ai API | Valuation, growth, margins, health, analyst data (requires `SIGNA_API_KEY`) |
+| Terminal analysis | Signa.ai → Gemini 1.5 Flash → template | Priority chain; template is the built-in fallback |
+
+> **Breadth note:** True market breadth requires paid data. This dashboard approximates breadth using 11 S&P sector ETFs and IWM vs SPY relative performance — directionally accurate but not identical to full-universe breadth.
+
+---
+
+## Configuration & Customisation
+
+### Adjusting scoring thresholds
+
+Edit `backend/src/services/scoring.ts` — each `score*` function is self-contained. Decision thresholds live in `backend/src/routes/market.ts`.
+
+### Switching AI provider
+
+Set `AI_PROVIDER=none` in `.env` to disable Gemini and always use template analysis.
+
+### Refreshing the FOMC calendar
+
+Edit `backend/src/lib/fomc.ts` — update `FOMC_DATES` annually when the Fed publishes its schedule, and update `getFedStance()` to reflect current monetary policy.
+
+---
+
+## Design System
+
+The UI uses a Stripe-inspired design system defined in `frontend/src/lib/colors.ts` as CSS custom properties. Toggle between light and dark mode with the **◐ Dark / ◑ Light** button in the header.
+
+Key tokens (light mode → dark mode):
+- **Ink (text):** `#0d253d` → `#e2e8f0`
+- **Canvas:** `#ffffff` → `#0d1b2e`
+- **Border:** `#e3e8ee` → `#253a55`
+- **Primary:** `#533afd` → `#7c6dff`
+- **Bull:** `#059669` → `#10b981`
+- **Bear:** `#ea2261` → `#f43f6e`
+- **Warn:** `#d97706` → `#f59e0b`
+
+All tokens are CSS custom properties in `frontend/src/index.css` under `:root` (light) and `[data-theme="dark"]` (dark). Components never need per-component dark mode code.
+
+---
+
+## Limitations & Disclaimers
+
+- **Not financial advice.** Educational and informational purposes only.
+- Market data is delayed or end-of-day depending on Yahoo Finance's cache. Real-time accuracy is not guaranteed.
+- Breadth metrics approximate from sector ETFs. Full NYSE/Nasdaq breadth requires a paid subscription.
+- The FOMC calendar and Fed stance in `fomc.ts` are hardcoded. Keep them updated.
+- Yahoo Finance's unofficial API has no SLA. If it goes down, the app shows an error state with retry.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

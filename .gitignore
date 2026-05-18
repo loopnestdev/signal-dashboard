@@ -1,0 +1,41 @@
+# Binary output
+*.exe
+*.out
+*.zip
+
+# Exclude build artifacts and dependencies
+node_modules/
+dist/
+
+# Exclude all .env files anywhere in the project (but keep .env.example templates)
+.env
+**/.env
+**/.env.*
+!**/.env.example
+
+# Go build cache
+*.o
+*.a
+*.so
+
+# Go module cache
+vendor/
+
+# Test output
+*.test
+*.prof
+coverage.out
+
+# Log files
+logs/
+*.log
+*.txt
+
+# macOS
+.DS_Store
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
