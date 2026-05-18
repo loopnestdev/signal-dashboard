@@ -53,8 +53,9 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Feature | Detail |
 |---|---|
 | Light / Dark mode | Header toggle persists preference to localStorage; zero-flicker init via inline script |
+| Google Sign-In | Optional Supabase auth — watchlist syncs across devices when signed in; localStorage fallback when unconfigured |
 | Signa.ai signal | LONG/SHORT direction, Grade, Stage, Confidence, Risk — pill badges at top of stock panel |
-| Stock watchlist — named groups | Create named watchlist groups; "Save to Watchlist" opens group picker dropdown; ticker persists per browser |
+| Stock watchlist — named groups | Create named watchlist groups; syncs to Supabase when signed in, localStorage otherwise |
 | Options Intelligence | Options flow (C/P, premium, notable trades), dark pool (off-exchange vol, fills), gamma exposure (GEX, flip point, key strikes) — synthesized with directional assessment |
 | Fundamentals panel | Valuation, Growth, Profitability, Financial Health, Ownership & Analyst — always rendered, empty state when unavailable |
 | Fibonacci levels | 9 auto-computed retracement + extension levels from 52-week high/low |
@@ -105,6 +106,7 @@ Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×2
 | Data | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals + AI | Signa.ai API (optional `SIGNA_API_KEY`) |
 | AI analysis fallback | Google Gemini 1.5 Flash (optional `GEMINI_API_KEY`) |
+| Auth + watchlist sync | Supabase (optional — Google OAuth + Postgres) |
 | Caching | NodeCache, 30-second TTL |
 | Frontend hosting | Cloudflare Pages |
 | Backend hosting | Railway (Node.js) |
@@ -117,9 +119,10 @@ Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×2
 signal-dashboard/
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx                    # Main layout, polling, theme
+│   │   ├── App.tsx                    # Main layout, polling, theme, auth
 │   │   ├── components/
 │   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
+│   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill
 │   │   │   ├── FundamentalsPanel.tsx  # Valuation/growth/margins section
 │   │   │   ├── ModeToggle.tsx         # Swing / Day mode pill
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma
@@ -131,14 +134,16 @@ signal-dashboard/
 │   │   │   ├── TerminalAnalysis.tsx   # Structured AI market analysis
 │   │   │   └── TickerBar.tsx          # Scrolling live ticker
 │   │   ├── hooks/
+│   │   │   ├── useAuth.ts             # Supabase session + Google OAuth
 │   │   │   ├── useMarketData.ts       # 45s polling + secondsAgo counter
 │   │   │   ├── useStockData.ts        # Stock/Signa data fetch on ticker change
 │   │   │   ├── useTheme.ts            # Light/dark mode toggle (localStorage)
-│   │   │   └── useWatchlist.ts        # Named watchlist groups (localStorage)
+│   │   │   └── useWatchlist.ts        # Named watchlist groups (Supabase or localStorage)
 │   │   ├── lib/
 │   │   │   ├── api.ts                 # fetch wrappers for backend routes
 │   │   │   ├── colors.ts              # CSS custom property design tokens
-│   │   │   └── stockApi.ts            # Stock-specific API client
+│   │   │   ├── stockApi.ts            # Stock-specific API client
+│   │   │   └── supabase.ts            # Typed Supabase client (null when unconfigured)
 │   │   └── types/
 │   │       ├── market.ts              # MarketResponse, SectorData, etc.
 │   │       └── stock.ts               # StockResponse, SignaData, OptionsInsight, FundamentalsData, etc.
@@ -197,7 +202,12 @@ npm run install:all
 cp backend/.env.example backend/.env
 # Edit backend/.env — see Environment Variables below
 
-# 4. Start both servers
+# 4. (Optional) Configure Supabase for Google auth + cross-device watchlist sync
+cp frontend/.env.example frontend/.env
+# Edit frontend/.env — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+# Leave blank to run in localStorage-only mode (no sign-in required)
+
+# 5. Start both servers
 npm run dev
 ```
 
@@ -227,6 +237,15 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy — no CORS config
 
 All scoring, market data, Fibonacci, and moving averages work fully without any API keys.
 
+**`frontend/.env`** (optional — enables Google sign-in and cross-device watchlist sync)
+
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_SUPABASE_URL` | No | Your Supabase project URL — from Dashboard → Settings → API |
+| `VITE_SUPABASE_ANON_KEY` | No | Your Supabase anon/public key — same location |
+
+Leave both blank (or omit the file entirely) to run in localStorage-only mode with no authentication.
+
 ---
 
 ## Deployment
@@ -254,6 +273,60 @@ When both services are connected to your GitHub repo, you will see multiple entr
 | **`{project}` / production** | Railway — backend | Push to main branch |
 
 > Railway names its GitHub deployment environment after your Railway project name (e.g., `moat-finder / production`). Cloudflare Pages always uses `Production` and `Preview`.
+
+---
+
+### Supabase — Google Auth + Watchlist Sync (Optional)
+
+Skip this section entirely if you don't need cross-device watchlist sync. The app works fully without Supabase.
+
+**Step 1 — Create a Supabase project**
+
+1. Go to [supabase.com](https://supabase.com) → **New project**
+2. Note your **Project URL** and **anon/public key** from **Settings → API**
+
+**Step 2 — Create the watchlists table**
+
+In **SQL Editor**, run:
+
+```sql
+create table public.watchlists (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  name       text not null,
+  tickers    text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.watchlists enable row level security;
+
+create policy "Users manage their own watchlists"
+  on public.watchlists
+  for all
+  using  (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
+
+**Step 3 — Enable Google OAuth**
+
+1. Supabase Dashboard → **Authentication → Providers → Google → Enable**
+2. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials → Create OAuth 2.0 Client ID**
+3. Application type: **Web application**
+4. Authorised redirect URI: `https://<your-project-ref>.supabase.co/auth/v1/callback`
+5. Copy the **Client ID** and **Client Secret** back into Supabase → Google provider settings
+6. Add your Cloudflare Pages URL to **Authentication → URL Configuration → Site URL** and **Redirect URLs**
+
+**Step 4 — Add env vars to Cloudflare Pages**
+
+In Cloudflare Pages → **Settings → Environment Variables**, add:
+
+| Variable | Environment | Value |
+|---|---|---|
+| `VITE_SUPABASE_URL` | Production | `https://<your-project-ref>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Production | Your anon/public key |
+
+For local development, add the same keys to `frontend/.env` (copy from `frontend/.env.example`).
 
 ---
 

@@ -3,11 +3,13 @@ import { useMarketData } from './hooks/useMarketData';
 import { useStockData } from './hooks/useStockData';
 import { useWatchlist } from './hooks/useWatchlist';
 import { useTheme } from './hooks/useTheme';
+import { useAuth } from './hooks/useAuth';
 import { TickerBar } from './components/TickerBar';
 import { SectorHeatmap } from './components/SectorHeatmap';
 import { AlertBanner } from './components/AlertBanner';
 import { TerminalAnalysis } from './components/TerminalAnalysis';
 import { ModeToggle } from './components/ModeToggle';
+import { AuthButton } from './components/AuthButton';
 import { StockSearch } from './components/StockSearch';
 import { StockPanel } from './components/StockPanel';
 import { OptionsPanel } from './components/OptionsPanel';
@@ -21,12 +23,13 @@ type SectorTimeframe = '1d' | '5d' | '20d';
 export default function App() {
   const { data, loading, error, secondsAgo, refresh } = useMarketData();
   const { data: stockData, loading: stockLoading, error: stockError, activeTicker, load: loadStock } = useStockData();
+  const { user, authLoading, signInWithGoogle, signOut } = useAuth();
   const {
     groups, activeGroup, activeTickers,
     setActiveGroup, createGroup, deleteGroup,
     add: addToWatchlist, remove: removeFromWatchlist,
     getGroupsForTicker,
-  } = useWatchlist();
+  } = useWatchlist(user);
   const [mode, setMode] = useState<TradingMode>('swing');
   const [sectorTimeframe, setSectorTimeframe] = useState<SectorTimeframe>('5d');
   const { dark, toggle: toggleTheme } = useTheme();
@@ -57,6 +60,12 @@ export default function App() {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AuthButton
+              user={user}
+              authLoading={authLoading}
+              onSignIn={signInWithGoogle}
+              onSignOut={signOut}
+            />
             <button
               onClick={toggleTheme}
               title={dark ? 'Switch to light mode' : 'Switch to dark mode'}

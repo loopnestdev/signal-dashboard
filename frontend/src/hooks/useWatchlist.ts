@@ -1,9 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 const STORAGE_KEY = 'signal-dashboard-watchlists-v2';
 const DEFAULT_LIST = 'Default';
 
 export interface WatchlistGroup {
+  id?: string;  // Supabase row UUID — undefined in localStorage-only mode
   name: string;
   tickers: string[];
 }
@@ -13,36 +16,8 @@ interface StoredWatchlists {
   activeGroup: string;
 }
 
-function load(): StoredWatchlists {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as StoredWatchlists;
-  } catch {
-    // ignore
-  }
-  // Migrate legacy flat watchlist if present
-  try {
-    const legacy = localStorage.getItem('signal-dashboard-watchlist');
-    if (legacy) {
-      const tickers = JSON.parse(legacy) as string[];
-      if (tickers.length > 0) {
-        return { groups: [{ name: DEFAULT_LIST, tickers }], activeGroup: DEFAULT_LIST };
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return { groups: [{ name: DEFAULT_LIST, tickers: [] }], activeGroup: DEFAULT_LIST };
-}
-
-function persist(state: StoredWatchlists): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // storage unavailable
-  }
-}
-
+// Public interface is unchanged — all functions still return void from the
+// caller's perspective so no component prop types need updating.
 export interface UseWatchlist {
   groups: WatchlistGroup[];
   activeGroup: string;
@@ -57,18 +32,98 @@ export interface UseWatchlist {
   getGroupsForTicker: (ticker: string) => string[];
 }
 
-export function useWatchlist(): UseWatchlist {
-  const [state, setState] = useState<StoredWatchlists>(load);
+// ── localStorage helpers ──────────────────────────────────────────────────────
 
-  const update = useCallback((next: StoredWatchlists) => {
-    persist(next);
-    setState(next);
-  }, []);
+function loadLocal(): StoredWatchlists {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as StoredWatchlists;
+  } catch { /* ignore */ }
+  // Migrate legacy flat watchlist
+  try {
+    const legacy = localStorage.getItem('signal-dashboard-watchlist');
+    if (legacy) {
+      const tickers = JSON.parse(legacy) as string[];
+      if (tickers.length > 0)
+        return { groups: [{ name: DEFAULT_LIST, tickers }], activeGroup: DEFAULT_LIST };
+    }
+  } catch { /* ignore */ }
+  return { groups: [{ name: DEFAULT_LIST, tickers: [] }], activeGroup: DEFAULT_LIST };
+}
+
+function persistLocal(s: StoredWatchlists): void {
+  try {
+    // Strip Supabase id field before persisting to localStorage
+    const clean = { ...s, groups: s.groups.map(({ name, tickers }) => ({ name, tickers })) };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+  } catch { /* storage unavailable */ }
+}
+
+// ── Supabase sync helpers ─────────────────────────────────────────────────────
+
+type WatchlistRow = {
+  id: string;
+  name: string;
+  tickers: string[];
+};
+
+function sbUpdate(id: string, patch: { name?: string; tickers?: string[] }): void {
+  supabase?.from('watchlists')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .then(() => {});
+}
+
+function sbDelete(id: string): void {
+  supabase?.from('watchlists').delete().eq('id', id).then(() => {});
+}
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+export function useWatchlist(user: User | null): UseWatchlist {
+  const [state, setState] = useState<StoredWatchlists>(loadLocal);
+
+  // Stable refs — always current without stale closures in callbacks
+  const userRef = useRef<User | null>(user);
+  const stateRef = useRef<StoredWatchlists>(state);
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  // ── Sign-in / sign-out effect ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!user || !supabase) {
+      setState(loadLocal());
+      return;
+    }
+
+    supabase
+      .from('watchlists')
+      .select('id, name, tickers')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .then(async ({ data, error }) => {
+        if (error) return;
+
+        if (!data || data.length === 0) {
+          // First sign-in: migrate localStorage groups into Supabase
+          const local = loadLocal();
+          const { data: migrated } = await supabase!
+            .from('watchlists')
+            .insert(local.groups.map(g => ({ user_id: user.id, name: g.name, tickers: g.tickers })))
+            .select('id, name, tickers');
+          if (migrated) setState(prev => ({ ...prev, groups: migrated as WatchlistRow[] }));
+        } else {
+          setState(prev => ({ ...prev, groups: data as WatchlistRow[] }));
+        }
+      });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
 
   const setActiveGroup = useCallback((name: string) => {
     setState(prev => {
       const next = { ...prev, activeGroup: name };
-      persist(next);
+      if (!userRef.current) persistLocal(next);
       return next;
     });
   }, []);
@@ -76,89 +131,134 @@ export function useWatchlist(): UseWatchlist {
   const createGroup = useCallback((name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    setState(prev => {
-      if (prev.groups.some(g => g.name === trimmed)) {
-        return { ...prev, activeGroup: trimmed };
+    const currentUser = userRef.current;
+
+    if (currentUser && supabase) {
+      if (stateRef.current.groups.some(g => g.name === trimmed)) {
+        setState(prev => ({ ...prev, activeGroup: trimmed }));
+        return;
       }
-      const next: StoredWatchlists = {
+      // Optimistic: add the group immediately (id arrives asynchronously)
+      setState(prev => ({
         groups: [...prev.groups, { name: trimmed, tickers: [] }],
         activeGroup: trimmed,
-      };
-      persist(next);
-      return next;
-    });
+      }));
+      supabase
+        .from('watchlists')
+        .insert({ user_id: currentUser.id, name: trimmed, tickers: [] })
+        .select('id, name, tickers')
+        .single()
+        .then(({ data }) => {
+          if (!data) return;
+          // Patch the real id into the optimistically-added group
+          setState(prev => ({
+            ...prev,
+            groups: prev.groups.map(g =>
+              g.name === trimmed && !g.id ? { ...g, id: (data as WatchlistRow).id } : g,
+            ),
+          }));
+        });
+    } else {
+      setState(prev => {
+        if (prev.groups.some(g => g.name === trimmed)) {
+          const next = { ...prev, activeGroup: trimmed };
+          persistLocal(next);
+          return next;
+        }
+        const next: StoredWatchlists = {
+          groups: [...prev.groups, { name: trimmed, tickers: [] }],
+          activeGroup: trimmed,
+        };
+        persistLocal(next);
+        return next;
+      });
+    }
   }, []);
 
   const renameGroup = useCallback((oldName: string, newName: string) => {
     const trimmed = newName.trim();
     if (!trimmed || oldName === trimmed) return;
+    const currentUser = userRef.current;
+    const groupId = stateRef.current.groups.find(g => g.name === oldName)?.id;
+
     setState(prev => {
       const next: StoredWatchlists = {
         groups: prev.groups.map(g => g.name === oldName ? { ...g, name: trimmed } : g),
         activeGroup: prev.activeGroup === oldName ? trimmed : prev.activeGroup,
       };
-      persist(next);
+      if (!currentUser) persistLocal(next);
       return next;
     });
+
+    if (currentUser && groupId) sbUpdate(groupId, { name: trimmed });
   }, []);
 
   const deleteGroup = useCallback((name: string) => {
+    const currentUser = userRef.current;
+    const groupId = stateRef.current.groups.find(g => g.name === name)?.id;
+
     setState(prev => {
-      if (prev.groups.length <= 1) return prev; // keep at least one
+      if (prev.groups.length <= 1) return prev;
       const remaining = prev.groups.filter(g => g.name !== name);
       const next: StoredWatchlists = {
         groups: remaining,
         activeGroup: prev.activeGroup === name ? remaining[0].name : prev.activeGroup,
       };
-      persist(next);
+      if (!currentUser) persistLocal(next);
       return next;
     });
+
+    if (currentUser && groupId) sbDelete(groupId);
   }, []);
 
   const add = useCallback((ticker: string, groupName?: string) => {
     const t = ticker.toUpperCase().trim();
+    const target = groupName ?? stateRef.current.activeGroup;
+    const group = stateRef.current.groups.find(g => g.name === target);
+    if (!group || group.tickers.includes(t)) return;
+    const newTickers = [...group.tickers, t];
+
     setState(prev => {
-      const target = groupName ?? prev.activeGroup;
       const next: StoredWatchlists = {
         ...prev,
-        groups: prev.groups.map(g =>
-          g.name === target && !g.tickers.includes(t)
-            ? { ...g, tickers: [...g.tickers, t] }
-            : g,
-        ),
+        groups: prev.groups.map(g => g.name === target ? { ...g, tickers: newTickers } : g),
       };
-      persist(next);
+      if (!userRef.current) persistLocal(next);
       return next;
     });
+
+    if (userRef.current && group.id) sbUpdate(group.id, { tickers: newTickers });
   }, []);
 
   const remove = useCallback((ticker: string, groupName?: string) => {
     const t = ticker.toUpperCase().trim();
+    const target = groupName ?? stateRef.current.activeGroup;
+    const group = stateRef.current.groups.find(g => g.name === target);
+    if (!group) return;
+    const newTickers = group.tickers.filter(x => x !== t);
+
     setState(prev => {
-      const target = groupName ?? prev.activeGroup;
       const next: StoredWatchlists = {
         ...prev,
-        groups: prev.groups.map(g =>
-          g.name === target
-            ? { ...g, tickers: g.tickers.filter(x => x !== t) }
-            : g,
-        ),
+        groups: prev.groups.map(g => g.name === target ? { ...g, tickers: newTickers } : g),
       };
-      persist(next);
+      if (!userRef.current) persistLocal(next);
       return next;
     });
+
+    if (userRef.current && group.id) sbUpdate(group.id, { tickers: newTickers });
   }, []);
 
   const isInWatchlist = useCallback((ticker: string, groupName?: string): boolean => {
     const t = ticker.toUpperCase().trim();
-    const target = groupName ?? state.activeGroup;
-    return state.groups.find(g => g.name === target)?.tickers.includes(t) ?? false;
-  }, [state]);
+    const target = groupName ?? stateRef.current.activeGroup;
+    return stateRef.current.groups.find(g => g.name === target)?.tickers.includes(t) ?? false;
+  }, []);
 
   const getGroupsForTicker = useCallback((ticker: string): string[] => {
     const t = ticker.toUpperCase().trim();
-    return state.groups.filter(g => g.tickers.includes(t)).map(g => g.name);
-  }, [state]);
+    return stateRef.current.groups.filter(g => g.tickers.includes(t)).map(g => g.name);
+  }, []);
 
   const activeTickers = state.groups.find(g => g.name === state.activeGroup)?.tickers ?? [];
 

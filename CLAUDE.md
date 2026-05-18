@@ -19,7 +19,8 @@ This file is for AI coding assistants. It documents the project architecture, co
 | Market data | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals | Signa.ai API (optional, `SIGNA_API_KEY`) |
 | AI analysis | Signa.ai → Gemini 1.5 Flash → template fallback |
-| Watchlist | `localStorage` (no database) |
+| Auth + watchlist sync | Supabase (optional — Google OAuth + Postgres) |
+| Watchlist fallback | `localStorage` when Supabase is unconfigured |
 | Frontend hosting | Cloudflare Pages |
 | Backend hosting | Railway |
 
@@ -31,9 +32,10 @@ This file is for AI coding assistants. It documents the project architecture, co
 signal-dashboard/
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx                   # Main layout, polling, section assembly
+│   │   ├── App.tsx                   # Main layout, polling, theme, auth
 │   │   ├── components/
 │   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
+│   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill
 │   │   │   ├── FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
 │   │   │   ├── ModeToggle.tsx         # Swing / Day mode pill toggle
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
@@ -46,13 +48,16 @@ signal-dashboard/
 │   │   │   ├── TerminalAnalysis.tsx   # Structured AI market analysis
 │   │   │   └── TickerBar.tsx          # Scrolling live ticker
 │   │   ├── hooks/
+│   │   │   ├── useAuth.ts             # Supabase session state + Google OAuth
 │   │   │   ├── useMarketData.ts       # 45s polling + secondsAgo counter
 │   │   │   ├── useStockData.ts        # Stock/Signa data fetch on ticker change
-│   │   │   └── useWatchlist.ts        # Named watchlist groups (localStorage)
+│   │   │   ├── useTheme.ts            # Light/dark mode toggle (localStorage)
+│   │   │   └── useWatchlist.ts        # Named watchlist groups (Supabase or localStorage)
 │   │   ├── lib/
 │   │   │   ├── api.ts                 # fetch wrappers for backend routes
-│   │   │   ├── colors.ts              # Shared Stripe light-mode design tokens
-│   │   │   └── stockApi.ts            # Stock-specific API client
+│   │   │   ├── colors.ts              # CSS custom property design tokens
+│   │   │   ├── stockApi.ts            # Stock-specific API client
+│   │   │   └── supabase.ts            # Typed Supabase client (null when unconfigured)
 │   │   └── types/
 │   │       ├── market.ts              # MarketResponse, SectorData, etc.
 │   │       └── stock.ts               # StockResponse, SignaData, FibLevel, OptionsInsight, FundamentalsData, etc.
@@ -122,6 +127,15 @@ The frontend Vite dev proxy routes `/api/*` → `http://localhost:3001`, so no C
 | `GEMINI_API_KEY` | No | — | Google AI Studio key (terminal analysis fallback) |
 | `AI_PROVIDER` | No | `gemini` | `gemini` \| `none` |
 
+**`frontend/.env`** (optional — enables Google sign-in and cross-device watchlist sync)
+
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_SUPABASE_URL` | No | Supabase project URL — Dashboard → Settings → API |
+| `VITE_SUPABASE_ANON_KEY` | No | Supabase anon/public key — same location |
+
+When both Supabase vars are absent, `supabase` client is `null` and the app runs in localStorage-only mode with no auth UI shown.
+
 All scoring, market data, Fibonacci, and moving averages work without any API keys.
 
 ---
@@ -165,28 +179,51 @@ Helper functions:
 ## Key Conventions
 
 ### Typography
+
 - Labels/headers: `fontSize: '11px', letterSpacing: '0.10em', fontWeight: 400` (uppercase label style)
 - Body: `fontSize: '13px', color: C.inkSec, lineHeight: 1.5`
 - Data values: `fontFeatureSettings: '"tnum"'` for tabular numbers
 - Pill badges: `borderRadius: 9999, padding: '4px 12px'`
 
 ### Components
+
 - All inline styles (no Tailwind in components — Tailwind is used only in `index.css` for global reset/utilities)
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
 
 ### API Routes
+
 - `GET /api/market-data` — full market payload (cached 30s)
 - `POST /api/refresh` — invalidate cache
 - `GET /api/stock/:symbol` — individual stock signal (Signa.ai + Yahoo Finance)
 - `GET /health` — health check
 
-### Watchlist
-- Named watchlist groups stored in `localStorage` via `useWatchlist.ts` hook (key: `signal-dashboard-watchlists-v2`)
-- Each group has a `name` and `tickers: string[]`; user can create/delete groups and switch between them
-- `useWatchlist()` exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `deleteGroup`, `add(ticker, groupName?)`, `remove(ticker, groupName?)`, `isInWatchlist(ticker, groupName?)`, `getGroupsForTicker(ticker)`
-- Migrates legacy flat watchlist from old localStorage key automatically
-- No database, no Supabase — persists per browser/device
+### Auth & Watchlist
+
+**`useAuth`** (`hooks/useAuth.ts`) — wraps Supabase session. Exposes `{ user, authLoading, signInWithGoogle, signOut }`. Returns null user when Supabase is unconfigured.
+
+**`AuthButton`** (`components/AuthButton.tsx`) — renders nothing when `supabase` is null or session is resolving. Shows "Sign in" (Google OAuth) when logged out; avatar + display name + "Sign out" when logged in.
+
+**`useWatchlist(user)`** (`hooks/useWatchlist.ts`): Accepts `user: User | null`. When non-null and Supabase is configured, reads/writes go to the `watchlists` Postgres table. When `user` is null, falls back to `localStorage` (key: `signal-dashboard-watchlists-v2`). First login automatically migrates existing localStorage groups into Supabase. `WatchlistGroup` has optional `id?: string` (Supabase UUID; undefined in localStorage mode). Uses `useRef`-based `userRef` / `stateRef` pattern — all callbacks read from refs, eliminating stale closures. Optimistic creates: group appears immediately; Supabase UUID is patched in asynchronously. Exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add(ticker, groupName?)`, `remove(ticker, groupName?)`, `isInWatchlist(ticker, groupName?)`, `getGroupsForTicker(ticker)`.
+
+**Supabase `watchlists` table DDL:**
+
+```sql
+create table public.watchlists (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  name       text not null,
+  tickers    text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.watchlists enable row level security;
+create policy "Users manage their own watchlists"
+  on public.watchlists for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+**`supabase.ts`** — exports `supabase: SupabaseClient<Database> | null`. The `Database` type must include `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` fields (required by `SupabaseClient<T>` generics — without them, table Insert/Update types resolve to `never`).
 
 ---
 
@@ -204,7 +241,7 @@ cd frontend && npm run build
 
 ---
 
-## Sector / Sub-Sector Tickers (as of v0.5.1)
+## Sector / Sub-Sector Tickers (as of v0.5.4)
 
 **Main sectors** (`SECTORS` array in `marketData.ts`):
 `QQQ` Nasdaq 100 · `XLF` Financials · `XLE` Energy · `XLV` Health Care · `XLI` Industrials · `XLY` Consumer Disc. · `XLP` Consumer Staples · `XLU` Utilities · `XLB` Materials · `XLRE` Real Estate · `XLC` Comm. Services · `SPY` S&P 500 · `PDBC` Commodities · `NASA` Space

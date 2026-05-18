@@ -19,12 +19,18 @@ User → Cloudflare (WAF + CDN) → Cloudflare Pages (React SPA)
                                         ↓
                                Yahoo Finance v8 Chart API (free, no key)
                                Google Gemini 1.5 Flash (optional, template fallback)
+
+Supabase (optional):
+  - Google OAuth for sign-in
+  - Postgres `watchlists` table for cross-device watchlist sync
+  - Row-level security — users can only read/write their own rows
+  - When not configured, watchlist falls back to localStorage (no auth UI shown)
 ```
 
 - **Frontend:** React 18 + Vite 5 + Tailwind CSS v4, hosted on Cloudflare Pages
 - **Backend:** Node.js + Express + TypeScript, run via `tsx` (no compile step), hosted on Railway
-- **No database required** for v0.1
-- **No authentication required** for v0.1
+- **Database:** Supabase Postgres (optional) — only needed for cross-device watchlist sync
+- **Authentication:** Supabase Google OAuth (optional) — app is fully usable without it
 
 ---
 
@@ -60,6 +66,7 @@ Root `package.json`:
 ## Backend Specification
 
 ### Stack
+
 - `express` ^4.19.2
 - `cors` ^2.8.5
 - `dotenv` ^16.4.5
@@ -143,12 +150,14 @@ interface CategoryScore {
 ```
 
 **scoreVolatility (weight: 20)**
+
 - Base score from VIX level: ≤12→95, ≤15→83, ≤18→70, ≤22→52, ≤28→34, ≤35→18, >35→8
 - Trend adjustment: slope5d < -0.5 → +10, < -0.1 → +5, > 0.5 → -15, > 0.1 → -7
 - Percentile adjustment: <20th → +10, <40th → +5, >80th → -15, >60th → -7
 - Clamp 0–100
 
 **scoreTrend (weight: 25)**
+
 - SPY > 200d MA → +28, else −5
 - SPY > 50d MA → +22, else −5
 - SPY > 20d MA → +16
@@ -158,18 +167,21 @@ interface CategoryScore {
 - Clamp 0–100
 
 **scoreBreadth (weight: 20)**
+
 - % sectors above 50d MA: ≥82% → +55, ≥65% → +42, ≥50% → +28, ≥35% → +14, else 0
 - IWM 5d vs SPY 5d spread: >1.5% → +30, >0% → +20, >-1% → +10, >-2.5% → 0, else −10
 - Bonus: if pct ≥73% → +15
 - Clamp 0–100
 
 **scoreMomentum (weight: 25)**
+
 - Sectors outperforming SPY 5d: ≥9 → +40, ≥7 → +30, ≥5 → +20, ≥3 → +10
 - Top 3 sector tickers — growth leaders (XLK XLY XLF XLI XLC) → +12 each; defensive (XLP XLU XLRE) → −12 each
 - Sectors above 50d MA count → +(count/total × 20) rounded
 - Clamp 0–100
 
 **scoreMacro (weight: 10)**
+
 - Start at 50 (neutral base)
 - TNX level: <3.5% → +10, <4.5% → +5, <5.5% → −5, ≥5.5% → −15
 - TNX 30d return: <−20% → +15, <−5% → +8, <5% → 0, <20% → −8, ≥20% → −15
@@ -241,12 +253,23 @@ Always return a string; never throw.
 Standard Express setup: `dotenv/config`, cors with `FRONTEND_URL` env var, JSON parser, mount router at `/api`, health endpoint at `/health`.
 
 ### Backend `.env.example`
+
 ```
 PORT=3001
 FRONTEND_URL=http://localhost:5173
 GEMINI_API_KEY=
 AI_PROVIDER=gemini
-ANTHROPIC_API_KEY=
+SIGNA_API_KEY=
+```
+
+### Frontend `.env.example`
+
+```
+# Optional — enables Google sign-in and cross-device watchlist sync.
+# Get both from: Supabase Dashboard → your project → Settings → API
+# Leave blank to run in localStorage-only mode (no auth required).
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
 ---
@@ -254,6 +277,7 @@ ANTHROPIC_API_KEY=
 ## Frontend Specification
 
 ### Stack
+
 - React 18 + Vite 5
 - Tailwind CSS v4 via `@tailwindcss/vite` plugin (no separate config file)
 - TypeScript 5 strict mode
@@ -447,25 +471,34 @@ These become `bg-canvas`, `text-accent-green` etc. For rgba values, Tailwind v4 
 ## Environment & Deployment
 
 ### Local development
+
 ```bash
 npm run install:all
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env   # optional — only needed for Supabase auth
 npm run dev
 # Frontend: http://localhost:5173
 # Backend: http://localhost:3001
 ```
 
 ### Cloudflare Pages (frontend)
+
 - Root: `frontend/`
 - Build command: `npm run build`
 - Output: `dist`
 - Node version: 20
 - Env: `VITE_API_URL=https://your-backend.up.railway.app`
+- Env (optional): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — enables Google sign-in and cross-device watchlist sync
 
 ### Railway (backend)
+
 - Root: `backend/`
 - Start: `npm start` → `tsx src/index.ts`
-- Env: `FRONTEND_URL`, `GEMINI_API_KEY`, `AI_PROVIDER`
+- Env: `FRONTEND_URL`, `SIGNA_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`
+
+### Supabase (optional)
+
+Only needed for cross-device watchlist sync and Google sign-in. Create a project at supabase.com, run the `watchlists` table DDL (see CLAUDE.md → Auth & Watchlist), enable Google OAuth provider, and add the redirect URL for your Cloudflare Pages domain.
 
 ---
 

@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.4] — 2026-05-18
+
+### Added — Supabase Google Auth + Cross-Device Watchlist Sync
+
+- **Google Sign-In** — "Sign in" pill button in the header (visible only when Supabase is configured). Clicking opens Google OAuth via Supabase's `signInWithOAuth`. On success, avatar + display name + "Sign out" button appear.
+- **Cross-device watchlist sync** — when signed in, watchlist groups are stored in a Supabase `watchlists` Postgres table instead of localStorage. All mutations (create/rename/delete group, add/remove ticker) sync to Supabase in real time.
+- **First-login migration** — when a user signs in for the first time, their existing localStorage watchlist groups are automatically inserted into Supabase so nothing is lost.
+- **localStorage-only fallback** — when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are absent, `supabase` client is `null` and the app works exactly as before (localStorage only, no auth).
+- **`useAuth` hook** (`frontend/src/hooks/useAuth.ts`) — manages Supabase session state, exposes `{ user, authLoading, signInWithGoogle, signOut }`.
+- **`AuthButton` component** (`frontend/src/components/AuthButton.tsx`) — renders nothing when Supabase is unconfigured or session is resolving; "Sign in" when logged out; avatar + name + "Sign out" when logged in.
+- **`frontend/.env.example`** — documents `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- **Supabase `Database` type** in `frontend/src/lib/supabase.ts` — fully typed schema including `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` (required by `SupabaseClient<T>` generics).
+
+### Changed
+
+- `useWatchlist` now accepts `user: User | null` parameter. When `user` is non-null and Supabase is configured, all reads/writes go to Supabase. When `user` is null, localStorage is used.
+- `WatchlistGroup` interface gains optional `id?: string` (Supabase UUID — undefined in localStorage mode).
+- `useWatchlist` uses `useRef`-based `userRef` / `stateRef` pattern for stale-closure-free callbacks.
+- Optimistic creates: group appears immediately in UI; Supabase-assigned UUID is patched in asynchronously.
+- `App.tsx` wires `useAuth()` and passes `user` to `useWatchlist(user)`.
+
+---
+
+## [0.5.3] — 2026-05-18
+
+### Changed — README Overhaul
+
+- Documented GitHub deployment environments table (Production = Cloudflare Pages, `{project}/production` = Railway)
+- Clarified `AI_PROVIDER` and `GEMINI_API_KEY` are optional; added missing `SIGNA_API_KEY` to Railway env vars table
+- Updated layout ASCII, features table, data sources table, sub-sector list
+
+---
+
 ## [0.5.2] — 2026-05-18
 
 ### Added — Dark Mode
