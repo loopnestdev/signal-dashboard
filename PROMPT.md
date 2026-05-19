@@ -121,14 +121,14 @@ Orchestrates all data fetching in a single `Promise.all`:
 - `^VIX` — 2-year range (for 1-year percentile calculation across ~252 trading days)
 - `SPY` — 2-year range (need 200 days for 200-day SMA)
 - `QQQ`, `IWM`, `^TNX`, `UUP` — 1-year range
-- All 11 sector ETFs: `XLK XLF XLE XLV XLI XLY XLP XLU XLB XLRE XLC` — 1-year range
-- All 8 sub-sector ETFs: `SOXX IGV XBI IHI URA XOP KRE ICLN` — 1-year range (appended to same `Promise.all`)
+- All 14 sector ETFs: `QQQ XLF XLE XLV XLI XLY XLP XLU XLB XLRE XLC ITA SPY PDBC` — 1-year range
+- All 18 sub-sector ETFs: `SMH IGV AIPO AIS DRAM EUV XBI IHI URA XOP KRE ICLN TAN GC=F SI=F COPX CL=F NASA` — 1-year range (appended to same `Promise.all`)
 
 Sub-sector constants exported:
 
-- `SUBSECTORS` — tuple of 8 tickers
-- `SUBSECTOR_NAMES` — ticker → display name (e.g., `SOXX → 'Semiconductors'`)
-- `SUBSECTOR_PARENT` — ticker → parent sector name (e.g., `SOXX → 'Technology'`, `XBI → 'Health Care'`)
+- `SUBSECTORS` — tuple of 18 tickers
+- `SUBSECTOR_NAMES` — ticker → display name (e.g., `SMH → 'Semiconductors'`, `AIPO → 'AI Power Stocks'`)
+- `SUBSECTOR_PARENT` — ticker → parent sector name (e.g., `SMH → 'Nasdaq 100'`, `NASA → 'Aerospace & Defense'`)
 
 Compute and return:
 

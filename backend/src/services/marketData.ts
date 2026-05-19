@@ -2,37 +2,43 @@ import { getHistoryAndQuote } from '../lib/yahooClient.js';
 import { sma, rsi, percentileRank, linearSlope, pctReturn } from '../lib/technical.js';
 import { getUpcomingFOMC, getFedStance } from '../lib/fomc.js';
 
-// QQQ replaces XLK — user-requested; SPY, PDBC (Commodities), NASA (Space) are new display sectors
+// QQQ replaces XLK; ITA added as Aerospace & Defense; NASA moved to sub-sector
+// SPY and PDBC are display-only — excluded from breadth scoring and leader/lagger ranking
 export const SECTORS = [
   'QQQ', 'XLF', 'XLE', 'XLV', 'XLI', 'XLY', 'XLP', 'XLU', 'XLB', 'XLRE', 'XLC',
-  'SPY', 'PDBC', 'NASA',
+  'ITA', 'SPY', 'PDBC',
 ] as const;
-// These are indexes/themes — excluded from breadth scoring and leader/lagger ranking
-export const DISPLAY_ONLY_SECTORS = new Set(['SPY', 'PDBC', 'NASA']);
+export const DISPLAY_ONLY_SECTORS = new Set(['SPY', 'PDBC']);
 export const SECTOR_NAMES: Record<string, string> = {
   QQQ: 'Nasdaq 100', XLF: 'Financials', XLE: 'Energy', XLV: 'Health Care',
   XLI: 'Industrials', XLY: 'Consumer Disc.', XLP: 'Consumer Staples',
   XLU: 'Utilities', XLB: 'Materials', XLRE: 'Real Estate', XLC: 'Comm. Services',
-  SPY: 'S&P 500', PDBC: 'Commodities', NASA: 'Space',
+  ITA: 'Aerospace & Defense', SPY: 'S&P 500', PDBC: 'Commodities',
 };
 
 // Sub-sector ETFs — all freely available on Yahoo Finance; no API key required
-// SMH replaces SOXX (VanEck Semiconductor ETF); commodity sub-sectors use spot/futures symbols
+// SMH replaces SOXX; commodity sub-sectors use futures symbols; NASA moved here from main sectors
 export const SUBSECTORS = [
-  'SMH', 'IGV', 'XBI', 'IHI', 'URA', 'XOP', 'KRE', 'ICLN', 'TAN',
+  'SMH', 'IGV', 'AIPO', 'AIS', 'DRAM', 'EUV',
+  'XBI', 'IHI', 'URA', 'XOP', 'KRE', 'ICLN', 'TAN',
   'GC=F', 'SI=F', 'COPX', 'CL=F',
+  'NASA',
 ] as const;
 export const SUBSECTOR_NAMES: Record<string, string> = {
-  SMH: 'Semiconductors', IGV: 'Software', XBI: 'Biotech', IHI: 'Medical Devices',
-  URA: 'Uranium', XOP: 'Oil & Gas E&P', KRE: 'Regional Banks', ICLN: 'Clean Energy',
-  TAN: 'Solar',
+  SMH: 'Semiconductors', IGV: 'Software',
+  AIPO: 'AI Power Stocks', AIS: 'AI Supercycle Stocks', DRAM: 'AI Memory', EUV: 'AI Photonics',
+  XBI: 'Biotech', IHI: 'Medical Devices',
+  URA: 'Uranium', XOP: 'Oil & Gas E&P', KRE: 'Regional Banks', ICLN: 'Clean Energy', TAN: 'Solar',
   'GC=F': 'Gold', 'SI=F': 'Silver', COPX: 'Copper', 'CL=F': 'Crude Oil WTI',
+  NASA: 'Space',
 };
 export const SUBSECTOR_PARENT: Record<string, string> = {
-  SMH: 'Nasdaq 100', IGV: 'Nasdaq 100', XBI: 'Health Care', IHI: 'Health Care',
-  URA: 'Energy', XOP: 'Energy', KRE: 'Financials', ICLN: 'Energy',
-  TAN: 'Energy',
+  SMH: 'Nasdaq 100', IGV: 'Nasdaq 100',
+  AIPO: 'Nasdaq 100', AIS: 'Nasdaq 100', DRAM: 'Nasdaq 100', EUV: 'Nasdaq 100',
+  XBI: 'Health Care', IHI: 'Health Care',
+  URA: 'Energy', XOP: 'Energy', KRE: 'Financials', ICLN: 'Energy', TAN: 'Energy',
   'GC=F': 'Commodities', 'SI=F': 'Commodities', COPX: 'Commodities', 'CL=F': 'Commodities',
+  NASA: 'Aerospace & Defense',
 };
 
 export interface RawMarketData {

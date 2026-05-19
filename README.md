@@ -60,7 +60,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Fundamentals panel | Valuation, Growth, Profitability, Financial Health, Ownership & Analyst — always rendered, empty state when unavailable |
 | Fibonacci levels | 9 auto-computed retracement + extension levels from 52-week high/low |
 | Moving averages — heat bars | EMA5, EMA21, EMA55, SMA200; centered heat bar (green right if above, red left if below) |
-| Sector heatmap — accordion | 14 sectors; click ▸ to expand sub-sectors (SMH, IGV, XBI, TAN, Gold, Silver, Copper, Crude Oil, and more) |
+| Sector heatmap — accordion | 14 sectors incl. Aerospace & Defense; click ▸ to expand sub-sectors (SMH, IGV, AI Power, AI Memory, AI Photonics, XBI, TAN, Gold, Silver, Crude Oil, Space, and more) |
 | Market Quality Score | Weighted 0–100 across 5 categories (Volatility 20%, Trend 25%, Breadth 20%, Momentum 25%, Macro 10%) |
 | Execution Window Score | Separate 0–100 evaluating near-term setup follow-through |
 | Live ticker bar | SPY, QQQ, IWM, VIX, TNX, all sector ETFs scrolling |
@@ -493,8 +493,8 @@ Health check. Returns `{ status: "ok", ts: "..." }`.
 | VIX (^VIX) | Yahoo Finance | 2-year history for percentile |
 | 10Y Treasury (^TNX) | Yahoo Finance | Level + 20d slope |
 | Dollar Index (UUP) | Yahoo Finance | UUP ETF as DXY proxy |
-| Sector ETFs | Yahoo Finance | QQQ, XLF, XLE, XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC, SPY, PDBC, NASA |
-| Sub-sector ETFs | Yahoo Finance | SMH, IGV, XBI, IHI, URA, XOP, KRE, ICLN, TAN, GC=F, SI=F, COPX, CL=F |
+| Sector ETFs | Yahoo Finance | QQQ, XLF, XLE, XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC, ITA, SPY, PDBC |
+| Sub-sector ETFs | Yahoo Finance | SMH, IGV, AIPO, AIS, DRAM, EUV, XBI, IHI, URA, XOP, KRE, ICLN, TAN, GC=F, SI=F, COPX, CL=F, NASA |
 | FOMC dates | Hardcoded | `backend/src/lib/fomc.ts` — update annually |
 | Fed stance | Hardcoded | `backend/src/lib/fomc.ts` — update as conditions change |
 | Stock signals | Signa.ai API | Entry/stop/target, triggers, risk, EMAs (requires `SIGNA_API_KEY`) |

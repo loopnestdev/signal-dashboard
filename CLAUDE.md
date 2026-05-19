@@ -243,15 +243,15 @@ cd frontend && npm run build
 
 ---
 
-## Sector / Sub-Sector Tickers (as of v0.5.4)
+## Sector / Sub-Sector Tickers (as of v0.5.5)
 
 **Main sectors** (`SECTORS` array in `marketData.ts`):
-`QQQ` Nasdaq 100 · `XLF` Financials · `XLE` Energy · `XLV` Health Care · `XLI` Industrials · `XLY` Consumer Disc. · `XLP` Consumer Staples · `XLU` Utilities · `XLB` Materials · `XLRE` Real Estate · `XLC` Comm. Services · `SPY` S&P 500 · `PDBC` Commodities · `NASA` Space
+`QQQ` Nasdaq 100 · `XLF` Financials · `XLE` Energy · `XLV` Health Care · `XLI` Industrials · `XLY` Consumer Disc. · `XLP` Consumer Staples · `XLU` Utilities · `XLB` Materials · `XLRE` Real Estate · `XLC` Comm. Services · `ITA` Aerospace & Defense · `SPY` S&P 500 · `PDBC` Commodities
 
-**Display-only sectors** (in `DISPLAY_ONLY_SECTORS` Set — excluded from breadth scoring and leader/lagger ranking): `SPY`, `PDBC`, `NASA`
+**Display-only sectors** (in `DISPLAY_ONLY_SECTORS` Set — excluded from breadth scoring and leader/lagger ranking): `SPY`, `PDBC`
 
 **Sub-sectors** (`SUBSECTORS` array):
-`SMH` Semiconductors (Nasdaq 100) · `IGV` Software (Nasdaq 100) · `XBI` Biotech (Health Care) · `IHI` Medical Devices (Health Care) · `URA` Uranium (Energy) · `XOP` Oil & Gas E&P (Energy) · `KRE` Regional Banks (Financials) · `ICLN` Clean Energy (Energy) · `TAN` Solar (Energy) · `GC=F` Gold (Commodities) · `SI=F` Silver (Commodities) · `COPX` Copper (Commodities) · `CL=F` Crude Oil WTI (Commodities)
+`SMH` Semiconductors (Nasdaq 100) · `IGV` Software (Nasdaq 100) · `AIPO` AI Power Stocks (Nasdaq 100) · `AIS` AI Supercycle Stocks (Nasdaq 100) · `DRAM` AI Memory (Nasdaq 100) · `EUV` AI Photonics (Nasdaq 100) · `XBI` Biotech (Health Care) · `IHI` Medical Devices (Health Care) · `URA` Uranium (Energy) · `XOP` Oil & Gas E&P (Energy) · `KRE` Regional Banks (Financials) · `ICLN` Clean Energy (Energy) · `TAN` Solar (Energy) · `GC=F` Gold (Commodities) · `SI=F` Silver (Commodities) · `COPX` Copper (Commodities) · `CL=F` Crude Oil WTI (Commodities) · `NASA` Space (Aerospace & Defense)
 
 **Stock sector → ETF mapping** (`SECTOR_TO_ETF` in `stockScoring.ts`): Technology → QQQ (was XLK)
 

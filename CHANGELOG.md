@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.5] — 2026-05-19
+
+### Changed — Sector & Sub-Sector Updates
+
+#### New Main Sector
+
+- **ITA** (iShares US Aerospace & Defense ETF) added as a new **Aerospace & Defense** sector. Participates in breadth scoring and leader/lagger ranking.
+
+#### Sector Promoted to Sub-Sector
+
+- **NASA** (Procure Space ETF) moved from main sectors to a sub-sector under **Aerospace & Defense**. Removed from `DISPLAY_ONLY_SECTORS`.
+
+#### New Sub-Sectors under Nasdaq 100 (QQQ)
+
+- **AIPO** — AI Power Stocks
+- **AIS** — AI Supercycle Stocks
+- **DRAM** — AI Memory
+- **EUV** — AI Photonics
+
+---
+
 ## [0.5.4] — 2026-05-18
 
 ### Added — Supabase Google Auth + Cross-Device Watchlist Sync
