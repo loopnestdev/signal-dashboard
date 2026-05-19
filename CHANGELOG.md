@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.6] — 2026-05-20
+
+### Changed — Vite 8 Upgrade
+
+- **Vite upgraded from 5.4.x to 8.0.13** — satisfies Cloudflare Pages build requirement (minimum Vite 6). Vite 8 uses the Rolldown bundler for faster builds.
+- **`@vitejs/plugin-react` upgraded from 4.3.x to 6.0.2** — required peer dependency for Vite 8.
+- All four checks pass with zero errors: backend typecheck, backend build, frontend typecheck, frontend build.
+
+---
+
 ## [0.5.5] — 2026-05-19
 
 ### Changed — Sector & Sub-Sector Updates
