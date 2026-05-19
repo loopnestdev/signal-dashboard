@@ -8,7 +8,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 
 ## Layout
 
-```
+```text
 ┌─ SIGNAL DASHBOARD ──────────────────────── MODE [Swing] [Day]  [◐ Dark] ─┐
 │  ● LIVE  SPY 739.17 ▲  QQQ 708.93 ▲  VIX 18.43  TNX 4.59%  XLF ▲ …    │
 ├───────────────────────────────────────────────────────────────────────────┤
@@ -51,7 +51,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 ## Features
 
 | Feature | Detail |
-|---|---|
+| --- | --- |
 | Light / Dark mode | Header toggle persists preference to localStorage; zero-flicker init via inline script |
 | Google Sign-In | Optional Supabase auth — watchlist syncs across devices when signed in; localStorage fallback when unconfigured |
 | Signa.ai signal | LONG/SHORT direction, Grade, Stage, Confidence, Risk — pill badges at top of stock panel |
@@ -73,12 +73,12 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 
 ## Scoring System
 
-```
+```text
 Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×25% + Macro×10%
 ```
 
 | Score | Decision | Guidance |
-|---|---|---|
+| --- | --- | --- |
 | 80–100 | YES BUY / YES SELL | Full position sizing |
 | 60–79 | CAUTION | Half size, A+ setups only |
 | < 60 | NO | Avoid trading, preserve capital |
@@ -100,7 +100,7 @@ Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×2
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Frontend | React 18 + Vite 5 + Tailwind CSS v4 |
 | Backend | Node.js 20 + Express 4 + TypeScript 5 |
 | Data | Yahoo Finance v8 Chart API (free, no key) |
@@ -115,7 +115,7 @@ Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×2
 
 ## Project Structure
 
-```
+```text
 signal-dashboard/
 ├── frontend/
 │   ├── src/
@@ -211,8 +211,8 @@ cp frontend/.env.example frontend/.env
 npm run dev
 ```
 
-Frontend: http://localhost:5173  
-Backend: http://localhost:3001
+Frontend: [[Signal Dashboard Frontend](http://localhost:5173)
+Backend: [Signal Dashboard Backend](http://localhost:3001)
 
 The frontend proxies `/api/*` to `:3001` via Vite's dev proxy — no CORS config needed locally.
 
@@ -221,7 +221,7 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy — no CORS config
 **`backend/.env`**
 
 | Variable | Required | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `PORT` | No | `3001` | Backend HTTP port |
 | `FRONTEND_URL` | No | `http://localhost:5173` | CORS allowed origin |
 | `SIGNA_API_KEY` | No | — | Signa.ai API key — enables stock signals, options intelligence, fundamentals, and AI market analysis |
@@ -240,7 +240,7 @@ All scoring, market data, Fibonacci, and moving averages work fully without any 
 **`frontend/.env`** (optional — enables Google sign-in and cross-device watchlist sync)
 
 | Variable | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `VITE_SUPABASE_URL` | No | Your Supabase project URL — from Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | No | Your Supabase anon/public key — same location |
 
@@ -252,7 +252,7 @@ Leave both blank (or omit the file entirely) to run in localStorage-only mode wi
 
 ### Overview
 
-```
+```text
 User → Cloudflare (WAF + CDN) → Cloudflare Pages (React SPA)
                                         ↓ /api/*
                                Railway (Express backend)
@@ -267,7 +267,7 @@ User → Cloudflare (WAF + CDN) → Cloudflare Pages (React SPA)
 When both services are connected to your GitHub repo, you will see multiple entries under the **Deployments** tab:
 
 | GitHub environment name | Service | Trigger |
-|---|---|---|
+| --- | --- | --- |
 | **Production** | Cloudflare Pages — frontend | Push to main branch |
 | **Preview** | Cloudflare Pages — frontend | Every pull request |
 | **`{project}` / production** | Railway — backend | Push to main branch |
@@ -322,7 +322,7 @@ create policy "Users manage their own watchlists"
 In Cloudflare Pages → **Settings → Environment Variables**, add:
 
 | Variable | Environment | Value |
-|---|---|---|
+| --- | --- | --- |
 | `VITE_SUPABASE_URL` | Production | `https://<your-project-ref>.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Production | Your anon/public key |
 
@@ -345,7 +345,7 @@ Railway auto-detects Node.js, runs `npm start`, and provides HTTPS out of the bo
 In Railway → your service → **Variables**, add:
 
 | Key | Value |
-|---|---|
+| --- | --- |
 | `PORT` | `3001` |
 | `FRONTEND_URL` | `https://your-app.pages.dev` (your Cloudflare Pages URL — fill in after the next section) |
 | `SIGNA_API_KEY` | Your Signa.ai API key (get it from [app.getsigna.ai](https://app.getsigna.ai)) |
@@ -361,7 +361,8 @@ If not, set **Start Command** to `npm start`.
 **Step 4 — Get your Railway URL**
 
 After deploy, Railway gives you a public URL like:
-```
+
+```url
 https://signal-dashboard-production.up.railway.app
 ```
 
@@ -379,7 +380,7 @@ Copy this — you'll need it for Cloudflare Pages.
 **Step 2 — Build settings**
 
 | Setting | Value |
-|---|---|
+| --- | --- |
 | Framework preset | Vite |
 | Root directory | `frontend` |
 | Build command | `npm run build` |
@@ -391,7 +392,7 @@ Copy this — you'll need it for Cloudflare Pages.
 In **Settings → Environment Variables**, add:
 
 | Variable | Environment | Value |
-|---|---|---|
+| --- | --- | --- |
 | `VITE_API_URL` | Production | `https://signal-dashboard-production.up.railway.app` |
 
 Replace with your actual Railway URL.
@@ -399,14 +400,16 @@ Replace with your actual Railway URL.
 **Step 4 — Deploy**
 
 Click **Save and Deploy**. Your frontend will be live at:
-```
+
+```text
 https://signal-dashboard.pages.dev
 ```
 
 **Step 5 — Update CORS on Railway**
 
 Go back to Railway → Variables and update `FRONTEND_URL` to your Cloudflare Pages URL:
-```
+
+```text
 FRONTEND_URL=https://signal-dashboard.pages.dev
 ```
 
@@ -417,10 +420,12 @@ Railway redeploys automatically on variable changes.
 ### Custom Domain (Optional)
 
 **Cloudflare Pages custom domain:**
+
 1. Pages project → **Custom domains** → Add domain
 2. Cloudflare DNS: CNAME pointing to `signal-dashboard.pages.dev`
 
 **Railway custom domain:**
+
 1. Railway service → **Settings → Networking** → **Add Custom Domain**
 2. Cloudflare DNS: CNAME pointing to Railway's provided target
 3. Update `VITE_API_URL` in Cloudflare Pages env vars to your custom API domain
@@ -452,7 +457,7 @@ Both Railway and Cloudflare Pages auto-deploy on every push to the main branch. 
 Returns the full market data payload. Cached 30 seconds server-side.
 
 | Field | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `decision` | `YES_BUY \| YES_SELL \| CAUTION \| NO` | Trading signal |
 | `marketQualityScore` | `number` | Weighted 0–100 |
 | `executionWindowScore` | `number` | Separate 0–100 |
@@ -483,7 +488,7 @@ Health check. Returns `{ status: "ok", ts: "..." }`.
 ## Data Sources
 
 | Metric | Source | Notes |
-|---|---|---|
+| --- | --- | --- |
 | SPY, QQQ, IWM prices + history | Yahoo Finance v8 Chart API | Free, no key |
 | VIX (^VIX) | Yahoo Finance | 2-year history for percentile |
 | 10Y Treasury (^TNX) | Yahoo Finance | Level + 20d slope |
@@ -522,6 +527,7 @@ Edit `backend/src/lib/fomc.ts` — update `FOMC_DATES` annually when the Fed pub
 The UI uses a Stripe-inspired design system defined in `frontend/src/lib/colors.ts` as CSS custom properties. Toggle between light and dark mode with the **◐ Dark / ◑ Light** button in the header.
 
 Key tokens (light mode → dark mode):
+
 - **Ink (text):** `#0d253d` → `#e2e8f0`
 - **Canvas:** `#ffffff` → `#0d1b2e`
 - **Border:** `#e3e8ee` → `#253a55`

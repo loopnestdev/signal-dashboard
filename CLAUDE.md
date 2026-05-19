@@ -13,7 +13,7 @@ This file is for AI coding assistants. It documents the project architecture, co
 ## Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Frontend | React 18 + Vite 5 + Tailwind CSS v4 |
 | Backend | Node.js 20 + Express 4 + TypeScript 5 (run via `tsx`, no compile step) |
 | Market data | Yahoo Finance v8 Chart API (free, no key) |
@@ -28,7 +28,7 @@ This file is for AI coding assistants. It documents the project architecture, co
 
 ## Repository Structure
 
-```
+```text
 signal-dashboard/
 ├── frontend/
 │   ├── src/
@@ -120,7 +120,7 @@ The frontend Vite dev proxy routes `/api/*` → `http://localhost:3001`, so no C
 **`backend/.env`**
 
 | Variable | Required | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `PORT` | No | `3001` | Backend HTTP port |
 | `FRONTEND_URL` | No | `http://localhost:5173` | CORS allowed origin |
 | `SIGNA_API_KEY` | No | — | Signa.ai API key (stock signals + terminal analysis) |
@@ -130,7 +130,7 @@ The frontend Vite dev proxy routes `/api/*` → `http://localhost:3001`, so no C
 **`frontend/.env`** (optional — enables Google sign-in and cross-device watchlist sync)
 
 | Variable | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `VITE_SUPABASE_URL` | No | Supabase project URL — Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | No | Supabase anon/public key — same location |
 
@@ -151,6 +151,7 @@ import { C, scoreColor, changeColor } from '../lib/colors';
 All `C.*` values are CSS custom property references (`var(--c-*)`). The actual color values are defined in `frontend/src/index.css` under `:root` (light mode) and `[data-theme="dark"]` (dark mode). This means every component inherits both themes automatically — no per-component dark mode code needed.
 
 Key tokens:
+
 - `C.ink` — primary text
 - `C.inkSec` — secondary text
 - `C.inkMute` — muted/label text
@@ -164,6 +165,7 @@ Key tokens:
 - `C.s1` — card shadow
 
 Helper functions:
+
 - `scoreColor(score: number)` — returns green/amber/red based on 0–100 score
 - `changeColor(pct: number)` — returns bull/warn/bear color based on % change
 
@@ -257,12 +259,12 @@ cd frontend && npm run build
 
 ## Scoring System
 
-```
+```text
 Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×25% + Macro×10%
 ```
 
 | Score | Decision | Guidance |
-|---|---|---|
+| --- | --- | --- |
 | 80–100 | BULLISH | Full position sizing |
 | 60–79 | CAUTION | Half size, A+ setups only |
 | < 60 | BEARISH / AVOID | Preserve capital |
@@ -274,7 +276,7 @@ The composite score shown in `StockPanel` is computed from: stock technical scor
 ## Data Sources
 
 | Metric | Source |
-|---|---|
+| --- | --- |
 | All price history + quotes | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals (entry/stop/target/triggers) | Signa.ai API (`SIGNA_API_KEY`) |
 | Terminal analysis | Signa.ai → Gemini 1.5 Flash → built-in template |

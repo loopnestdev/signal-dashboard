@@ -12,7 +12,7 @@ Build a full-stack web application called **"Signal Dashboard"** — a Stripe-in
 
 ## Architecture
 
-```
+```text
 User → Cloudflare (WAF + CDN) → Cloudflare Pages (React SPA)
                                         ↓ /api/*
                                Railway (Node.js/Express backend)
@@ -36,7 +36,7 @@ Supabase (optional):
 
 ## Repository Structure
 
-```
+```text
 signal-dashboard/
 ├── frontend/
 ├── backend/
@@ -49,6 +49,7 @@ signal-dashboard/
 ```
 
 Root `package.json`:
+
 ```json
 {
   "scripts": {
@@ -80,6 +81,7 @@ Root `package.json`:
 Write a direct HTTP client against Yahoo Finance's **v8 Chart API** (no library, plain `fetch`). Do NOT use the `yahoo-finance2` npm package for historical data — it only exposes `quote` and `autoc` in recent versions.
 
 Key design:
+
 - Base URL: `https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range={range}&includePrePost=false`
 - Fallback base: `https://query2.finance.yahoo.com` if query1 fails
 - User-Agent header to avoid bot blocks
@@ -92,6 +94,7 @@ Key design:
 ### File: `backend/src/lib/technical.ts`
 
 Pure utility functions — no external dependencies:
+
 - `sma(prices: number[], period: number): number | null`
 - `ema(prices: number[], period: number): number | null` — seeds from SMA, then iterates with `k = 2/(period+1)`
 - `rsi(closes: number[], period = 14): number | null` — Wilder's smoothed RSI
@@ -103,6 +106,7 @@ Pure utility functions — no external dependencies:
 ### File: `backend/src/lib/fomc.ts`
 
 Hardcoded FOMC decision dates for 2025–2027 (second day of each 2-day meeting, announcement ~2pm ET = 19:00 UTC). Export:
+
 - `getUpcomingFOMC()` — returns `{ date, hoursUntil }` if any meeting is within 72 hours, else `null`
 - `getFedStance()` — returns `'hawkish' | 'neutral' | 'dovish'` (hardcode as `'neutral'` for 2026 easing cycle; update as conditions change)
 
@@ -113,6 +117,7 @@ NodeCache wrapper with 30-second default TTL. Export `getFromCache<T>`, `setToCa
 ### File: `backend/src/services/marketData.ts`
 
 Orchestrates all data fetching in a single `Promise.all`:
+
 - `^VIX` — 2-year range (for 1-year percentile calculation across ~252 trading days)
 - `SPY` — 2-year range (need 200 days for 200-day SMA)
 - `QQQ`, `IWM`, `^TNX`, `UUP` — 1-year range
@@ -120,11 +125,13 @@ Orchestrates all data fetching in a single `Promise.all`:
 - All 8 sub-sector ETFs: `SOXX IGV XBI IHI URA XOP KRE ICLN` — 1-year range (appended to same `Promise.all`)
 
 Sub-sector constants exported:
+
 - `SUBSECTORS` — tuple of 8 tickers
 - `SUBSECTOR_NAMES` — ticker → display name (e.g., `SOXX → 'Semiconductors'`)
 - `SUBSECTOR_PARENT` — ticker → parent sector name (e.g., `SOXX → 'Technology'`, `XBI → 'Health Care'`)
 
 Compute and return:
+
 - VIX: `{ current, slope5d (linearSlope of last 5), percentile1yr (percentileRank in last 252) }`
 - SPY: `{ current, ma20, ma50, ma200, rsi14, return1d, return5d, return20d, closes (last 15) }`
 - QQQ: `{ current, ma50, return1d }`
@@ -139,6 +146,7 @@ Compute and return:
 ### File: `backend/src/services/scoring.ts`
 
 Five independent scoring functions, each returning `CategoryScore`:
+
 ```typescript
 interface CategoryScore {
   score: number;       // 0–100
@@ -191,6 +199,7 @@ interface CategoryScore {
 - Clamp 0–100
 
 **scoreExecutionWindow** (not weighted in main score, shown separately)
+
 - Start at 50
 - Count up-days in last 5: ≥4 → +25, ≥3 → +15, ≤1 → −20
 - SPY 5d return: >2.5% → +20, >0.5% → +10, <−2.5% → −25, <−0.5% → −10
@@ -206,12 +215,14 @@ interface CategoryScore {
 In addition to `computeStockTechnicalScore`, `computeSectorETFScore`, `getStockDecision`, `buildStockAnalysis`:
 
 **`computeFibonacci(history: number[]): FibLevel[] | null`**
+
 - Uses the last 252 days (or full history if shorter); returns `null` if fewer than 20 bars or range < 0.01
 - Computes `high = Math.max(...recent)`, `low = Math.min(...recent)`, `range = high - low`
 - 9 levels: `price = high - ratio * range` where ratios are −0.618 (161.8% ext), −0.272 (127.2% ext), 0 (high), 0.236, 0.382, 0.5, 0.618, 0.786, 1.0 (low)
 - Returns `FibLevel[]`: `{ ratio, label, price, isExtension }`
 
 **`computeMovingAverages(history: number[], signaData?: SignaData | null): MovingAverages`**
+
 - Yahoo Finance computed: `ema5`, `ema21`, `ema55` (from `ema()`), `sma20`, `sma200` (from `sma()`)
 - Signa.ai sourced: `signaEma20`, `signaEma50`, `signaEma200` (from `signaData.ema20/50/200 ?? null`)
 
@@ -224,11 +235,13 @@ In addition to `computeStockTechnicalScore`, `computeSectorETFScore`, `getStockD
 ### File: `backend/src/services/ai.ts`
 
 Priority chain for terminal analysis:
+
 1. **Signa.ai** — calls `getSignaSignal('SPY')`; if available, returns `formatSignaMarketAnalysis()` rich text
 2. **Gemini 1.5 Flash** — if `GEMINI_API_KEY` set and `AI_PROVIDER !== 'none'`
 3. **Template** — deterministic fallback always available
 
 Fallback `templateAnalysis(data)` for when no API keys:
+
 - YES BUY: strong conditions, leaders, full size
 - YES SELL: deteriorating, reduce longs, defensive
 - CAUTION: mixed, A+ only, half size, quick profits
@@ -239,6 +252,7 @@ Always return a string; never throw.
 ### File: `backend/src/routes/market.ts`
 
 `GET /api/market-data`:
+
 1. Return from cache if available (`fromCache: true`)
 2. `fetchMarketData()` → compute all 5 scores → `computeMarketQualityScore` → `scoreExecutionWindow` → `getDecision`
 3. `generateAnalysis(...)` for terminal text
@@ -254,7 +268,7 @@ Standard Express setup: `dotenv/config`, cors with `FRONTEND_URL` env var, JSON 
 
 ### Backend `.env.example`
 
-```
+```environment
 PORT=3001
 FRONTEND_URL=http://localhost:5173
 GEMINI_API_KEY=
@@ -264,7 +278,7 @@ SIGNA_API_KEY=
 
 ### Frontend `.env.example`
 
-```
+```environment
 # Optional — enables Google sign-in and cross-device watchlist sync.
 # Get both from: Supabase Dashboard → your project → Settings → API
 # Leave blank to run in localStorage-only mode (no auth required).
@@ -276,7 +290,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ## Frontend Specification
 
-### Stack
+### Frontend Stack
 
 - React 18 + Vite 5
 - Tailwind CSS v4 via `@tailwindcss/vite` plugin (no separate config file)
@@ -288,6 +302,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ### `index.html`
 
 Standard Vite HTML. Load Google Fonts:
+
 ```html
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 ```
@@ -308,6 +323,7 @@ export default defineConfig({
 ### `src/index.css`
 
 Use Tailwind v4 `@theme` directive to define the DESIGN.md color tokens as CSS variables:
+
 - All `--color-*` tokens map to Tailwind utility classes (`bg-canvas`, `text-ink`, etc.)
 - Define `--font-mono` (JetBrains Mono) and `--font-ui` (Inter)
 - Set `body { font-family: JetBrains Mono, monospace; background: #000; color: #fcfdff; }`
@@ -317,12 +333,14 @@ Use Tailwind v4 `@theme` directive to define the DESIGN.md color tokens as CSS v
 ### `src/types/market.ts`
 
 Define all TypeScript interfaces matching the backend response:
+
 - `Decision`, `Interpretation`, `Direction`, `Regime`, `TradingMode` string unions
 - `Metric`, `CategoryScore`, `SectorData`, `TickerItem`, `Alert`, `MarketResponse`
 
 ### `src/lib/api.ts`
 
 Two functions:
+
 - `fetchMarketData()` — `GET /api/market-data`, throws on non-OK
 - `triggerRefresh()` — `POST /api/refresh`
 - Base URL from `import.meta.env.VITE_API_URL ?? ''`
@@ -330,6 +348,7 @@ Two functions:
 ### `src/hooks/useMarketData.ts`
 
 `useMarketData()` hook:
+
 - State: `data`, `loading`, `error`, `lastUpdated`, `secondsAgo`
 - Polls every 45 seconds via `setInterval`
 - Separate 1-second tick to increment `secondsAgo` from `lastUpdated`
@@ -339,6 +358,7 @@ Two functions:
 ### Components
 
 **`TickerBar`** (`items, loading, secondsAgo, onRefresh, isRefreshing`)
+
 - Sticky `top: 0`, `z-index: 50`, `height: 40px`, background `#06060a`, 1px hairline bottom border
 - Left: pulsing green/yellow dot + "LIVE"/"UPDATING" label
 - Center: `overflow: hidden` container with `ticker-track` CSS animation class; duplicated item array for seamless loop; hover pauses animation
@@ -347,6 +367,7 @@ Two functions:
 - Show skeleton block while loading and no data yet
 
 **`HeroPanel`** (`decision, marketQualityScore, executionWindowScore, regime, mode`)
+
 - Two-column grid: left = decision, right = score rings
 - Background atmospheric radial glow keyed to decision color
 - Decision badge: inline-block with color background tint, colored border, box-shadow glow, large font
@@ -360,6 +381,7 @@ Two functions:
 - Two rings: 168px (Market Quality, label "MARKET QUALITY") + 120px (Execution Window, label "EXEC. WINDOW")
 
 **`MetricPanel`** (`category: CategoryScore`)
+
 - Card layout: label (muted, spaced caps), score number (large, color-coded), interpretation badge (pill with color tint border), weight display
 - Score bar: 3px track with animated fill on mount
 - Metrics list: 3–4 items each with label + note (two lines) | direction arrow (colored) | value (right-aligned tabular-nums)
@@ -367,6 +389,7 @@ Two functions:
 - Interpretation colors: healthy→green, neutral→yellow, weakening→orange, risk-off→red
 
 **`SectorHeatmap`** (`sectors: SectorData[], timeframe: '1d'|'5d'|'20d'`)
+
 - Sort sectors by selected timeframe descending
 - Each row: ticker (bold) | name (muted) | heat bar | % change (colored) | 50d MA flag (▲50d green / ▼50d red) | star for top 3 / arrow for bottom 3
 - Heat bar: `<div>` fill proportional to `|value| / max`; direction (left or right fill based on positive/negative)
@@ -375,32 +398,38 @@ Two functions:
 - Legend row at bottom
 
 **`ScoringBreakdown`** (`categories, totalScore`)
+
 - One row per category (ORDER: volatility, trend, breadth, momentum, macro)
 - Row: category label + weight badge | score/100 (muted) | contribution (weight×score/100 in color) | animated bar
 - Divider and total score (large, colored)
 - 3-column reference card: 80–100 green / 60–79 yellow / <60 red with guidance text
 
 **`AlertBanner`** (`alerts: Alert[]`)
+
 - Hidden when `alerts.length === 0`
 - Each alert: icon + type label (colored) + message text
 - Severity styles: `info`→blue, `warning`→yellow, `danger`→red
 
 **`TerminalAnalysis`** (`analysis, timestamp`)
+
 - Code window chrome: `#0a0a0c` header bar with traffic-light dots (red/yellow/green 10px circles) + "terminal — market analysis" title + time
 - Content area: `$` prompt + `signal-dashboard --analysis` command line, then the analysis paragraph in Inter font at 14px, then blinking cursor `$`
 
 **`ModeToggle`** (`mode, onChange`)
+
 - Pill group: "↻ SWING" and "⚡ DAY" buttons
 - Active: `background: #fcfdff; color: #000` (white pill, black text — primary button style from DESIGN.md)
 - Inactive: transparent + muted text
 
 **`Skeleton`**
+
 - `Block` primitive: `className="skeleton"` div with configurable width/height/borderRadius
 - Compose into `HeroPanelSkeleton`, `MetricPanelSkeleton`, `SectorSkeleton` matching the real component layouts
 
 ### `src/App.tsx`
 
 Layout (no library, pure inline styles):
+
 1. `<TickerBar>` — sticky
 2. `<main style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 24px 48px' }}>`
 3. Title row + `<ModeToggle>` (flex justify-between)
@@ -439,6 +468,7 @@ Follow DESIGN.md throughout:
 ### change1d computation
 
 `regularMarketPrice` (real-time) vs `history[last]` (last historical EOD close):
+
 - **During market hours:** gives today's intraday change ✓
 - **After close / weekends:** gives ~0% (price hasn't changed since last close) — correct
 
@@ -459,11 +489,13 @@ Duplicate the ticker items array `[...items, ...items]`. Apply `animation: ticke
 ### Tailwind v4 custom colors
 
 In `@theme { }`:
+
 ```css
 --color-canvas: #000000;
 --color-accent-green: #11ff99;
 /* etc */
 ```
+
 These become `bg-canvas`, `text-accent-green` etc. For rgba values, Tailwind v4 generates the utilities correctly. No separate config file.
 
 ---
