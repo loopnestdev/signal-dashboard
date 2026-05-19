@@ -211,7 +211,7 @@ cp frontend/.env.example frontend/.env
 npm run dev
 ```
 
-Frontend: [[Signal Dashboard Frontend](http://localhost:5173)
+Frontend: [Signal Dashboard Frontend](http://localhost:5173)
 Backend: [Signal Dashboard Backend](http://localhost:3001)
 
 The frontend proxies `/api/*` to `:3001` via Vite's dev proxy — no CORS config needed locally.
