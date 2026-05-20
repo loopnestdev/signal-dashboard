@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.7] — 2026-05-20
+
+### Fixed — Production Deployment: Connection Error ("Unexpected token '<'")
+
+Root cause: `VITE_API_URL` was not set in Cloudflare Pages environment variables. Because `api.ts` and `stockApi.ts` fall back to an empty base URL (`VITE_API_URL ?? ''`), all `/api/*` fetch calls became relative URLs that hit the Cloudflare Pages static host rather than the Railway backend. Cloudflare returns an HTML 404 page for unknown routes; the frontend tried to parse that as JSON and threw `Unexpected token '<', '<!doctype'... is not valid JSON`.
+
+Two env vars must be set for a working production deployment:
+
+| Service | Variable | Value |
+| --- | --- | --- |
+| Cloudflare Pages | `VITE_API_URL` | Railway backend public URL (e.g. `https://your-app.up.railway.app`) |
+| Railway | `FRONTEND_URL` | Production frontend domain (e.g. `https://signal.ailab.build`) |
+
+Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_URL` the Railway CORS policy blocks browser requests from the live domain.
+
+### Docs & Configuration
+
+- **`frontend/.env.example`** — added `VITE_API_URL` entry with explanation; marked it as required for production.
+- **README** — Cloudflare Pages Step 3 now explicitly marks `VITE_API_URL` as required; new **Troubleshooting** section at the end of Deployment documents the connection error cause and fix.
+
+---
+
 ## [0.5.6] — 2026-05-20
 
 ### Changed — Vite 8 Upgrade

@@ -237,14 +237,15 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy — no CORS config
 
 All scoring, market data, Fibonacci, and moving averages work fully without any API keys.
 
-**`frontend/.env`** (optional — enables Google sign-in and cross-device watchlist sync)
+**`frontend/.env`**
 
 | Variable | Required | Description |
 | --- | --- | --- |
+| `VITE_API_URL` | **Production only** | Railway backend public URL — required in Cloudflare Pages; leave blank locally (Vite proxy covers it) |
 | `VITE_SUPABASE_URL` | No | Your Supabase project URL — from Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | No | Your Supabase anon/public key — same location |
 
-Leave both blank (or omit the file entirely) to run in localStorage-only mode with no authentication.
+Leave `VITE_SUPABASE_*` blank (or omit the file entirely) to run in localStorage-only mode with no authentication.
 
 ---
 
@@ -394,8 +395,12 @@ In **Settings → Environment Variables**, add:
 | Variable | Environment | Value |
 | --- | --- | --- |
 | `VITE_API_URL` | Production | `https://signal-dashboard-production.up.railway.app` |
+| `VITE_SUPABASE_URL` | Production | Your Supabase project URL *(optional — only if using auth)* |
+| `VITE_SUPABASE_ANON_KEY` | Production | Your Supabase anon key *(optional — only if using auth)* |
 
-Replace with your actual Railway URL.
+Replace `VITE_API_URL` with your actual Railway URL.
+
+> **`VITE_API_URL` is required.** Without it, the frontend falls back to relative `/api/*` URLs that hit the Cloudflare Pages static host instead of the Railway backend — resulting in a "Unexpected token '<'" JSON parse error on every API call. The Vite dev proxy that handles this automatically in local development is not active in production builds.
 
 **Step 4 — Deploy**
 
@@ -414,6 +419,26 @@ FRONTEND_URL=https://signal-dashboard.pages.dev
 ```
 
 Railway redeploys automatically on variable changes.
+
+---
+
+### Troubleshooting
+
+#### "Unexpected token '<', '<!doctype'... is not valid JSON"
+
+The frontend is making API requests to the Cloudflare Pages static host instead of Railway. This happens when `VITE_API_URL` is missing from Cloudflare Pages environment variables.
+
+**Fix:** In Cloudflare Pages → **Settings → Environment Variables**, set `VITE_API_URL` to your Railway backend URL, then trigger a new deployment. `VITE_*` variables are baked into the bundle at build time — changing them requires a redeploy.
+
+#### "CORS policy: No 'Access-Control-Allow-Origin' header"
+
+The Railway backend is rejecting requests from your production domain. This happens when `FRONTEND_URL` is not set to the live frontend URL.
+
+**Fix:** In Railway → Variables, set `FRONTEND_URL` to your exact production URL (e.g. `https://signal.ailab.build`). Railway redeploys automatically.
+
+#### Connection error persists after setting env vars
+
+Cloudflare Pages caches the old build. After adding `VITE_API_URL`, go to **Deployments** and click **Retry deployment** on the latest build to force a fresh compile with the new variable.
 
 ---
 
