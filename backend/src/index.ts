@@ -7,7 +7,16 @@ import stockRouter from './routes/stock.js';
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
-app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173' }));
+const allowedOrigins = new Set(
+  (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+    .split(',').map(s => s.trim()).filter(Boolean)
+);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.has(origin)) cb(null, true);
+    else cb(new Error(`CORS: origin not allowed — ${origin}`));
+  },
+}));
 app.use(express.json());
 app.use('/api', marketRouter);
 app.use('/api', stockRouter);

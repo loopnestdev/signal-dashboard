@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.5.8] — 2026-05-20
+
+### Fixed — "Failed to fetch" Connection Error + CORS + Hardcoded Port
+
+#### Root cause
+
+With `VITE_API_URL` now pointing to Railway, the browser makes a cross-origin request. If `FRONTEND_URL` on Railway only lists one origin (or the wrong one), CORS blocks the request and the browser surfaces it as "Failed to fetch". Additionally, the error banner in `App.tsx` had `:3001` hardcoded in its message, which is always wrong in production (Railway maps to a public HTTPS URL, not localhost:3001).
+
+#### Fixed
+
+- **`App.tsx`** — `:3001` hint in the connection error message is now gated to `import.meta.env.DEV`. In production, only the raw error is shown; the localhost hint only appears during local development.
+- **`backend/src/index.ts`** — CORS now supports multiple allowed origins. Set `FRONTEND_URL` to a comma-separated list (e.g. `https://signal.ailab.build,https://signal-dashboard.pages.dev`) to allow both a custom domain and the Cloudflare Pages URL simultaneously. Requests with no `Origin` header (server-to-server, curl) are always allowed.
+- **`backend/package.json`** — removed `yahoo-finance2` ghost dependency. It was listed as a dependency but never imported anywhere. The backend uses direct `fetch` to the Yahoo Finance v8 Chart API via `yahooClient.ts`. Removing it eliminates unnecessary attack surface and reduces cold-start time.
+
+#### Dependencies — minor/patch updates (0 CVEs)
+
+| Package | From | To | Scope |
+| --- | --- | --- | --- |
+| `tsx` | 4.22.1 | 4.22.3 | backend |
+| `@google/generative-ai` | 0.21.0 | 0.24.1 | backend |
+| `@supabase/supabase-js` | 2.105.4 | 2.106.0 | frontend |
+
+Major version bumps (express 4→5, react 18→19, typescript 5→6, dotenv 16→17) deferred — breaking changes require dedicated testing.
+
+`npm audit` reports **0 vulnerabilities** across both packages.
+
+---
+
 ## [0.5.7] — 2026-05-20
 
 ### Fixed — Production Deployment: Connection Error ("Unexpected token '<'")
@@ -109,21 +137,25 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 ### Changed — Sector Performance
 
 #### Replaced ETFs
+
 - **XLK → QQQ** (Invesco Nasdaq-100 ETF) as the Technology/Nasdaq sector entry. `SECTOR_TO_ETF['Technology']` updated accordingly for stock sector scoring.
 - **SOXX → SMH** (VanEck Semiconductor ETF) for the Semiconductors sub-sector; SMH is more liquid and widely tracked.
 
 #### New Main Sectors
+
 - **SPY** (S&P 500) added as a display row in Sector Performance — appears alongside sectors for quick benchmark comparison. Excluded from breadth scoring and leader/lagger ranking (it's the index, not a sector).
 - **PDBC** (Invesco Optimum Yield Diversified Commodity Strategy) added as a new "Commodities" sector parent.
 - **NASA** (Procure Space ETF) added as a new "Space" sector.
 
 #### New Commodity Sub-Sectors (parent: Commodities / PDBC)
+
 - **XAUUSD=X** — Gold spot price
 - **XAGUSD=X** — Silver spot price
 - **COPX** (Global X Copper Miners ETF) — Copper
 - **CL=F** — Crude Oil WTI futures
 
 #### Architecture
+
 - `DISPLAY_ONLY_SECTORS` constant (`Set<string>`) added to `marketData.ts` — excludes SPY, PDBC, NASA from breadth score and top3/bottom3 leader ranking so they don't distort market quality scoring.
 - Ticker bar in `market.ts` deduplicates SPY and QQQ (already pinned as index entries) from the sector loop via `PINNED_SYMBOLS` filter.
 - SMH sub-sector parent changed from 'Technology' to 'Nasdaq 100' (matching the renamed sector).
@@ -135,6 +167,7 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 ### Added
 
 #### Named Watchlist Groups
+
 - Watchlist refactored from a flat ticker array to named groups (e.g. "Swing Trades", "Watchlist A")
 - Watchlist header shows named group tabs — click to switch, `×` to delete
 - "+ New list" button creates a named group inline (Enter to confirm, Escape to cancel)
@@ -143,6 +176,7 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 - Migrates legacy flat watchlist data from `localStorage` to the new format automatically
 
 #### Options Intelligence Panel (`OptionsPanel.tsx`)
+
 - New panel displayed below the stock analysis card when a ticker is active
 - Fetches options flow, dark pool, and gamma exposure from Signa.ai API (gracefully empty if unavailable or no key)
 - **Options Flow**: call/put ratio, bullish vs bearish premium, notable trades with unusual flag
@@ -152,21 +186,25 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 - Human-readable key points summarize each data source in one line
 
 #### Fundamentals Panel (`FundamentalsPanel.tsx`)
+
 - New section fetched from Signa.ai `GET /fundamentals?sym={symbol}` — always rendered (shows empty state if data unavailable or no key)
 - Five sections: Valuation (P/E, Forward P/E, PEG, P/B, P/S, EV/EBITDA), Growth (revenue/earnings YoY, EPS), Profitability (margins, ROE, ROA, FCF yield), Financial Health (debt/equity, current ratio, dividend), Ownership & Analyst (price target, insider %, institutional %, short float)
 - Color-coded values: green for strong metrics, amber for caution, red for weak
 
 #### Sector — Solar Sub-Sector
+
 - TAN (Invesco Solar ETF) added as Solar sub-sector under Energy
 - Fetched from Yahoo Finance alongside all other sub-sector ETFs
 
-### Fixed
+### Fixed — Sector & Signal
 
 #### Sector Performance Row Alignment
+
 - All sector rows now start at the same horizontal position regardless of whether they have sub-sectors
 - Fixed by replacing the conditional expand button with a fixed-width 22px placeholder — button appears inside it only when sub-sectors exist
 
 #### Stock Status Respects Signa Signal
+
 - `getStockDecision()` now accepts Signa `direction`, `confidence`, and `grade` as optional parameters
 - When Signa signals LONG with confidence ≥ 65% and a strong grade (A+/A/B+/B): decision is at least CAUTION, YES_BUY if composite score ≥ 60 — bypasses the `marketScore < 55` gate that previously forced NO/AVOID
 - When Signa signals SHORT with confidence ≥ 65%: decision is always YES_SHORT regardless of composite score

@@ -97,7 +97,8 @@ export default function App() {
             <div>
               <div style={{ fontSize: '14px', color: C.bear, fontWeight: 500 }}>Connection Error</div>
               <div style={{ fontSize: '13px', color: C.inkMute, marginTop: 4 }}>
-                {error} — ensure the backend is running on :3001
+                {error}
+                {import.meta.env.DEV && ' — ensure the backend is running on :3001'}
               </div>
             </div>
             <button onClick={refresh} style={{
