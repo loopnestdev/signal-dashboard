@@ -1,0 +1,35 @@
+<svg width="204" height="204" viewBox="0 0 204 204" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="signal-glow" cx="79.4%" cy="28.4%" r="45%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="204" height="204" rx="38" fill="#0d1526"/>
+
+  <!-- Ambient green glow in upper-right (signal zone) -->
+  <rect width="204" height="204" rx="38" fill="url(#signal-glow)"/>
+
+  <!-- Subtle area fill under chart -->
+  <path d="M22,162 L58,136 L80,150 L118,104 L142,116 L162,58 L162,178 L22,178 Z"
+        fill="#22c55e" opacity="0.05"/>
+
+  <!-- Historical price line (muted blue) -->
+  <path d="M22,162 L58,136 L80,150 L118,104 L142,116"
+        stroke="#2e3f7a" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Breakout segment — indigo, the signal forming -->
+  <path d="M142,116 L162,58"
+        stroke="#6366f1" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Pulse rings around signal point -->
+  <circle cx="162" cy="58" r="32" stroke="#22c55e" stroke-width="1.5" fill="none" opacity="0.15"/>
+  <circle cx="162" cy="58" r="21" stroke="#22c55e" stroke-width="2.5" fill="none" opacity="0.38"/>
+
+  <!-- Signal dot -->
+  <circle cx="162" cy="58" r="13" fill="#22c55e"/>
+  <!-- Bright inner core -->
+  <circle cx="162" cy="58" r="5" fill="white" opacity="0.88"/>
+</svg>
