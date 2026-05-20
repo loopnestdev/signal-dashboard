@@ -29,7 +29,7 @@ Supabase (optional — invite-only mode when configured):
   - When not configured, app is fully open; watchlist falls back to localStorage (no auth UI shown)
 ```
 
-- **Frontend:** React 18 + Vite 5 + Tailwind CSS v4, hosted on Cloudflare Pages
+- **Frontend:** React 18 + Vite 8 + Tailwind CSS v4, hosted on Cloudflare Pages
 - **Backend:** Node.js + Express + TypeScript, run via `tsx` (no compile step), hosted on Railway
 - **Database:** Supabase Postgres (optional) — only needed for cross-device watchlist sync
 - **Authentication:** Supabase Google OAuth (optional) — app is fully usable without it
@@ -74,8 +74,8 @@ Root `package.json`:
 - `cors` ^2.8.5
 - `dotenv` ^16.4.5
 - `node-cache` ^5.1.2
-- `tsx` ^4.16.2 (runtime + dev server)
-- `@google/generative-ai` ^0.21.0
+- `tsx` ^4.22.3 (runtime + dev server)
+- `@google/generative-ai` ^0.24.1
 - TypeScript 5, `"type": "module"`, `"moduleResolution": "Bundler"`, `noEmit: true`
 
 ### File: `backend/src/lib/yahooClient.ts`
@@ -159,14 +159,14 @@ interface CategoryScore {
 }
 ```
 
-**scoreVolatility (weight: 20)**
+#### scoreVolatility (weight: 20)
 
 - Base score from VIX level: ≤12→95, ≤15→83, ≤18→70, ≤22→52, ≤28→34, ≤35→18, >35→8
 - Trend adjustment: slope5d < -0.5 → +10, < -0.1 → +5, > 0.5 → -15, > 0.1 → -7
 - Percentile adjustment: <20th → +10, <40th → +5, >80th → -15, >60th → -7
 - Clamp 0–100
 
-**scoreTrend (weight: 25)**
+#### scoreTrend (weight: 25)
 
 - SPY > 200d MA → +28, else −5
 - SPY > 50d MA → +22, else −5
@@ -176,21 +176,21 @@ interface CategoryScore {
 - Regime uptrend → +5; downtrend → −15; chop → −5
 - Clamp 0–100
 
-**scoreBreadth (weight: 20)**
+#### scoreBreadth (weight: 20)
 
 - % sectors above 50d MA: ≥82% → +55, ≥65% → +42, ≥50% → +28, ≥35% → +14, else 0
 - IWM 5d vs SPY 5d spread: >1.5% → +30, >0% → +20, >-1% → +10, >-2.5% → 0, else −10
 - Bonus: if pct ≥73% → +15
 - Clamp 0–100
 
-**scoreMomentum (weight: 25)**
+#### scoreMomentum (weight: 25)
 
 - Sectors outperforming SPY 5d: ≥9 → +40, ≥7 → +30, ≥5 → +20, ≥3 → +10
 - Top 3 sector tickers — growth leaders (XLK XLY XLF XLI XLC) → +12 each; defensive (XLP XLU XLRE) → −12 each
 - Sectors above 50d MA count → +(count/total × 20) rounded
 - Clamp 0–100
 
-**scoreMacro (weight: 10)**
+#### scoreMacro (weight: 10)
 
 - Start at 50 (neutral base)
 - TNX level: <3.5% → +10, <4.5% → +5, <5.5% → −5, ≥5.5% → −15
@@ -200,7 +200,7 @@ interface CategoryScore {
 - FOMC within 72h → −15
 - Clamp 0–100
 
-**scoreExecutionWindow** (not weighted in main score, shown separately)
+#### scoreExecutionWindow (not weighted in main score, shown separately)
 
 - Start at 50
 - Count up-days in last 5: ≥4 → +25, ≥3 → +15, ≤1 → −20
@@ -294,7 +294,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ### Frontend Stack
 
-- React 18 + Vite 5
+- React 18 + Vite 8
 - Tailwind CSS v4 via `@tailwindcss/vite` plugin (no separate config file)
 - TypeScript 5 strict mode
 - `lucide-react` for icons (imported but optional in v0.1)

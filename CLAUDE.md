@@ -14,7 +14,7 @@ This file is for AI coding assistants. It documents the project architecture, co
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 18 + Vite 5 + Tailwind CSS v4 |
+| Frontend | React 18 + Vite 8 + Tailwind CSS v4 |
 | Backend | Node.js 20 + Express 4 + TypeScript 5 (run via `tsx`, no compile step) |
 | Market data | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals | Signa.ai API (optional, `SIGNA_API_KEY`) |

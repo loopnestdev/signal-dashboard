@@ -6,6 +6,7 @@
 # Exclude build artifacts and dependencies
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Exclude all .env files anywhere in the project (but keep .env.example templates)
 .env

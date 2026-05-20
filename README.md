@@ -9,7 +9,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 ## Layout
 
 ```text
-┌─ SIGNAL DASHBOARD ──────────────────────── MODE [Swing] [Day]  [◐ Dark] ─┐
+┌─ SIGNAL DASHBOARD ──────────────────────────────────────────── [◐ Dark] ─┐
 │  ● LIVE  SPY 739.17 ▲  QQQ 708.93 ▲  VIX 18.43  TNX 4.59%  XLF ▲ …    │
 ├───────────────────────────────────────────────────────────────────────────┤
 │  WATCHLIST  [Default]  [AI-MEM ×]  [+ New list]                           │
@@ -67,7 +67,6 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Execution Window Score | Separate 0–100 evaluating near-term setup follow-through |
 | Live ticker bar | SPY, QQQ, IWM, VIX, TNX, all sector ETFs scrolling |
 | Structured terminal analysis | Signa output parsed into sections; plain text for Gemini/template fallback |
-| Mode toggle | Swing Trading / Day Trading pill |
 | Alert banner | FOMC event (within 72h), VIX spike (>30) warnings |
 | Auto-refresh | Every 45 seconds with manual refresh and "updated Xs ago" counter |
 
@@ -103,7 +102,7 @@ Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×2
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 18 + Vite 5 + Tailwind CSS v4 |
+| Frontend | React 18 + Vite 8 + Tailwind CSS v4 |
 | Backend | Node.js 20 + Express 4 + TypeScript 5 |
 | Data | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals + AI | Signa.ai API (optional `SIGNA_API_KEY`) |
@@ -123,10 +122,10 @@ signal-dashboard/
 │   ├── src/
 │   │   ├── App.tsx                    # Main layout, polling, theme, auth
 │   │   ├── components/
+│   │   │   ├── AdminPanel.tsx         # Admin: pending access requests + approve button
 │   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
-│   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill
+│   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
 │   │   │   ├── FundamentalsPanel.tsx  # Valuation/growth/margins section
-│   │   │   ├── ModeToggle.tsx         # Swing / Day mode pill
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma
 │   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors
 │   │   │   ├── SignaCard.tsx          # Signa.ai signal card
@@ -377,7 +376,11 @@ From that point you can approve other users directly in the app.
 3. Application type: **Web application**
 4. Authorised redirect URI: `https://<your-project-ref>.supabase.co/auth/v1/callback`
 5. Copy the **Client ID** and **Client Secret** back into Supabase → Google provider settings
-6. Add your Cloudflare Pages URL to **Authentication → URL Configuration → Site URL** and **Redirect URLs**
+6. In Supabase → **Authentication → URL Configuration**:
+   - **Site URL**: set to your production domain (e.g. `https://signal.ailab.build`)
+   - **Redirect URLs**: add `https://signal.ailab.build/**`, `https://signal-dashboard.pages.dev/**`, and `http://localhost:5173/**` (one per line)
+
+> **Critical:** Supabase defaults "Site URL" to `http://localhost:3000`. If you skip this step, clicking "Sign in with Google" will redirect back to localhost after OAuth instead of your production domain.
 
 #### Step 5 — Add env vars to Cloudflare Pages
 
@@ -396,13 +399,13 @@ For local development, add the same keys to `frontend/.env` (copy from `frontend
 
 Railway auto-detects Node.js, runs `npm start`, and provides HTTPS out of the box.
 
-**Step 1 — Create Railway project**
+#### Step 1 — Create Railway project
 
 1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
 2. Select your repository
 3. Set the **Root Directory** to `backend` in **Settings → Source** (Railway may not auto-detect this)
 
-**Step 2 — Set environment variables**
+#### Step 2 — Set environment variables
 
 In Railway → your service → **Variables**, add:
 
@@ -415,12 +418,12 @@ In Railway → your service → **Variables**, add:
 
 > `AI_PROVIDER` and `PORT` have sensible defaults — only add them if you want to override.
 
-**Step 3 — Configure start command**
+#### Step 3 — Configure start command
 
 Railway should pick up `"start": "tsx src/index.ts"` from `backend/package.json` automatically.  
 If not, set **Start Command** to `npm start`.
 
-**Step 4 — Get your Railway URL**
+#### Step 4 — Get your Railway URL
 
 After deploy, Railway gives you a public URL like:
 
@@ -434,12 +437,12 @@ Copy this — you'll need it for Cloudflare Pages.
 
 ### Frontend — Cloudflare Pages
 
-**Step 1 — Create a Pages project**
+#### Step 1 — Create a Pages project
 
 1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
 2. Select your repository
 
-**Step 2 — Build settings**
+#### Step 2 — Build settings
 
 | Setting | Value |
 | --- | --- |
@@ -449,7 +452,7 @@ Copy this — you'll need it for Cloudflare Pages.
 | Build output directory | `dist` |
 | Node.js version | `20` |
 
-**Step 3 — Environment variables**
+#### Step 3 — Environment variables
 
 In **Settings → Environment Variables**, add:
 
@@ -463,7 +466,7 @@ Replace `VITE_API_URL` with your actual Railway URL.
 
 > **`VITE_API_URL` is required.** Without it, the frontend falls back to relative `/api/*` URLs that hit the Cloudflare Pages static host instead of the Railway backend — resulting in a "Unexpected token '<'" JSON parse error on every API call. The Vite dev proxy that handles this automatically in local development is not active in production builds.
 
-**Step 4 — Deploy**
+#### Step 4 — Deploy
 
 Click **Save and Deploy**. Your frontend will be live at:
 
@@ -471,7 +474,7 @@ Click **Save and Deploy**. Your frontend will be live at:
 https://signal-dashboard.pages.dev
 ```
 
-**Step 5 — Update CORS on Railway**
+#### Step 5 — Update CORS on Railway
 
 Go back to Railway → Variables and update `FRONTEND_URL` to your Cloudflare Pages URL:
 
@@ -484,6 +487,17 @@ Railway redeploys automatically on variable changes.
 ---
 
 ### Troubleshooting
+
+#### Sign-in with Google redirects to `localhost:3000`
+
+Supabase creates every new project with "Site URL" defaulting to `http://localhost:3000`. OAuth redirects are validated against this list — if your production domain isn't in it, Supabase falls back to the Site URL after the Google callback.
+
+**Fix:** In Supabase → **Authentication → URL Configuration**:
+
+1. Set **Site URL** to your production domain (e.g. `https://signal.ailab.build`)
+2. Under **Redirect URLs**, add `https://signal.ailab.build/**` and `http://localhost:5173/**`
+
+Then trigger a new Cloudflare Pages deployment. No code changes are needed — the app already passes `window.location.origin` as the redirect target; the problem is Supabase rejecting it.
 
 #### "Unexpected token '<', '<!doctype'... is not valid JSON"
 
@@ -549,7 +563,7 @@ Returns the full market data payload. Cached 30 seconds server-side.
 | `executionWindowScore` | `number` | Separate 0–100 |
 | `categories` | `object` | Scores + metrics for each of 5 categories |
 | `sectors` | `array` | 14 sector ETFs with 1d/5d/20d returns and MA flags |
-| `subsectors` | `array` | 13 sub-sector ETFs with same fields |
+| `subsectors` | `array` | 19 sub-sector ETFs with same fields |
 | `regime` | `uptrend \| downtrend \| chop` | Market regime |
 | `analysis` | `string` | AI-generated or template analysis |
 | `ticker` | `array` | Ticker bar items |
