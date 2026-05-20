@@ -20,11 +20,13 @@ User → Cloudflare (WAF + CDN) → Cloudflare Pages (React SPA)
                                Yahoo Finance v8 Chart API (free, no key)
                                Google Gemini 1.5 Flash (optional, template fallback)
 
-Supabase (optional):
+Supabase (optional — invite-only mode when configured):
   - Google OAuth for sign-in
   - Postgres `watchlists` table for cross-device watchlist sync
-  - Row-level security — users can only read/write their own rows
-  - When not configured, watchlist falls back to localStorage (no auth UI shown)
+  - Postgres `user_profiles` table — status ('pending'|'approved'), is_admin flag
+  - Row-level security — users can only read/write their own rows; admin reads all pending profiles
+  - Auth gate: anonymous users see sign-in card; pending users see approval-waiting screen; only approved users reach the dashboard
+  - When not configured, app is fully open; watchlist falls back to localStorage (no auth UI shown)
 ```
 
 - **Frontend:** React 18 + Vite 5 + Tailwind CSS v4, hosted on Cloudflare Pages
@@ -122,13 +124,13 @@ Orchestrates all data fetching in a single `Promise.all`:
 - `SPY` — 2-year range (need 200 days for 200-day SMA)
 - `QQQ`, `IWM`, `^TNX`, `UUP` — 1-year range
 - All 14 sector ETFs: `QQQ XLF XLE XLV XLI XLY XLP XLU XLB XLRE XLC ITA SPY PDBC` — 1-year range
-- All 18 sub-sector ETFs: `SMH IGV AIPO AIS DRAM EUV XBI IHI URA XOP KRE ICLN TAN GC=F SI=F COPX CL=F NASA` — 1-year range (appended to same `Promise.all`)
+- All 19 sub-sector ETFs: `SMH IGV AIPO AIS DRAM EUV XBI IHI URA XOP KRE ICLN TAN FCG GC=F SI=F COPX CL=F NASA` — 1-year range (appended to same `Promise.all`)
 
 Sub-sector constants exported:
 
-- `SUBSECTORS` — tuple of 18 tickers
-- `SUBSECTOR_NAMES` — ticker → display name (e.g., `SMH → 'Semiconductors'`, `AIPO → 'AI Power Stocks'`)
-- `SUBSECTOR_PARENT` — ticker → parent sector name (e.g., `SMH → 'Nasdaq 100'`, `NASA → 'Aerospace & Defense'`)
+- `SUBSECTORS` — tuple of 19 tickers
+- `SUBSECTOR_NAMES` — ticker → display name (e.g., `SMH → 'Semiconductors'`, `FCG → 'Natural Gas'`, `AIPO → 'AI Power Stocks'`)
+- `SUBSECTOR_PARENT` — ticker → parent sector name (e.g., `SMH → 'Nasdaq 100'`, `FCG → 'Energy'`, `NASA → 'Aerospace & Defense'`)
 
 Compute and return:
 
@@ -415,11 +417,12 @@ Two functions:
 - Code window chrome: `#0a0a0c` header bar with traffic-light dots (red/yellow/green 10px circles) + "terminal — market analysis" title + time
 - Content area: `$` prompt + `signal-dashboard --analysis` command line, then the analysis paragraph in Inter font at 14px, then blinking cursor `$`
 
-**`ModeToggle`** (`mode, onChange`)
+**`AdminPanel`** (`pendingUsers: UserProfile[], onApprove: (userId: string) => void`)
 
-- Pill group: "↻ SWING" and "⚡ DAY" buttons
-- Active: `background: #fcfdff; color: #000` (white pill, black text — primary button style from DESIGN.md)
-- Inactive: transparent + muted text
+- Rendered in `App.tsx` only when `isAdmin && pendingUsers.length > 0`
+- Amber-tinted banner (PENDING ACCESS REQUESTS header)
+- Lists each pending user: display name, email, requested_at date, and green "Approve" button
+- Optimistically removes approved users from the list on click
 
 **`Skeleton`**
 
@@ -431,17 +434,27 @@ Two functions:
 Layout (no library, pure inline styles):
 
 1. `<TickerBar>` — sticky
-2. `<main style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 24px 48px' }}>`
-3. Title row + `<ModeToggle>` (flex justify-between)
+2. Mesh-gradient header band with favicon.svg + "Signal Dashboard" title + `<AuthButton>` + theme toggle
+3. `<main style={{ maxWidth: 1400, margin: '0 auto', padding: '28px 32px 64px' }}>`
 4. Error card (when `error && !data`) with retry button
-5. `<AlertBanner>` (conditional)
-6. `<HeroPanel>` or `<HeroPanelSkeleton>`
-7. Metric grid: `display: grid; gridTemplateColumns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px` — 5 `<MetricPanel>` or skeletons
-8. Sector timeframe toggle buttons + `<SectorHeatmap>` or skeleton
-9. Bottom row: `display: grid; gridTemplateColumns: 380px 1fr; gap: 16px` — `<ScoringBreakdown>` + `<TerminalAnalysis>`
-10. Footer: "Data via Yahoo Finance · Not financial advice" + cache/timestamp status
+5. **Auth gate** — when Supabase is configured and user is not approved:
+   - Unauthenticated: centered card with "Sign in with Google" CTA
+   - Authenticated-but-pending: "Access Pending" card with sign-out button
+   - All stock search, watchlist, and market data are inside the `isApproved` branch
+6. Inside `isApproved` branch:
+   a. `<AdminPanel>` — only when `isAdmin && pendingUsers.length > 0`
+   b. `<AlertBanner>` (conditional)
+   c. `<StockSearch>` + `<StockPanel>` + `<OptionsPanel>` + `<FundamentalsPanel>`
+   d. Sector timeframe toggle buttons + `<SectorHeatmap>` or skeleton
+   e. `<TerminalAnalysis>`
+   f. Footer: "Data via Yahoo Finance · Not financial advice" + cache/timestamp status
 
-State: `mode` (swing/day), `sectorTimeframe` (1d/5d/20d)
+Auth logic:
+
+- `const supabaseEnabled = supabase !== null`
+- `const isApproved = !supabaseEnabled || userStatus === 'approved' || isAdmin`
+
+State: `sectorTimeframe` (1d/5d/20d)
 
 ---
 
@@ -528,9 +541,11 @@ npm run dev
 - Start: `npm start` → `tsx src/index.ts`
 - Env: `FRONTEND_URL`, `SIGNA_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`
 
-### Supabase (optional)
+### Supabase (optional — enables invite-only access control)
 
-Only needed for cross-device watchlist sync and Google sign-in. Create a project at supabase.com, run the `watchlists` table DDL (see CLAUDE.md → Auth & Watchlist), enable Google OAuth provider, and add the redirect URL for your Cloudflare Pages domain.
+When configured, the app becomes invite-only: anonymous users see a sign-in card; Google sign-in auto-creates a `user_profiles` row with `status='pending'`; pending users see an "Access Pending" screen; only `status='approved'` users reach the full dashboard. Admins approve users via the in-app `AdminPanel`. When not configured, the app is fully open and watchlist falls back to localStorage.
+
+Setup: create a project at supabase.com, run the `watchlists` + `user_profiles` DDL with RLS policies and the `on_auth_user_created` trigger (see README → Supabase section for full SQL), enable Google OAuth provider, and add the redirect URL for your Cloudflare Pages domain. Bootstrap admin: `UPDATE public.user_profiles SET is_admin = true WHERE email = 'your@email.com';`
 
 ---
 
@@ -548,6 +563,8 @@ Only needed for cross-device watchlist sync and Google sign-in. Create a project
 - [ ] Watchlist persists across page reloads via localStorage; "Save to Watchlist" button is prominent
 - [ ] No API keys required to run (all scoring works; AI uses template fallback)
 - [ ] TypeScript compiles with no errors in both `frontend/` and `backend/`
+- [ ] When Supabase is configured: anonymous users see sign-in card; pending users see approval-waiting screen; only approved users see the full dashboard
+- [ ] Admin users see pending access requests banner with one-click approve
 
 ---
 

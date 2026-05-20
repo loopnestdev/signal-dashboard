@@ -20,7 +20,7 @@ export const SECTOR_NAMES: Record<string, string> = {
 // SMH replaces SOXX; commodity sub-sectors use futures symbols; NASA moved here from main sectors
 export const SUBSECTORS = [
   'SMH', 'IGV', 'AIPO', 'AIS', 'DRAM', 'EUV',
-  'XBI', 'IHI', 'URA', 'XOP', 'KRE', 'ICLN', 'TAN',
+  'XBI', 'IHI', 'URA', 'XOP', 'KRE', 'ICLN', 'TAN', 'FCG',
   'GC=F', 'SI=F', 'COPX', 'CL=F',
   'NASA',
 ] as const;
@@ -28,7 +28,7 @@ export const SUBSECTOR_NAMES: Record<string, string> = {
   SMH: 'Semiconductors', IGV: 'Software',
   AIPO: 'AI Power Stocks', AIS: 'AI Supercycle Stocks', DRAM: 'AI Memory', EUV: 'AI Photonics',
   XBI: 'Biotech', IHI: 'Medical Devices',
-  URA: 'Uranium', XOP: 'Oil & Gas E&P', KRE: 'Regional Banks', ICLN: 'Clean Energy', TAN: 'Solar',
+  URA: 'Uranium', XOP: 'Oil & Gas E&P', KRE: 'Regional Banks', ICLN: 'Clean Energy', TAN: 'Solar', FCG: 'Natural Gas',
   'GC=F': 'Gold', 'SI=F': 'Silver', COPX: 'Copper', 'CL=F': 'Crude Oil WTI',
   NASA: 'Space',
 };
@@ -36,7 +36,7 @@ export const SUBSECTOR_PARENT: Record<string, string> = {
   SMH: 'Nasdaq 100', IGV: 'Nasdaq 100',
   AIPO: 'Nasdaq 100', AIS: 'Nasdaq 100', DRAM: 'Nasdaq 100', EUV: 'Nasdaq 100',
   XBI: 'Health Care', IHI: 'Health Care',
-  URA: 'Energy', XOP: 'Energy', KRE: 'Financials', ICLN: 'Energy', TAN: 'Energy',
+  URA: 'Energy', XOP: 'Energy', KRE: 'Financials', ICLN: 'Energy', TAN: 'Energy', FCG: 'Energy',
   'GC=F': 'Commodities', 'SI=F': 'Commodities', COPX: 'Commodities', 'CL=F': 'Commodities',
   NASA: 'Aerospace & Defense',
 };

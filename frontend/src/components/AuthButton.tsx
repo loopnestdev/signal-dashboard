@@ -1,16 +1,17 @@
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { C } from '../lib/colors';
+import type { UserStatus } from '../hooks/useAuth';
 
 interface Props {
   user: User | null;
   authLoading: boolean;
+  userStatus: UserStatus | null;
   onSignIn: () => void;
   onSignOut: () => void;
 }
 
-export function AuthButton({ user, authLoading, onSignIn, onSignOut }: Props) {
-  // Render nothing when Supabase is not configured or session is still resolving
+export function AuthButton({ user, authLoading, userStatus, onSignIn, onSignOut }: Props) {
   if (!supabase || authLoading) return null;
 
   const pill: React.CSSProperties = {
@@ -49,6 +50,15 @@ export function AuthButton({ user, authLoading, onSignIn, onSignOut }: Props) {
       }}>
         {displayName}
       </span>
+      {userStatus === 'pending' && (
+        <span style={{
+          fontSize: '11px', color: C.warn, background: C.warnBg,
+          border: `1px solid ${C.warnBorder}`, borderRadius: 9999,
+          padding: '2px 8px', letterSpacing: '0.04em',
+        }}>
+          Pending
+        </span>
+      )}
       <button
         onClick={onSignOut}
         style={{ ...pill, background: 'transparent', color: C.inkMute, fontSize: '12px', padding: '4px 12px' }}

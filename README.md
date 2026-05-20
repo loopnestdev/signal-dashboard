@@ -53,7 +53,9 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Feature | Detail |
 | --- | --- |
 | Light / Dark mode | Header toggle persists preference to localStorage; zero-flicker init via inline script |
-| Google Sign-In | Optional Supabase auth — watchlist syncs across devices when signed in; localStorage fallback when unconfigured |
+| Invite-only access | When Supabase is configured, users must sign in with Google and be approved by an admin before gaining access |
+| Admin approval panel | Admin sees pending access requests in-app and approves with one click; new users see "Access Pending" until approved |
+| Google Sign-In | Supabase Google OAuth — watchlist syncs across devices when signed in; localStorage fallback when unconfigured |
 | Signa.ai signal | LONG/SHORT direction, Grade, Stage, Confidence, Risk — pill badges at top of stock panel |
 | Stock watchlist — named groups | Create named watchlist groups; syncs to Supabase when signed in, localStorage otherwise |
 | Options Intelligence | Options flow (C/P, premium, notable trades), dark pool (off-exchange vol, fills), gamma exposure (GEX, flip point, key strikes) — synthesized with directional assessment |
@@ -277,20 +279,21 @@ When both services are connected to your GitHub repo, you will see multiple entr
 
 ---
 
-### Supabase — Google Auth + Watchlist Sync (Optional)
+### Supabase — Access Control, Google Auth + Watchlist Sync
 
-Skip this section entirely if you don't need cross-device watchlist sync. The app works fully without Supabase.
+When Supabase is configured the app becomes **invite-only**: anonymous users can sign in with Google to request access, but a human admin must approve each account before it gains access. Without Supabase the app is open (suitable for local development).
 
-**Step 1 — Create a Supabase project**
+#### Step 1 — Create a Supabase project
 
 1. Go to [supabase.com](https://supabase.com) → **New project**
 2. Note your **Project URL** and **anon/public key** from **Settings → API**
 
-**Step 2 — Create the watchlists table**
+#### Step 2 — Create tables
 
-In **SQL Editor**, run:
+In **SQL Editor**, run the full schema:
 
 ```sql
+-- Watchlists (cross-device sync)
 create table public.watchlists (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references auth.users(id) on delete cascade,
@@ -299,17 +302,75 @@ create table public.watchlists (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 alter table public.watchlists enable row level security;
-
 create policy "Users manage their own watchlists"
-  on public.watchlists
-  for all
+  on public.watchlists for all
   using  (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- User access approval
+create table public.user_profiles (
+  id           uuid primary key references auth.users(id) on delete cascade,
+  email        text not null,
+  display_name text,
+  status       text not null default 'pending' check (status in ('pending', 'approved')),
+  is_admin     boolean not null default false,
+  requested_at timestamptz not null default now(),
+  approved_at  timestamptz
+);
+alter table public.user_profiles enable row level security;
+
+-- Helper to avoid recursive RLS checks
+create or replace function public.is_admin()
+returns boolean as $$
+  select exists (
+    select 1 from public.user_profiles
+    where id = auth.uid() and is_admin = true
+  );
+$$ language sql security definer stable;
+
+create policy "Users or admin read profiles"
+  on public.user_profiles for select
+  using (auth.uid() = id or public.is_admin());
+create policy "Admins approve profiles"
+  on public.user_profiles for update
+  using (public.is_admin());
+create policy "Insert own profile"
+  on public.user_profiles for insert
+  with check (auth.uid() = id);
+
+-- Auto-create profile on first sign-in
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.user_profiles (id, email, display_name)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', new.email)
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 ```
 
-**Step 3 — Enable Google OAuth**
+#### Step 3 — Grant yourself admin access
+
+After your first sign-in, run this in the SQL Editor (replace with your email):
+
+```sql
+update public.user_profiles
+set status = 'approved', is_admin = true
+where email = 'you@example.com';
+```
+
+From that point you can approve other users directly in the app.
+
+#### Step 4 — Enable Google OAuth
 
 1. Supabase Dashboard → **Authentication → Providers → Google → Enable**
 2. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials → Create OAuth 2.0 Client ID**
@@ -318,7 +379,7 @@ create policy "Users manage their own watchlists"
 5. Copy the **Client ID** and **Client Secret** back into Supabase → Google provider settings
 6. Add your Cloudflare Pages URL to **Authentication → URL Configuration → Site URL** and **Redirect URLs**
 
-**Step 4 — Add env vars to Cloudflare Pages**
+#### Step 5 — Add env vars to Cloudflare Pages
 
 In Cloudflare Pages → **Settings → Environment Variables**, add:
 
@@ -519,7 +580,7 @@ Health check. Returns `{ status: "ok", ts: "..." }`.
 | 10Y Treasury (^TNX) | Yahoo Finance | Level + 20d slope |
 | Dollar Index (UUP) | Yahoo Finance | UUP ETF as DXY proxy |
 | Sector ETFs | Yahoo Finance | QQQ, XLF, XLE, XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC, ITA, SPY, PDBC |
-| Sub-sector ETFs | Yahoo Finance | SMH, IGV, AIPO, AIS, DRAM, EUV, XBI, IHI, URA, XOP, KRE, ICLN, TAN, GC=F, SI=F, COPX, CL=F, NASA |
+| Sub-sector ETFs | Yahoo Finance | SMH, IGV, AIPO, AIS, DRAM, EUV, XBI, IHI, URA, XOP, KRE, ICLN, TAN, FCG, GC=F, SI=F, COPX, CL=F, NASA |
 | FOMC dates | Hardcoded | `backend/src/lib/fomc.ts` — update annually |
 | Fed stance | Hardcoded | `backend/src/lib/fomc.ts` — update as conditions change |
 | Stock signals | Signa.ai API | Entry/stop/target, triggers, risk, EMAs (requires `SIGNA_API_KEY`) |

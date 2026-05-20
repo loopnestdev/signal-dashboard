@@ -19,7 +19,7 @@ This file is for AI coding assistants. It documents the project architecture, co
 | Market data | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals | Signa.ai API (optional, `SIGNA_API_KEY`) |
 | AI analysis | Signa.ai → Gemini 1.5 Flash → template fallback |
-| Auth + watchlist sync | Supabase (optional — Google OAuth + Postgres) |
+| Auth + access control | Supabase (optional — Google OAuth + Postgres; invite-only when configured) |
 | Watchlist fallback | `localStorage` when Supabase is unconfigured |
 | Frontend hosting | Cloudflare Pages |
 | Backend hosting | Railway |
@@ -34,13 +34,13 @@ signal-dashboard/
 │   ├── src/
 │   │   ├── App.tsx                   # Main layout, polling, theme, auth
 │   │   ├── components/
+│   │   │   ├── AdminPanel.tsx         # Admin: pending access requests + approve button
 │   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
-│   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill
+│   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
 │   │   │   ├── FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
-│   │   │   ├── ModeToggle.tsx         # Swing / Day mode pill toggle
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
 │   │   │   ├── ScoringBreakdown.tsx   # (legacy — not used in layout, kept for reference)
-│   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN)
+│   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN, FCG)
 │   │   │   ├── SignaCard.tsx          # Signa.ai signal: entry/stop/target/triggers
 │   │   │   ├── Skeleton.tsx           # Loading shimmer skeletons
 │   │   │   ├── StockPanel.tsx         # Full stock analysis panel (no composite ring)
@@ -200,32 +200,33 @@ Helper functions:
 - `GET /api/stock/:symbol` — individual stock signal (Signa.ai + Yahoo Finance)
 - `GET /health` — health check
 
-### Auth & Watchlist
+### Auth, Access Control & Watchlist
 
-**`useAuth`** (`hooks/useAuth.ts`) — wraps Supabase session. Exposes `{ user, authLoading, signInWithGoogle, signOut }`. Returns null user when Supabase is unconfigured.
+**Access model:** When `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set, the app is **invite-only**. Unauthenticated users see an auth gate. Authenticated users with `status='pending'` see an "Access Pending" screen. Only `status='approved'` users reach the full dashboard. When Supabase is not configured (`supabase === null`), the app is fully open (local dev mode).
 
-**`AuthButton`** (`components/AuthButton.tsx`) — renders nothing when `supabase` is null or session is resolving. Shows "Sign in" (Google OAuth) when logged out; avatar + display name + "Sign out" when logged in.
+**`useAuth`** (`hooks/useAuth.ts`) — wraps Supabase session and `user_profiles` table. Exports:
 
-**`useWatchlist(user)`** (`hooks/useWatchlist.ts`): Accepts `user: User | null`. When non-null and Supabase is configured, reads/writes go to the `watchlists` Postgres table. When `user` is null, falls back to `localStorage` (key: `signal-dashboard-watchlists-v2`). First login automatically migrates existing localStorage groups into Supabase. `WatchlistGroup` has optional `id?: string` (Supabase UUID; undefined in localStorage mode). Uses `useRef`-based `userRef` / `stateRef` pattern — all callbacks read from refs, eliminating stale closures. Optimistic creates: group appears immediately; Supabase UUID is patched in asynchronously. Exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add(ticker, groupName?)`, `remove(ticker, groupName?)`, `isInWatchlist(ticker, groupName?)`, `getGroupsForTicker(ticker)`.
+- `user: User | null` — raw Supabase auth user
+- `authLoading: boolean` — true while session + profile are loading
+- `profile: UserProfile | null` — `{ id, email, display_name, status, is_admin, requested_at, approved_at }`
+- `userStatus: 'pending' | 'approved' | null` — null when Supabase is unconfigured
+- `isAdmin: boolean` — true when `profile.is_admin`
+- `pendingUsers: UserProfile[]` — populated for admins; all users awaiting approval
+- `signInWithGoogle()` — triggers Supabase Google OAuth popup
+- `signOut()` — clears session and profile state
+- `approveUser(userId)` — admin only; sets status='approved' and approved_at in Supabase
 
-**Supabase `watchlists` table DDL:**
+**`AdminPanel`** (`components/AdminPanel.tsx`) — rendered in `App.tsx` only when `isAdmin && pendingUsers.length > 0`. Lists pending users with name, email, request date, and an Approve button. Optimistically removes approved users from the list.
 
-```sql
-create table public.watchlists (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null references auth.users(id) on delete cascade,
-  name       text not null,
-  tickers    text[] not null default '{}',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-alter table public.watchlists enable row level security;
-create policy "Users manage their own watchlists"
-  on public.watchlists for all
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);
-```
+**`AuthButton`** (`components/AuthButton.tsx`) — accepts `userStatus` prop. Renders nothing when Supabase is unconfigured or loading. Shows "Sign in" button → full user row (avatar, name, "Pending" amber badge when status=pending, "Sign out") when logged in.
 
-**`supabase.ts`** — exports `supabase: SupabaseClient<Database> | null`. The `Database` type must include `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` fields (required by `SupabaseClient<T>` generics — without them, table Insert/Update types resolve to `never`).
+**Auth gate in `App.tsx`:** `const isApproved = !supabaseEnabled || userStatus === 'approved' || isAdmin`. When `supabaseEnabled && !authLoading && !isApproved`, renders a centered card with sign-in CTA (unauthenticated) or pending-approval message (authenticated but pending). All stock search and market data is inside the `isApproved` branch.
+
+**`useWatchlist(user)`** (`hooks/useWatchlist.ts`): Accepts `user: User | null`. When non-null and Supabase is configured, reads/writes go to the `watchlists` Postgres table (watchlists are always tied to the authenticated user). When `user` is null, falls back to `localStorage` (key: `signal-dashboard-watchlists-v2`). First login automatically migrates existing localStorage groups into Supabase. Uses `useRef`-based `userRef` / `stateRef` pattern to eliminate stale closures. Exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`, `isInWatchlist`, `getGroupsForTicker`.
+
+**Supabase schema (full DDL in README):** Two tables — `watchlists` (RLS: user owns their rows) and `user_profiles` (status, is_admin; RLS via `public.is_admin()` security-definer function). A trigger `on_auth_user_created` auto-inserts a `pending` profile on first sign-in. Admin grants themselves `is_admin=true` via SQL; all subsequent approvals happen in the app UI.
+
+**`supabase.ts`** — exports `supabase: SupabaseClient<Database> | null`. `Database` type covers both `watchlists` and `user_profiles` tables. The type must include `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` (required by `SupabaseClient<T>` generics).
 
 ---
 
@@ -250,8 +251,8 @@ cd frontend && npm run build
 
 **Display-only sectors** (in `DISPLAY_ONLY_SECTORS` Set — excluded from breadth scoring and leader/lagger ranking): `SPY`, `PDBC`
 
-**Sub-sectors** (`SUBSECTORS` array):
-`SMH` Semiconductors (Nasdaq 100) · `IGV` Software (Nasdaq 100) · `AIPO` AI Power Stocks (Nasdaq 100) · `AIS` AI Supercycle Stocks (Nasdaq 100) · `DRAM` AI Memory (Nasdaq 100) · `EUV` AI Photonics (Nasdaq 100) · `XBI` Biotech (Health Care) · `IHI` Medical Devices (Health Care) · `URA` Uranium (Energy) · `XOP` Oil & Gas E&P (Energy) · `KRE` Regional Banks (Financials) · `ICLN` Clean Energy (Energy) · `TAN` Solar (Energy) · `GC=F` Gold (Commodities) · `SI=F` Silver (Commodities) · `COPX` Copper (Commodities) · `CL=F` Crude Oil WTI (Commodities) · `NASA` Space (Aerospace & Defense)
+**Sub-sectors** (`SUBSECTORS` array, as of v0.6.1):
+`SMH` Semiconductors (Nasdaq 100) · `IGV` Software (Nasdaq 100) · `AIPO` AI Power Stocks (Nasdaq 100) · `AIS` AI Supercycle Stocks (Nasdaq 100) · `DRAM` AI Memory (Nasdaq 100) · `EUV` AI Photonics (Nasdaq 100) · `XBI` Biotech (Health Care) · `IHI` Medical Devices (Health Care) · `URA` Uranium (Energy) · `XOP` Oil & Gas E&P (Energy) · `KRE` Regional Banks (Financials) · `ICLN` Clean Energy (Energy) · `TAN` Solar (Energy) · `FCG` Natural Gas (Energy) · `GC=F` Gold (Commodities) · `SI=F` Silver (Commodities) · `COPX` Copper (Commodities) · `CL=F` Crude Oil WTI (Commodities) · `NASA` Space (Aerospace & Defense)
 
 **Stock sector → ETF mapping** (`SECTOR_TO_ETF` in `stockScoring.ts`): Technology → QQQ (was XLK)
 

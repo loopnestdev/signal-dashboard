@@ -6,6 +6,36 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type Database = {
   public: {
     Tables: {
+      user_profiles: {
+        Row: {
+          id: string;
+          email: string;
+          display_name: string | null;
+          status: 'pending' | 'approved';
+          is_admin: boolean;
+          requested_at: string;
+          approved_at: string | null;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          display_name?: string | null;
+          status?: 'pending' | 'approved';
+          is_admin?: boolean;
+          requested_at?: string;
+          approved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          display_name?: string | null;
+          status?: 'pending' | 'approved';
+          is_admin?: boolean;
+          requested_at?: string;
+          approved_at?: string | null;
+        };
+        Relationships: [];
+      };
       watchlists: {
         Row: {
           id: string;

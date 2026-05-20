@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.6.1] — 2026-05-20
+
+### Added — Invite-Only Access Control + Admin Approval
+
+#### Auth gate
+
+When Supabase is configured the app is now invite-only. Anonymous users see a centered sign-in card explaining the invite-only policy. Signing in with Google triggers the Supabase trigger which auto-creates a `user_profiles` row with `status='pending'`. The user then sees an "Access Pending" screen until an admin approves their account. All stock search, watchlist, and market data are hidden until approved.
+
+#### Admin approval panel
+
+Admin users (`is_admin=true` in `user_profiles`) see a PENDING ACCESS REQUESTS banner at the top of the dashboard listing every pending user with their name, email, and request date. A single "Approve" click sets `status='approved'` and `approved_at` in Supabase and removes the user from the pending list. The admin sets their own `is_admin` flag once via the Supabase SQL Editor; all subsequent approvals happen in the app.
+
+#### New Supabase schema (`user_profiles`)
+
+```sql
+create table public.user_profiles (
+  id           uuid primary key references auth.users(id) on delete cascade,
+  email        text not null,
+  display_name text,
+  status       text not null default 'pending' check (status in ('pending', 'approved')),
+  is_admin     boolean not null default false,
+  requested_at timestamptz not null default now(),
+  approved_at  timestamptz
+);
+```
+
+RLS uses a `security definer` helper `public.is_admin()` to avoid recursive policy checks. A `on_auth_user_created` trigger auto-inserts a pending profile on every new Google sign-in.
+
+### Added — FCG Natural Gas sub-sector
+
+- `FCG` (First Trust Natural Gas ETF) added as Natural Gas sub-sector under Energy, alongside URA, XOP, ICLN, and TAN.
+
+### Changed — Components & Auth
+
+- **`useAuth`** — now fetches `user_profiles` after sign-in; exports `profile`, `userStatus`, `isAdmin`, `pendingUsers`, `approveUser` in addition to existing fields.
+- **`AuthButton`** — accepts `userStatus` prop; shows an amber "Pending" badge next to the user's name when `status='pending'`.
+- **`App.tsx`** — removed Mode/Swing/Day toggle (was connected to `HeroPanel` which has not been rendered since v0.3.0; the toggle had no visible effect). Added favicon.svg next to the "Signal Dashboard" title in the header. Auth gate and admin panel wired in.
+- **`supabase.ts`** — `Database` type extended with `user_profiles` table.
+- **`ModeToggle.tsx`** — deleted (dead code; `TradingMode` type kept in `market.ts` for `HeroPanel` reference).
+- **`AdminPanel.tsx`** — new component.
+
+### Docs & Configuration
+
+- **README** — Supabase section rewritten: now covers `user_profiles` schema, full DDL, RLS policies, trigger, and step-by-step admin bootstrap instructions.
+- **CLAUDE.md** — Auth & Watchlist section updated with full `useAuth` API, access-model rules, and new sub-sector list.
+- **PROMPT.md** — updated to reflect invite-only auth model and new sub-sectors.
+
+---
+
 ## [0.5.8] — 2026-05-20
 
 ### Fixed — "Failed to fetch" Connection Error + CORS + Hardcoded Port
