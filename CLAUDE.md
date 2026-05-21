@@ -224,7 +224,7 @@ Helper functions:
 
 **Auth gate in `App.tsx`:** `const isApproved = !supabaseEnabled || userStatus === 'approved' || isAdmin`. When `supabaseEnabled && !authLoading && !isApproved`, renders a centered card with sign-in CTA (unauthenticated) or pending-approval message (authenticated but pending). All stock search and market data is inside the `isApproved` branch.
 
-**`useWatchlist(user)`** (`hooks/useWatchlist.ts`): Accepts `user: User | null`. When non-null and Supabase is configured, reads/writes go to the `watchlists` Postgres table (watchlists are always tied to the authenticated user). When `user` is null, falls back to `localStorage` (key: `signal-dashboard-watchlists-v2`). First login automatically migrates existing localStorage groups into Supabase. Uses `useRef`-based `userRef` / `stateRef` pattern to eliminate stale closures. Exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`, `isInWatchlist`, `getGroupsForTicker`.
+**`useWatchlist(user)`** (`hooks/useWatchlist.ts`): Accepts `user: User | null`. When non-null and Supabase is configured, reads/writes go to the `watchlists` Postgres table (watchlists are always tied to the authenticated user). When `user` is null, falls back to `localStorage` (key: `signal-dashboard-watchlists-v2`). First login automatically migrates existing localStorage groups into Supabase. Uses `useRef`-based `userRef` / `stateRef` pattern to eliminate stale closures. **Dual persistence:** `persistLocal()` is called unconditionally on every mutation (Supabase and localStorage modes alike) — localStorage is always an up-to-date write-through backup. On sign-in, the recovery logic re-inserts any localStorage groups not found in Supabase (guards against INSERT failures between sessions). Exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`, `isInWatchlist`, `getGroupsForTicker`.
 
 **Supabase schema (full DDL in README):** Two tables — `watchlists` (RLS: user owns their rows) and `user_profiles` (status, is_admin; RLS via `public.is_admin()` security-definer function). A trigger `on_auth_user_created` auto-inserts a `pending` profile on first sign-in. Admin grants themselves `is_admin=true` via SQL; all subsequent approvals happen in the app UI.
 
@@ -252,7 +252,7 @@ Run the test suite to catch regressions before committing:
 
 ```bash
 cd backend && npm test          # 134 tests — one-shot
-cd frontend && npm test         # 55 tests  — one-shot
+cd frontend && npm test         # 64 tests  — one-shot
 
 cd backend && npm run test:watch   # watch mode
 cd frontend && npm run test:watch  # watch mode
@@ -272,7 +272,8 @@ cd frontend && npm run test:watch  # watch mode
 | `backend/src/__tests__/lib/signaInsight.test.ts` | `synthesizeOptionsInsight` — null data, single source, agreement, mixed signals, key points, summary |
 | `backend/src/__tests__/services/scoring.test.ts` | `scoreVolatility`, `scoreTrend`, `computeMarketQualityScore`, `getDecision` — each weight verified |
 | `frontend/src/__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` — direction detection, entryRef fallback, LONG/SHORT level validation, **ASTS regression** |
-| `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path — add/remove, groups CRUD, persistence, legacy migration |
+| `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path — add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
+| `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` | `useWatchlist` Supabase-mode path — all mutations write to localStorage (dual persistence), in-memory state correct immediately |
 
 ### Price level validation utility
 
@@ -283,7 +284,7 @@ validatePriceLevels(direction, entry, stop, target, rr, currentPrice)
 // → { isLong, entryRef, stopValid, targetValid, rrValid }
 ```
 
-For LONG: stop must be below entryRef, target above. For SHORT: reversed. Invalid levels show `—` in the UI instead of confusing inverted numbers.
+For LONG: stop must be below entryRef, target above. For SHORT: reversed. Valid levels get directional colour (`C.bear` for stop, `C.bull` for target); invalid-but-present levels show `C.inkSec` (neutral); zero/missing values show `—`. Validation controls **colour only**, not visibility.
 
 ---
 

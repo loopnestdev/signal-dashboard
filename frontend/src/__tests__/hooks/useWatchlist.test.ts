@@ -269,4 +269,17 @@ describe('useWatchlist (localStorage-only mode)', () => {
     act(() => { result.current.setActiveGroup('Bonds'); });
     expect(result.current.activeTickers).toContain('TLT');
   });
+
+  // ── Persistence regression ────────────────────────────────────────────────
+
+  it('regression: SPACE group + ticker survive hook remount (page refresh simulation)', () => {
+    const { result, unmount } = renderHook(() => useWatchlist(null));
+    act(() => { result.current.createGroup('SPACE'); });
+    act(() => { result.current.add('ASTS', 'SPACE'); });
+    unmount();
+    // Simulate page refresh — fresh hook instance reads from localStorage
+    const { result: fresh } = renderHook(() => useWatchlist(null));
+    expect(fresh.current.groups.find(g => g.name === 'SPACE')).toBeTruthy();
+    expect(fresh.current.groups.find(g => g.name === 'SPACE')?.tickers).toContain('ASTS');
+  });
 });

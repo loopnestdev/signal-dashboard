@@ -103,6 +103,105 @@ Changed files: `backend/package.json`, `backend/vitest.config.ts`, `backend/src/
 
 ---
 
+## [0.6.8] — 2026-05-21
+
+### Fixed — UI polish + watchlist dual persistence
+
+#### Fixed — Weekly confidence pill style
+
+The weekly timeframe row displayed confidence as plain secondary-coloured text (`Confidence: 38%`), inconsistent with the daily confidence pill (indigo/primary colour scheme with background + border). Both now use the same indigo pill style (`C.primary` / `C.primaryBg` / `C.primaryBorder`).
+
+Changed files: `frontend/src/components/SignaCard.tsx`
+
+#### Fixed — BULL THESIS section spacing
+
+The BULL THESIS section header was flush against the preceding SIGNAL CHECKLIST section. Added `marginTop: 20` to the thesis wrapper `<div>` for consistent vertical rhythm with all other sections.
+
+Changed files: `frontend/src/components/SignaCard.tsx`
+
+#### Fixed — Stop Loss / Target / R:R always visible when values are present
+
+Previously, `validatePriceLevels()` controlled both **visibility** and **colour** of the price level cells. For ASTS (engine=BULLISH, but the live-pass `data` field computed a SHORT setup with inverted levels: stop $101.53 > entry $89.58, target $65.68 < entry), all three cells showed `—`.
+
+**New behaviour:** cells show the value whenever it is `> 0`; `validatePriceLevels()` is now used only for **colour coding**:
+- Valid directional levels: normal colour (`C.bear` for stop, `C.bull` for target, bull/warn/bear for R:R)
+- Present but directionally inverted levels: neutral `C.inkSec` (values visible, no colour signal)
+- Missing / zero values: `—` (unchanged)
+
+Changed files: `frontend/src/components/SignaCard.tsx`
+
+#### Fixed — Watchlist persistence root cause (dual persistence in Supabase mode)
+
+**Root cause:** All six `useWatchlist` mutations (`setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`) called `persistLocal()` only when `!user` (localStorage-only mode). In Supabase mode, `persistLocal()` was never called. If a Supabase INSERT failed, or the page was refreshed before the INSERT completed, the data was permanently lost.
+
+**Fix:** `persistLocal()` is now called unconditionally on every mutation, regardless of auth state. localStorage acts as an always-current write-through cache; Supabase remains the authoritative read source on sign-in.
+
+**Recovery logic:** The sign-in effect now compares Supabase groups against localStorage. Any group present locally but absent from Supabase (missed INSERT) is re-inserted automatically, so data lost between sessions is recovered on next sign-in.
+
+Changed files: `frontend/src/hooks/useWatchlist.ts`
+
+#### Added — Supabase-mode watchlist tests + page-refresh regression
+
+- **`frontend/src/__tests__/hooks/useWatchlist.test.ts`**: new page-refresh regression test — creates SPACE group + ASTS ticker, unmounts hook, remounts fresh hook, asserts both survive (localStorage persistence).
+- **`frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts`** (new file): 9 tests covering Supabase-mode behaviour with a mock Supabase client whose INSERT calls never resolve (simulates pending/failed INSERT). Verifies that all six mutations write to localStorage, and that in-memory state is correct immediately after each mutation.
+
+Changed files: `frontend/src/__tests__/hooks/useWatchlist.test.ts`, `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` (new)
+
+---
+
+## [0.6.6] — 2026-05-21
+
+### Added — Congress signal UI always visible; watchlist ticker race condition fix
+
+#### Added — CongressSection component
+
+`CongressSection` is always rendered in `SignaCard`, showing one of three states:
+- **Trades present**: up to 5 `CongressTradeRow` rows, purchase/sale counts in header
+- **No trades**: italic empty-state message ("No recent congressional trades reported for this ticker.")
+- **No data** (`congress === undefined`): italic unavailable message ("No congressional trading data — available on higher-tier Signa plans.")
+
+`CongressTradeRow` displays senator name, party badge (D blue / R red), chamber label, Buy (▲) / Sell (▼) pill, amount range, and formatted trade date.
+
+#### Added — `getSignaCongress()` API client
+
+`getSignaCongress(symbol)` calls `/api/v1/congress?sym={sym}`. Returns `null` gracefully on 429/403 (rate-limited or plan tier). Populates `CongressTrade[]` with `senator`, `party`, `chamber`, `transactionType`, `amount`, `transactionDate`.
+
+#### Fixed — Watchlist ticker race condition (Supabase mode)
+
+`createGroup` optimistically adds the group immediately (before the Supabase INSERT returns an `id`). Any tickers added while the `id` was still `undefined` were silently dropped because `sbUpdate` requires an `id`. Fix: when the INSERT resolves and patches the real `id` onto the group, any pending tickers accumulated during the gap are sync'd to Supabase in the same `sbUpdate` call.
+
+Changed files: `frontend/src/components/SignaCard.tsx`, `frontend/src/types/stock.ts`, `backend/src/lib/signaClient.ts`, `backend/src/routes/stock.ts`, `frontend/src/hooks/useWatchlist.ts`
+
+---
+
+## [0.6.5] — 2026-05-21
+
+### Added / Fixed — Thesis fetch, inverted stop/target, confidence label
+
+#### Added — `getSignaThesis()` API client
+
+`getSignaThesis(symbol)` calls `/api/v1/signal?sym={sym}&include=thesis` and extracts the long-form Bull Thesis narrative. The BULL THESIS section in `SignaCard` is always rendered: shows the thesis text when available, otherwise an italic placeholder ("No thesis available — Signa generates this for select tickers on higher-tier plans.").
+
+#### Fixed — Confidence label format
+
+Weekly confidence was formatted as `"38% conf."` (legacy style). Updated to `"Confidence: 38%"` to match the daily confidence display.
+
+#### Fixed — Inverted stop/target levels hidden by directional validation
+
+`validatePriceLevels()` checks directional validity before displaying price levels:
+- **LONG** setup: stop must be below entry, target above entry
+- **SHORT** setup: stop must be above entry, target below entry
+
+Invalid (inverted) levels show `—` rather than confusing reversed numbers. The ASTS case (engine=BULLISH, data computes SHORT levels) surfaced this — addressed further in v0.6.8 to always show non-zero values with colour-only validation.
+
+#### Added — `priceLevels.ts` utility (extracted in v0.6.7)
+
+The directional validation logic was extracted to `frontend/src/lib/priceLevels.ts` as a pure `validatePriceLevels()` function to enable unit testing (27 tests added in v0.6.7).
+
+Changed files: `frontend/src/components/SignaCard.tsx`, `backend/src/lib/signaClient.ts`, `backend/src/routes/stock.ts`, `frontend/src/types/stock.ts`
+
+---
+
 ## [0.6.4] — 2026-05-21
 
 ### Fixed — Signa Signal Source: engine (nightly) replaces data (live single-pass)

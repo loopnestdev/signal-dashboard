@@ -113,7 +113,28 @@ export function useWatchlist(user: User | null): UseWatchlist {
             .select('id, name, tickers');
           if (migrated) setState(prev => ({ ...prev, groups: migrated as WatchlistRow[] }));
         } else {
-          setState(prev => ({ ...prev, groups: data as WatchlistRow[] }));
+          // Recovery: re-INSERT any localStorage groups that are missing from Supabase
+          // (guards against INSERT failures on previous sessions losing data permanently)
+          const supabaseGroups = data as WatchlistRow[];
+          const supabaseNames = new Set(supabaseGroups.map(g => g.name));
+          const localGroups = loadLocal().groups;
+          const missingFromSupabase = localGroups.filter(g => !supabaseNames.has(g.name));
+
+          if (missingFromSupabase.length > 0) {
+            supabase!
+              .from('watchlists')
+              .insert(missingFromSupabase.map(g => ({ user_id: user.id, name: g.name, tickers: g.tickers })))
+              .select('id, name, tickers')
+              .then(({ data: recovered }) => {
+                const recoveredRows = (recovered as WatchlistRow[] | null) ?? [];
+                setState(prev => ({
+                  ...prev,
+                  groups: [...supabaseGroups, ...recoveredRows],
+                }));
+              });
+          } else {
+            setState(prev => ({ ...prev, groups: supabaseGroups }));
+          }
         }
       });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -123,7 +144,7 @@ export function useWatchlist(user: User | null): UseWatchlist {
   const setActiveGroup = useCallback((name: string) => {
     setState(prev => {
       const next = { ...prev, activeGroup: name };
-      if (!userRef.current) persistLocal(next);
+      persistLocal(next);
       return next;
     });
   }, []);
@@ -139,10 +160,14 @@ export function useWatchlist(user: User | null): UseWatchlist {
         return;
       }
       // Optimistic: add the group immediately (id arrives asynchronously)
-      setState(prev => ({
-        groups: [...prev.groups, { name: trimmed, tickers: [] }],
-        activeGroup: trimmed,
-      }));
+      setState(prev => {
+        const next: StoredWatchlists = {
+          groups: [...prev.groups, { name: trimmed, tickers: [] }],
+          activeGroup: trimmed,
+        };
+        persistLocal(next);
+        return next;
+      });
       supabase
         .from('watchlists')
         .insert({ user_id: currentUser.id, name: trimmed, tickers: [] })
@@ -195,7 +220,7 @@ export function useWatchlist(user: User | null): UseWatchlist {
         groups: prev.groups.map(g => g.name === oldName ? { ...g, name: trimmed } : g),
         activeGroup: prev.activeGroup === oldName ? trimmed : prev.activeGroup,
       };
-      if (!currentUser) persistLocal(next);
+      persistLocal(next);
       return next;
     });
 
@@ -213,7 +238,7 @@ export function useWatchlist(user: User | null): UseWatchlist {
         groups: remaining,
         activeGroup: prev.activeGroup === name ? remaining[0].name : prev.activeGroup,
       };
-      if (!currentUser) persistLocal(next);
+      persistLocal(next);
       return next;
     });
 
@@ -232,7 +257,7 @@ export function useWatchlist(user: User | null): UseWatchlist {
         ...prev,
         groups: prev.groups.map(g => g.name === target ? { ...g, tickers: newTickers } : g),
       };
-      if (!userRef.current) persistLocal(next);
+      persistLocal(next);
       return next;
     });
 
@@ -251,7 +276,7 @@ export function useWatchlist(user: User | null): UseWatchlist {
         ...prev,
         groups: prev.groups.map(g => g.name === target ? { ...g, tickers: newTickers } : g),
       };
-      if (!userRef.current) persistLocal(next);
+      persistLocal(next);
       return next;
     });
 

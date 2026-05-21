@@ -268,7 +268,10 @@ export function SignaCard({ signa, currentPrice }: Props) {
             <Pill label={`Grade ${signa.weeklyGrade}`} {...weeklyGStyle} />
           )}
           {signa.weeklyConfidence !== undefined && (
-            <span style={{ fontSize: '12px', color: C.inkSec }}>
+            <span style={{
+              fontSize: '13px', color: C.primary, background: C.primaryBg,
+              border: `1px solid ${C.primaryBorder}`, borderRadius: 9999, padding: '4px 12px',
+            }}>
               Confidence: {signa.weeklyConfidence}%
             </span>
           )}
@@ -282,12 +285,12 @@ export function SignaCard({ signa, currentPrice }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
         <PriceCell label="CURRENT"    value={`$${currentPrice.toFixed(2)}`} />
         <PriceCell label="BEST ENTRY" value={signa.entry > 0 ? `$${signa.entry.toFixed(2)}` : '—'} color={C.primary} />
-        <PriceCell label="STOP LOSS"  value={stopValid   ? `$${signa.stop.toFixed(2)}`   : '—'} color={stopValid   ? C.bear : undefined} />
-        <PriceCell label="TARGET"     value={targetValid ? `$${signa.target.toFixed(2)}` : '—'} color={targetValid ? C.bull : undefined} />
+        <PriceCell label="STOP LOSS"  value={signa.stop > 0   ? `$${signa.stop.toFixed(2)}`   : '—'} color={signa.stop > 0   ? (stopValid   ? C.bear : C.inkSec) : undefined} />
+        <PriceCell label="TARGET"     value={signa.target > 0 ? `$${signa.target.toFixed(2)}` : '—'} color={signa.target > 0 ? (targetValid ? C.bull : C.inkSec) : undefined} />
         <PriceCell
           label="R : R"
-          value={rrValid ? `${signa.rr.toFixed(1)}×` : '—'}
-          color={rrValid ? (signa.rr >= 2 ? C.bull : signa.rr >= 1 ? C.warn : C.bear) : undefined}
+          value={signa.rr > 0 ? `${signa.rr.toFixed(1)}×` : '—'}
+          color={signa.rr > 0 ? (rrValid ? (signa.rr >= 2 ? C.bull : signa.rr >= 1 ? C.warn : C.bear) : C.inkSec) : undefined}
         />
       </div>
 
@@ -371,7 +374,7 @@ export function SignaCard({ signa, currentPrice }: Props) {
       )}
 
       {/* ── Thesis — always rendered ── */}
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginTop: 20, marginBottom: 16 }}>
         <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, marginBottom: 8 }}>
           BULL THESIS
         </div>
