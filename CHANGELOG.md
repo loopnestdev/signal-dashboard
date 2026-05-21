@@ -6,6 +6,80 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.6.9] — 2026-05-21
+
+### Fixed — Confidence score is now stock-specific (was market-level)
+
+#### Root cause
+
+The Signa API's `engine.confidence` field is a **market-level metric** produced by the nightly 30+ model pipeline. It reflects the pipeline's confidence in the overall market regime, not the individual stock's signal strength. As a result, all stocks in a given session returned the same confidence value (e.g., 38%), matching SPY rather than the specific stock.
+
+A separate, stock-specific confidence value is available in the **`/api/v1/analysis?sym={sym}`** endpoint under `actionCard.confidence`. This confidence is computed per-stock and reflects how strongly the AI model endorses the action card recommendation for that symbol.
+
+#### Fix
+
+`stock.ts` now prefers `signaAnalysis.actionCard.confidence` (stock-specific, from the analysis endpoint) over `signaData.confidence` (engine-level, market-wide). Falls back to engine confidence when the analysis endpoint returns no `actionCard` (e.g., plan tier restriction).
+
+This preference applies to both:
+- The `confidence` field in `enrichedSigna` (displayed in `SignaCard` as the "Confidence: X%" pill)
+- The `signaConfidence` argument passed to `getStockDecision()` (used as the ≥65% threshold for high-confidence long/short signals)
+
+Changed files: `backend/src/routes/stock.ts`
+
+#### Fixed — CHANGELOG version ordering
+
+v0.6.8 entry was mistakenly inserted after v0.6.7 instead of before it. Correct descending order (newest first) restored.
+
+Changed files: `CHANGELOG.md`
+
+---
+
+## [0.6.8] — 2026-05-21
+
+### Fixed — UI polish + watchlist dual persistence
+
+#### Fixed — Weekly confidence pill style
+
+The weekly timeframe row displayed confidence as plain secondary-coloured text (`Confidence: 38%`), inconsistent with the daily confidence pill (indigo/primary colour scheme with background + border). Both now use the same indigo pill style (`C.primary` / `C.primaryBg` / `C.primaryBorder`).
+
+Changed files: `frontend/src/components/SignaCard.tsx`
+
+#### Fixed — BULL THESIS section spacing
+
+The BULL THESIS section header was flush against the preceding SIGNAL CHECKLIST section. Added `marginTop: 20` to the thesis wrapper `<div>` for consistent vertical rhythm with all other sections.
+
+Changed files: `frontend/src/components/SignaCard.tsx`
+
+#### Fixed — Stop Loss / Target / R:R always visible when values are present
+
+Previously, `validatePriceLevels()` controlled both **visibility** and **colour** of the price level cells. For ASTS (engine=BULLISH, but the live-pass `data` field computed a SHORT setup with inverted levels: stop $101.53 > entry $89.58, target $65.68 < entry), all three cells showed `—`.
+
+**New behaviour:** cells show the value whenever it is `> 0`; `validatePriceLevels()` is now used only for **colour coding**:
+- Valid directional levels: normal colour (`C.bear` for stop, `C.bull` for target, bull/warn/bear for R:R)
+- Present but directionally inverted levels: neutral `C.inkSec` (values visible, no colour signal)
+- Missing / zero values: `—` (unchanged)
+
+Changed files: `frontend/src/components/SignaCard.tsx`
+
+#### Fixed — Watchlist persistence root cause (dual persistence in Supabase mode)
+
+**Root cause:** All six `useWatchlist` mutations (`setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`) called `persistLocal()` only when `!user` (localStorage-only mode). In Supabase mode, `persistLocal()` was never called. If a Supabase INSERT failed, or the page was refreshed before the INSERT completed, the data was permanently lost.
+
+**Fix:** `persistLocal()` is now called unconditionally on every mutation, regardless of auth state. localStorage acts as an always-current write-through cache; Supabase remains the authoritative read source on sign-in.
+
+**Recovery logic:** The sign-in effect now compares Supabase groups against localStorage. Any group present locally but absent from Supabase (missed INSERT) is re-inserted automatically, so data lost between sessions is recovered on next sign-in.
+
+Changed files: `frontend/src/hooks/useWatchlist.ts`
+
+#### Added — Supabase-mode watchlist tests + page-refresh regression
+
+- **`frontend/src/__tests__/hooks/useWatchlist.test.ts`**: new page-refresh regression test — creates SPACE group + ASTS ticker, unmounts hook, remounts fresh hook, asserts both survive (localStorage persistence).
+- **`frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts`** (new file): 9 tests covering Supabase-mode behaviour with a mock Supabase client whose INSERT calls never resolve (simulates pending/failed INSERT). Verifies that all six mutations write to localStorage, and that in-memory state is correct immediately after each mutation.
+
+Changed files: `frontend/src/__tests__/hooks/useWatchlist.test.ts`, `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` (new)
+
+---
+
 ## [0.6.7] — 2026-05-21
 
 ### Added — Vitest Test Suite (189 tests)
@@ -100,52 +174,6 @@ export function validatePriceLevels(
 ```
 
 Changed files: `backend/package.json`, `backend/vitest.config.ts`, `backend/src/__tests__/**`, `frontend/package.json`, `frontend/vite.config.ts`, `frontend/src/__tests__/**`, `frontend/src/lib/priceLevels.ts`, `frontend/src/components/SignaCard.tsx`
-
----
-
-## [0.6.8] — 2026-05-21
-
-### Fixed — UI polish + watchlist dual persistence
-
-#### Fixed — Weekly confidence pill style
-
-The weekly timeframe row displayed confidence as plain secondary-coloured text (`Confidence: 38%`), inconsistent with the daily confidence pill (indigo/primary colour scheme with background + border). Both now use the same indigo pill style (`C.primary` / `C.primaryBg` / `C.primaryBorder`).
-
-Changed files: `frontend/src/components/SignaCard.tsx`
-
-#### Fixed — BULL THESIS section spacing
-
-The BULL THESIS section header was flush against the preceding SIGNAL CHECKLIST section. Added `marginTop: 20` to the thesis wrapper `<div>` for consistent vertical rhythm with all other sections.
-
-Changed files: `frontend/src/components/SignaCard.tsx`
-
-#### Fixed — Stop Loss / Target / R:R always visible when values are present
-
-Previously, `validatePriceLevels()` controlled both **visibility** and **colour** of the price level cells. For ASTS (engine=BULLISH, but the live-pass `data` field computed a SHORT setup with inverted levels: stop $101.53 > entry $89.58, target $65.68 < entry), all three cells showed `—`.
-
-**New behaviour:** cells show the value whenever it is `> 0`; `validatePriceLevels()` is now used only for **colour coding**:
-- Valid directional levels: normal colour (`C.bear` for stop, `C.bull` for target, bull/warn/bear for R:R)
-- Present but directionally inverted levels: neutral `C.inkSec` (values visible, no colour signal)
-- Missing / zero values: `—` (unchanged)
-
-Changed files: `frontend/src/components/SignaCard.tsx`
-
-#### Fixed — Watchlist persistence root cause (dual persistence in Supabase mode)
-
-**Root cause:** All six `useWatchlist` mutations (`setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`) called `persistLocal()` only when `!user` (localStorage-only mode). In Supabase mode, `persistLocal()` was never called. If a Supabase INSERT failed, or the page was refreshed before the INSERT completed, the data was permanently lost.
-
-**Fix:** `persistLocal()` is now called unconditionally on every mutation, regardless of auth state. localStorage acts as an always-current write-through cache; Supabase remains the authoritative read source on sign-in.
-
-**Recovery logic:** The sign-in effect now compares Supabase groups against localStorage. Any group present locally but absent from Supabase (missed INSERT) is re-inserted automatically, so data lost between sessions is recovered on next sign-in.
-
-Changed files: `frontend/src/hooks/useWatchlist.ts`
-
-#### Added — Supabase-mode watchlist tests + page-refresh regression
-
-- **`frontend/src/__tests__/hooks/useWatchlist.test.ts`**: new page-refresh regression test — creates SPACE group + ASTS ticker, unmounts hook, remounts fresh hook, asserts both survive (localStorage persistence).
-- **`frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts`** (new file): 9 tests covering Supabase-mode behaviour with a mock Supabase client whose INSERT calls never resolve (simulates pending/failed INSERT). Verifies that all six mutations write to localStorage, and that in-memory state is correct immediately after each mutation.
-
-Changed files: `frontend/src/__tests__/hooks/useWatchlist.test.ts`, `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` (new)
 
 ---
 

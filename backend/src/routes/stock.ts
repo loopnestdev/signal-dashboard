@@ -81,9 +81,16 @@ router.get('/stock/:ticker', async (req, res) => {
       ? Math.round(baseComposite * 0.80 + signaData.overallScore * 0.20)
       : Math.round(baseComposite);
 
-    // Merge weekly signal, analysis, and news into signaData
+    // Prefer the analysis endpoint's actionCard.confidence (stock-specific) over
+    // engine.confidence (nightly market-level pipeline — same value for all stocks in a session).
+    // Falls back to engine confidence when analysis data is unavailable.
+    const stockConfidence = signaAnalysis?.actionCard?.confidence ?? signaData?.confidence;
+
+    // Merge weekly signal, analysis, and news into signaData.
+    // Override confidence with the stock-specific value.
     const enrichedSigna: SignaData | null = signaData ? {
       ...signaData,
+      confidence: stockConfidence ?? signaData.confidence,
       weeklyDirection: signaWeekly?.direction,
       weeklyGrade: signaWeekly?.grade,
       weeklyConfidence: signaWeekly?.confidence,
@@ -100,7 +107,7 @@ router.get('/stock/:ticker', async (req, res) => {
       || signaData?.action === 'SELL';
     const decision = getStockDecision(
       compositeScore, marketScore, regime, isBearish || signaShort,
-      signaData?.direction, signaData?.confidence, signaData?.grade,
+      signaData?.direction, stockConfidence, signaData?.grade,
     );
 
     const analysis = buildStockAnalysis(
