@@ -140,8 +140,9 @@ export function getStockDecision(
   signaConfidence?: number,
   signaGrade?: string,
 ): StockDecision {
-  const signaLong = signaDirection === 'LONG';
-  const signaShortSig = signaDirection === 'SHORT';
+  // Engine uses BULLISH/BEARISH; data field uses LONG/SHORT — accept both
+  const signaLong = signaDirection === 'LONG' || signaDirection === 'BULLISH';
+  const signaShortSig = signaDirection === 'SHORT' || signaDirection === 'BEARISH';
   const signaHighConf = (signaConfidence ?? 0) >= 65;
   const signaStrongGrade = signaGrade ? ['A+', 'A', 'B+', 'B'].includes(signaGrade) : false;
 

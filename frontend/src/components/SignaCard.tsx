@@ -1,5 +1,5 @@
 import { C } from '../lib/colors';
-import type { SignaData } from '../types/stock';
+import type { SignaData, SignaNewsArticle } from '../types/stock';
 
 interface Props {
   signa: SignaData;
@@ -24,6 +24,13 @@ function riskStyle(r: string): { color: string } {
   if (rv === 'LOW')      return { color: C.bull };
   if (rv === 'MODERATE') return { color: C.warn };
   return { color: C.bear };
+}
+
+function newsSentimentStyle(s?: string): { color: string; label: string } {
+  const v = (s ?? '').toUpperCase();
+  if (v === 'BULLISH' || v === 'POSITIVE') return { color: C.bull, label: '▲' };
+  if (v === 'BEARISH' || v === 'NEGATIVE') return { color: C.bear, label: '▼' };
+  return { color: C.inkMute, label: '—' };
 }
 
 function Pill({ label, color, bg, border }: { label: string; color: string; bg: string; border: string }) {
@@ -58,6 +65,43 @@ function PriceCell({ label, value, color }: { label: string; value: string; colo
   );
 }
 
+function NewsItem({ article }: { article: SignaNewsArticle }) {
+  const sStyle = newsSentimentStyle(article.sentiment);
+  const date = article.publishedAt
+    ? new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '';
+
+  return (
+    <a
+      href={article.url || undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'block',
+        padding: '9px 12px',
+        background: C.canvasSoft,
+        border: `1px solid ${C.border}`,
+        borderRadius: 7,
+        textDecoration: 'none',
+        cursor: article.url ? 'pointer' : 'default',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        <span style={{ fontSize: '13px', color: C.ink, flex: 1, lineHeight: 1.4 }}>{article.title}</span>
+        <span style={{ fontSize: '12px', color: sStyle.color, fontWeight: 500, flexShrink: 0 }}>{sStyle.label}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        {article.source && (
+          <span style={{ fontSize: '10px', color: C.inkMute }}>{article.source}</span>
+        )}
+        {date && (
+          <span style={{ fontSize: '10px', color: C.inkMute }}>{date}</span>
+        )}
+      </div>
+    </a>
+  );
+}
+
 export function SignaCard({ signa, currentPrice }: Props) {
   const dStyle = directionStyle(signa.direction);
   const gStyle = gradeStyle(signa.grade);
@@ -67,18 +111,30 @@ export function SignaCard({ signa, currentPrice }: Props) {
   const bearishPatterns = signa.patterns.filter(p => p.type === 'bearish' && p.confidence > 0.5);
   const hasWarnings = earlyWarnings.length > 0 || bearishPatterns.length > 0;
 
+  const hasWeekly = !!signa.weeklyDirection;
+  const weeklyDStyle = hasWeekly ? directionStyle(signa.weeklyDirection!) : null;
+  const weeklyGStyle = hasWeekly && signa.weeklyGrade ? gradeStyle(signa.weeklyGrade) : null;
+
+  const hasSentiment = !!signa.sentiment;
+  const bullPct = signa.sentiment?.bullish ?? 0;
+  const bearPct = signa.sentiment?.bearish ?? 0;
+  const sentimentLabel = bullPct >= 60 ? 'Bullish skew' : bearPct >= 60 ? 'Bearish skew' : 'Mixed sentiment';
+  const sentimentColor = bullPct >= 60 ? C.bull : bearPct >= 60 ? C.bear : C.warn;
+
+  const news = (signa.newsItems ?? []).slice(0, 4);
+
   return (
     <div style={{
       borderTop: `1px solid ${C.border}`,
       padding: '20px 0',
     }}>
-      {/* ── Status row: LONG / Grade / Stage / Confidence / Risk ── */}
-      <div style={{ marginBottom: 16 }}>
+      {/* ── Status row: direction / grade / stage / confidence / risk ── */}
+      <div style={{ marginBottom: 6 }}>
         <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, marginBottom: 10 }}>
           SIGNA.AI SIGNAL
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          {/* Direction — most prominent */}
+          {/* Direction — most prominent, sourced from nightly engine */}
           <Pill label={`● ${signa.direction}`} {...dStyle} />
           {/* Grade */}
           <Pill label={`Grade ${signa.grade}`} {...gStyle} />
@@ -104,7 +160,36 @@ export function SignaCard({ signa, currentPrice }: Props) {
             Risk: {signa.riskRating}
           </span>
         </div>
+        {/* Source attribution */}
+        <div style={{ fontSize: '10px', color: C.inkMute, marginTop: 6, letterSpacing: '0.03em' }}>
+          ↑ Nightly 30+ model pipeline — matches Signa Canvas Action Card
+        </div>
       </div>
+
+      {/* ── Weekly timeframe alignment ── */}
+      {hasWeekly && weeklyDStyle && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+          padding: '8px 12px', marginBottom: 12,
+          background: C.canvasSoft, border: `1px solid ${C.border}`, borderRadius: 8,
+        }}>
+          <span style={{ fontSize: '10px', color: C.inkMute, letterSpacing: '0.07em', fontWeight: 400, minWidth: 80 }}>
+            WEEKLY (1W)
+          </span>
+          <Pill label={`● ${signa.weeklyDirection!}`} {...weeklyDStyle} />
+          {signa.weeklyGrade && weeklyGStyle && (
+            <Pill label={`Grade ${signa.weeklyGrade}`} {...weeklyGStyle} />
+          )}
+          {signa.weeklyConfidence !== undefined && (
+            <span style={{ fontSize: '12px', color: C.inkSec }}>
+              {signa.weeklyConfidence}% conf.
+            </span>
+          )}
+          <span style={{ fontSize: '10px', color: C.inkMute, marginLeft: 'auto' }}>
+            {signa.weeklyDirection === signa.direction ? '✓ Aligned' : '⚡ Diverging'}
+          </span>
+        </div>
+      )}
 
       {/* ── Price levels ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
@@ -118,6 +203,31 @@ export function SignaCard({ signa, currentPrice }: Props) {
           color={signa.rr >= 2 ? C.bull : signa.rr >= 1 ? C.warn : C.bear}
         />
       </div>
+
+      {/* ── Sentiment bar ── */}
+      {hasSentiment && (
+        <div style={{
+          padding: '10px 14px', marginBottom: 14,
+          background: C.canvasSoft, border: `1px solid ${C.border}`, borderRadius: 8,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+            <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400 }}>
+              MARKET SENTIMENT · {signa.sentiment!.daysOfHistory}d
+            </div>
+            <span style={{ fontSize: '12px', color: sentimentColor, fontWeight: 500 }}>
+              {sentimentLabel}
+            </span>
+          </div>
+          <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 6 }}>
+            <div style={{ width: `${bullPct}%`, background: C.bull, transition: 'width 0.8s ease' }} />
+            <div style={{ width: `${bearPct}%`, background: C.bear, transition: 'width 0.8s ease' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+            <span style={{ fontSize: '11px', color: C.bull }}>{bullPct.toFixed(1)}% Bullish</span>
+            <span style={{ fontSize: '11px', color: C.bear }}>{bearPct.toFixed(1)}% Bearish</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Early Warnings ── */}
       {hasWarnings && (
@@ -143,7 +253,7 @@ export function SignaCard({ signa, currentPrice }: Props) {
 
       {/* ── Signal Checklist ── */}
       {allTriggers.length > 0 && (
-        <div>
+        <div style={{ marginBottom: news.length > 0 ? 16 : 0 }}>
           <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, marginBottom: 8 }}>
             SIGNAL CHECKLIST ({allTriggers.length} triggered)
           </div>
@@ -168,6 +278,20 @@ export function SignaCard({ signa, currentPrice }: Props) {
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── News ── */}
+      {news.length > 0 && (
+        <div>
+          <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, marginBottom: 8 }}>
+            RECENT NEWS ({news.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {news.map((article, i) => (
+              <NewsItem key={i} article={article} />
             ))}
           </div>
         </div>

@@ -6,6 +6,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.6.4] — 2026-05-21
+
+### Fixed — Signa Signal Source: engine (nightly) replaces data (live single-pass)
+
+#### Root cause
+
+The Signa API returns three distinct signal sources in a single `/signal` response:
+
+| Field | Pipeline | Matches Canvas? |
+| --- | --- | --- |
+| `engine` | Nightly 30+ model consensus | **Yes — use this** |
+| `signa` | Proprietary synthesis (grade, conviction) | Partial |
+| `data` | Live single-pass technical analysis | No |
+
+The previous implementation mapped `data.direction` as the primary direction, which is the live single-pass result. Signa Canvas ("Action Card") uses `engine.direction` from the nightly pipeline. For ASTS, `data` returned `WAIT` while `engine` (and the Canvas) showed `BULLISH` — a complete directional mismatch.
+
+#### Fix
+
+`getSignaSignal()` in `signaClient.ts` now maps `engine.direction` / `engine.confidence` as the primary signal source. The `data` field is still used exclusively for live price levels (entry, stop, target, R:R, RSI, EMAs, stage, patterns). The `signa` field continues to provide grade, conviction, action, risk rating, and proprietary triggers.
+
+`getStockDecision()` in `stockScoring.ts` now accepts `BULLISH` and `BEARISH` (engine vocabulary) alongside the legacy `LONG` / `SHORT` (data vocabulary).
+
+`signaShort` detection in `stock.ts` now includes `BEARISH`.
+
+#### Added — Weekly signal (tf=1W)
+
+`getSignaWeeklySignal(symbol)` calls `/api/v1/signal?sym={sym}&tf=1W` and returns the engine's weekly direction, grade, and confidence. Displayed in `SignaCard` as a "WEEKLY (1W)" alignment row showing whether daily and weekly timeframes agree or diverge.
+
+#### Added — Analysis endpoint (actionCard + sentiment)
+
+`getSignaAnalysis(symbol)` calls `/api/v1/analysis?sym={sym}` and extracts:
+- `actionCard`: direction, confidence, riskScore, riskFactors, triggers, recommendedAction
+- `sentiment`: bullish %, bearish %, daysOfHistory
+
+Displayed in `SignaCard` as a sentiment bar showing bull/bear percentage over N days.
+
+#### Added — News endpoint
+
+`getSignaNews(symbol)` calls `/api/v1/news?sym={sym}` and returns up to 4 articles (title, source, date, sentiment, url). Displayed at the bottom of `SignaCard` as clickable article cards with sentiment arrows (▲ bullish / ▼ bearish).
+
+#### Changed — SignaCard display
+
+- Engine source attribution line: "↑ Nightly 30+ model pipeline — matches Signa Canvas Action Card"
+- Weekly timeframe alignment row (when available): direction + grade + conf. + aligned/diverging flag
+- Sentiment bar: bull/bear % gauge with days-of-history label
+- News section: top 4 articles with source, date, sentiment, and outbound link
+
+#### Changed — `stock.ts` route
+
+All new fetches run in the existing `Promise.all` block (no sequential latency added): `getSignaWeeklySignal`, `getSignaAnalysis`, `getSignaNews`. Weekly/analysis/news fields are merged into the `signa` response object as optional fields so no breaking schema change is required.
+
+Changed files: `backend/src/lib/signaClient.ts`, `backend/src/routes/stock.ts`, `backend/src/services/stockScoring.ts`, `frontend/src/types/stock.ts`, `frontend/src/components/SignaCard.tsx`
+
+---
+
 ## [0.6.3] — 2026-05-21
 
 ### Fixed — Google OAuth redirect to localhost:3000 (code + config)

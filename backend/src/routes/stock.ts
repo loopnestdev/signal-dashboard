@@ -3,6 +3,9 @@ import { getHistoryAndQuote, getStockProfile } from '../lib/yahooClient.js';
 import { getFromCache } from '../lib/cache.js';
 import {
   getSignaSignal,
+  getSignaWeeklySignal,
+  getSignaAnalysis,
+  getSignaNews,
   getOptionsFlow,
   getDarkpool,
   getGammaExposure,
@@ -40,10 +43,13 @@ router.get('/stock/:ticker', async (req, res) => {
   const symbol = ticker.toUpperCase();
 
   try {
-    const [stockData, profile, signaData, optionsFlow, darkpoolData, gammaData, fundamentalsData] = await Promise.all([
+    const [stockData, profile, signaData, signaWeekly, signaAnalysis, signaNews, optionsFlow, darkpoolData, gammaData, fundamentalsData] = await Promise.all([
       getHistoryAndQuote(symbol, '1y'),
       getStockProfile(symbol),
       getSignaSignal(symbol),
+      getSignaWeeklySignal(symbol),
+      getSignaAnalysis(symbol),
+      getSignaNews(symbol),
       getOptionsFlow(symbol),
       getDarkpool(symbol),
       getGammaExposure(symbol),
@@ -71,7 +77,21 @@ router.get('/stock/:ticker', async (req, res) => {
       ? Math.round(baseComposite * 0.80 + signaData.overallScore * 0.20)
       : Math.round(baseComposite);
 
-    const signaShort = signaData?.direction === 'SHORT' || signaData?.action === 'SELL';
+    // Merge weekly signal, analysis, and news into signaData
+    const enrichedSigna: SignaData | null = signaData ? {
+      ...signaData,
+      weeklyDirection: signaWeekly?.direction,
+      weeklyGrade: signaWeekly?.grade,
+      weeklyConfidence: signaWeekly?.confidence,
+      actionCard: signaAnalysis?.actionCard ?? undefined,
+      sentiment: signaAnalysis?.sentiment ?? undefined,
+      newsItems: signaNews ?? undefined,
+    } : null;
+
+    // Engine uses BULLISH/BEARISH; data field uses LONG/SHORT/WAIT — handle both
+    const signaShort = signaData?.direction === 'SHORT'
+      || signaData?.direction === 'BEARISH'
+      || signaData?.action === 'SELL';
     const decision = getStockDecision(
       compositeScore, marketScore, regime, isBearish || signaShort,
       signaData?.direction, signaData?.confidence, signaData?.grade,
@@ -101,7 +121,7 @@ router.get('/stock/:ticker', async (req, res) => {
       regime,
       metrics,
       analysis,
-      signa: signaData as SignaData | null,
+      signa: enrichedSigna,
       fibonacci,
       movingAverages,
       optionsInsight,

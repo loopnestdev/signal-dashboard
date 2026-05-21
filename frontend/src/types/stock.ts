@@ -24,6 +24,30 @@ export interface SignaPattern {
   targetPrice?: number;
 }
 
+export interface SignaActionCard {
+  direction: string;
+  confidence: number;
+  riskScore: number;
+  riskFactors: string[];
+  triggers: string[];
+  recommendedAction: string;
+}
+
+export interface SignaSentiment {
+  bullish: number;
+  bearish: number;
+  daysOfHistory: number;
+}
+
+export interface SignaNewsArticle {
+  title: string;
+  url: string;
+  publishedAt: string;
+  source: string;
+  sentiment?: string;
+  summary?: string;
+}
+
 export interface SignaData {
   direction: string;
   confidence: number;
@@ -50,6 +74,17 @@ export interface SignaData {
   ema20: number | null;
   ema50: number | null;
   ema200: number | null;
+  // Weekly signal (tf=1W engine)
+  weeklyDirection?: string;
+  weeklyGrade?: string;
+  weeklyConfidence?: number;
+  // Analysis endpoint
+  actionCard?: SignaActionCard;
+  sentiment?: SignaSentiment;
+  // Thesis
+  thesis?: string;
+  // News
+  newsItems?: SignaNewsArticle[];
 }
 
 export interface FibLevel {

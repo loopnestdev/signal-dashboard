@@ -230,7 +230,30 @@ In addition to `computeStockTechnicalScore`, `computeSectorETFScore`, `getStockD
 
 ### File: `backend/src/lib/signaClient.ts`
 
-`SignaData` interface includes `ema20: number | null`, `ema50: number | null`, `ema200: number | null` mapped from `raw.data.ema20/50/200`.
+**Signal source priority — critical:** The `/api/v1/signal` response has three sub-objects. Map them strictly:
+
+| Field | Pipeline | Map to |
+| --- | --- | --- |
+| `engine` | Nightly 30+ model consensus | `direction`, `confidence` — primary |
+| `signa` | Proprietary synthesis | `grade`, `conviction`, `action`, `riskRating`, `signaTriggers` |
+| `data` | Live single-pass technical | `entry`, `stop`, `target`, `rr`, RSI, EMAs, stage, patterns |
+
+`engine.direction` values: `BULLISH` / `BEARISH` / `NEUTRAL`. Never use `data.direction` as primary.
+
+**`SignaData` interface** — key optional fields:
+- `weeklyDirection?`, `weeklyGrade?`, `weeklyConfidence?` — from `tf=1W` call
+- `actionCard?: SignaActionCard` — from `/api/v1/analysis`
+- `sentiment?: SignaSentiment` — from `/api/v1/analysis` (bullish %, bearish %, daysOfHistory)
+- `newsItems?: SignaNewsArticle[]` — from `/api/v1/news`
+
+**Exported functions:**
+- `getSignaSignal(symbol)` — daily engine signal + live technical levels; 15 min cache
+- `getSignaWeeklySignal(symbol)` — tf=1W; returns `{ direction, grade, confidence }`; 15 min cache
+- `getSignaAnalysis(symbol)` — `/api/v1/analysis`; returns `{ actionCard, sentiment }`; 15 min cache
+- `getSignaNews(symbol)` — `/api/v1/news`; returns `SignaNewsArticle[]`; 30 min cache
+- `getOptionsFlow`, `getDarkpool`, `getGammaExposure`, `getFundamentals` — existing endpoints
+
+`getStockDecision()` in `stockScoring.ts` accepts `BULLISH`/`BEARISH` (engine) and `LONG`/`SHORT` (data) — both are valid.
 
 `formatSignaMarketAnalysis(signal, marketQualityScore, vix, regime, topSectors, bottomSectors): string` — formats SPY Signa data as Bloomberg-style terminal text including direction/grade/confidence, 30+ model consensus reasons (`engine.reasons[]`), active signals (triggers + signaTriggers), and risk factors.
 

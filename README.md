@@ -16,8 +16,11 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 │  [Search ticker…]  [Analyze →]    AAPL ×  NVDA ×                         │
 │                                                                             │
 │  ┌─ SIGNA.AI SIGNAL ──────────────────────────────────────────────────┐   │
-│  │  ● LONG  Grade A  Stage 3 — Mark-up  87% conf.  Risk: Low          │   │
+│  │  ● BULLISH  Grade A  Stage 3 — Mark-up  87% conf.  Risk: Low       │   │
+│  │  ↑ Nightly 30+ model pipeline — matches Signa Canvas Action Card   │   │
+│  │  WEEKLY (1W)  ● BULLISH  Grade A  87% conf.  ✓ Aligned             │   │
 │  │  ENTRY $181.00  STOP $174.50  TARGET $198.00  2.3×                  │   │
+│  │  SENTIMENT · 61d  ████████████░░░  92% Bullish  8% Bearish          │   │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─ MOVING AVERAGES ──────────────────────────────────────────────────┐   │
@@ -56,7 +59,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Invite-only access | When Supabase is configured, users must sign in with Google and be approved by an admin before gaining access |
 | Admin approval panel | Admin sees pending access requests in-app and approves with one click; new users see "Access Pending" until approved |
 | Google Sign-In | Supabase Google OAuth — watchlist syncs across devices when signed in; localStorage fallback when unconfigured |
-| Signa.ai signal | LONG/SHORT direction, Grade, Stage, Confidence, Risk — pill badges at top of stock panel |
+| Signa.ai signal | Nightly 30+ model engine direction (BULLISH/BEARISH) matching Signa Canvas; Grade, Stage, Confidence, Risk — pill badges; weekly (1W) alignment row; sentiment gauge; news |
 | Stock watchlist — named groups | Create named watchlist groups; syncs to Supabase when signed in, localStorage otherwise |
 | Options Intelligence | Options flow (C/P, premium, notable trades), dark pool (off-exchange vol, fills), gamma exposure (GEX, flip point, key strikes) — synthesized with directional assessment |
 | Fundamentals panel | Valuation, Growth, Profitability, Financial Health, Ownership & Analyst — always rendered, empty state when unavailable |

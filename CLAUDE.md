@@ -288,6 +288,38 @@ The composite score shown in `StockPanel` is computed from: stock technical scor
 
 ---
 
+## Signa API Signal Sources
+
+The Signa API `/api/v1/signal` response contains **three distinct signal sources**. Always use them for the correct purpose:
+
+| Field | Pipeline | Use for |
+| --- | --- | --- |
+| `engine` | Nightly 30+ model consensus | **Primary direction** — matches Signa Canvas Action Card |
+| `signa` | Proprietary synthesis | Grade, conviction, action, risk rating, proprietary triggers |
+| `data` | Live single-pass technical | Price levels (entry, stop, target), RSI, EMAs, patterns, stage |
+
+`engine.direction` values: `BULLISH` / `BEARISH` / `NEUTRAL`
+`data.direction` values: `LONG` / `SHORT` / `WAIT`
+
+**Never use `data.direction` as the primary direction** — it is a live single-pass result that does not match what Signa Canvas shows. The API documentation explicitly states: "Use `engine` to match the in-app Action Card."
+
+`getStockDecision()` in `stockScoring.ts` accepts both vocabularies: `BULLISH`/`BEARISH` (engine) and `LONG`/`SHORT` (data).
+
+### Signa API endpoints used
+
+| Endpoint | Function | Cache |
+| --- | --- | --- |
+| `/api/v1/signal?sym={sym}&tf=1day` | `getSignaSignal()` | 15 min |
+| `/api/v1/signal?sym={sym}&tf=1W` | `getSignaWeeklySignal()` | 15 min |
+| `/api/v1/analysis?sym={sym}` | `getSignaAnalysis()` | 15 min |
+| `/api/v1/news?sym={sym}` | `getSignaNews()` | 30 min |
+| `/api/v1/options?sym={sym}` | `getOptionsFlow()` | 5 min |
+| `/api/v1/darkpool?sym={sym}` | `getDarkpool()` | 5 min |
+| `/api/v1/gamma?sym={sym}` | `getGammaExposure()` | 15 min |
+| `/api/v1/fundamentals?sym={sym}` | `getFundamentals()` | 60 min |
+
+---
+
 ## Updating the FOMC Calendar
 
 Edit `backend/src/lib/fomc.ts` — update `FOMC_DATES` array annually when the Fed publishes its schedule. Also update `getFedStance()` to reflect current monetary policy direction.

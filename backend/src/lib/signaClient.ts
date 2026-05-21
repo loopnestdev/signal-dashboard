@@ -27,13 +27,44 @@ export interface SignaPattern {
   targetPrice?: number;
 }
 
-export interface SignaData {
+export interface SignaActionCard {
   direction: string;
   confidence: number;
-  grade: string;
-  action: string;
+  riskScore: number;
+  riskFactors: string[];
+  triggers: string[];
+  recommendedAction: string;
+}
+
+export interface SignaSentiment {
+  bullish: number;
+  bearish: number;
+  daysOfHistory: number;
+}
+
+export interface SignaNewsArticle {
+  title: string;
+  url: string;
+  publishedAt: string;
+  source: string;
+  sentiment?: string;
+  summary?: string;
+}
+
+export interface SignaData {
+  // ── Engine: nightly 30+ model pipeline — primary source, matches Signa Canvas Action Card ──
+  direction: string;      // BULLISH | BEARISH | NEUTRAL
+  confidence: number;
+  grade: string;          // A+, A, B+, B, C, D  (signa.grade preferred, then engine.grade)
+  engineReasons: string[];
+
+  // ── Signa: proprietary synthesis ──
+  action: string;         // BUY | SELL | HOLD
   riskRating: string;
   conviction: number;
+  signaTriggers: SignaTrigger[];
+
+  // ── Live technical levels (data field — single-pass intraday analysis) ──
   entry: number;
   stop: number;
   target: number;
@@ -43,18 +74,32 @@ export interface SignaData {
   riskScore: number;
   riskFactors: string[];
   triggers: SignaTrigger[];
-  signaTriggers: SignaTrigger[];
   patterns: SignaPattern[];
-  engineReasons: string[];
   tier: string;
   overallScore: number;
   rsi: number;
   adx: number;
-  // EMAs from Signa signal data
   ema20: number | null;
   ema50: number | null;
   ema200: number | null;
+
+  // ── Weekly signal (tf=1W, engine) ──
+  weeklyDirection?: string;
+  weeklyGrade?: string;
+  weeklyConfidence?: number;
+
+  // ── Analysis endpoint (actionCard + sentiment) ──
+  actionCard?: SignaActionCard;
+  sentiment?: SignaSentiment;
+
+  // ── Thesis ──
+  thesis?: string;
+
+  // ── News ──
+  newsItems?: SignaNewsArticle[];
 }
+
+// ── Raw API response shape ────────────────────────────────────────────────────
 
 interface SignaRaw {
   ok: boolean;
@@ -62,6 +107,7 @@ interface SignaRaw {
     direction?: string;
     confidence?: number;
     grade?: string;
+    score?: number;
     reasons?: string[];
   };
   signa?: {
@@ -97,8 +143,14 @@ interface SignaRaw {
       description: string; status: string; targetPrice?: number;
     }>;
   };
+  // thesis endpoint extras
+  thesis?: string;
+  congress?: unknown;
+  news?: unknown;
   error?: string;
 }
+
+// ── Daily signal ──────────────────────────────────────────────────────────────
 
 export async function getSignaSignal(symbol: string): Promise<SignaData | null> {
   if (!process.env.SIGNA_API_KEY) return null;
@@ -119,16 +171,33 @@ export async function getSignaSignal(symbol: string): Promise<SignaData | null> 
     }
 
     const raw = await res.json() as SignaRaw;
-    if (!raw.ok || !raw.data) return null;
+    if (!raw.ok) return null;
 
-    const d = raw.data;
+    // Engine is the primary source — nightly 30+ model pipeline, matches Signa Canvas Action Card.
+    // data field is the live single-pass technical analysis (used for price levels only).
+    const eng = raw.engine ?? {};
+    const sig = raw.signa ?? {};
+    const d = raw.data ?? {};
+
     const result: SignaData = {
-      direction: d.direction ?? raw.engine?.direction ?? 'WAIT',
-      confidence: d.confidence ?? raw.engine?.confidence ?? 0,
-      grade: raw.signa?.grade ?? raw.engine?.grade ?? '—',
-      action: raw.signa?.action ?? d.direction ?? '—',
-      riskRating: raw.signa?.riskRating ?? '—',
-      conviction: raw.signa?.conviction ?? 0,
+      // Engine: direction / grade / confidence
+      direction: eng.direction ?? d.direction ?? 'NEUTRAL',
+      confidence: eng.confidence ?? d.confidence ?? 0,
+      grade: sig.grade ?? eng.grade ?? '—',
+      engineReasons: eng.reasons ?? [],
+
+      // Signa: proprietary synthesis
+      action: sig.action ?? d.direction ?? '—',
+      riskRating: sig.riskRating ?? '—',
+      conviction: sig.conviction ?? 0,
+      signaTriggers: (sig.triggers ?? []).map(t => ({
+        name: t.name,
+        description: t.description,
+        strength: t.strength,
+        type: t.type ?? 'proprietary',
+      })),
+
+      // Live technical price levels from data field
       entry: d.entry ?? 0,
       stop: d.stop ?? 0,
       target: d.target ?? 0,
@@ -143,14 +212,7 @@ export async function getSignaSignal(symbol: string): Promise<SignaData | null> 
         weight: t.weight,
         type: t.type ?? 'technical',
       })),
-      signaTriggers: (raw.signa?.triggers ?? []).map(t => ({
-        name: t.name,
-        description: t.description,
-        strength: t.strength,
-        type: t.type ?? 'proprietary',
-      })),
       patterns: d.patterns ?? [],
-      engineReasons: raw.engine?.reasons ?? [],
       tier: d.tier ?? '—',
       overallScore: d.overallScore ?? 50,
       rsi: d.rsi ?? 0,
@@ -164,6 +226,170 @@ export async function getSignaSignal(symbol: string): Promise<SignaData | null> 
     return result;
   } catch (err) {
     console.warn(`[signa] ${symbol} error:`, err);
+    return null;
+  }
+}
+
+// ── Weekly signal (tf=1W) ─────────────────────────────────────────────────────
+
+export interface SignaWeeklyResult {
+  direction: string;
+  grade: string;
+  confidence: number;
+}
+
+export async function getSignaWeeklySignal(symbol: string): Promise<SignaWeeklyResult | null> {
+  if (!process.env.SIGNA_API_KEY) return null;
+  const cacheKey = `signa-weekly-${symbol.toUpperCase()}`;
+  const cached = getFromCache<SignaWeeklyResult>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `${SIGNA_BASE}/signal?sym=${encodeURIComponent(symbol)}&tf=1W`,
+      { headers: headers() },
+    );
+    if (!res.ok) return null;
+    const raw = await res.json() as SignaRaw;
+    if (!raw.ok) return null;
+
+    const eng = raw.engine ?? {};
+    const sig = raw.signa ?? {};
+    const d = raw.data ?? {};
+
+    const result: SignaWeeklyResult = {
+      direction: eng.direction ?? d.direction ?? 'NEUTRAL',
+      grade: sig.grade ?? eng.grade ?? '—',
+      confidence: eng.confidence ?? d.confidence ?? 0,
+    };
+    setToCache(cacheKey, result, CACHE_TTL_SIGNAL);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+// ── Analysis endpoint ─────────────────────────────────────────────────────────
+
+interface SignaAnalysisRaw {
+  ok?: boolean;
+  actionCard?: {
+    direction?: string;
+    confidence?: number;
+    riskScore?: number;
+    riskFactors?: string[];
+    triggers?: string[];
+    recommendedAction?: string;
+  };
+  sentiment?: {
+    bullish?: number;
+    bearish?: number;
+    daysOfHistory?: number;
+  };
+}
+
+export interface SignaAnalysis {
+  actionCard: SignaActionCard | null;
+  sentiment: SignaSentiment | null;
+}
+
+export async function getSignaAnalysis(symbol: string): Promise<SignaAnalysis | null> {
+  if (!process.env.SIGNA_API_KEY) return null;
+  const cacheKey = `signa-analysis-${symbol.toUpperCase()}`;
+  const cached = getFromCache<SignaAnalysis>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `${SIGNA_BASE}/analysis?sym=${encodeURIComponent(symbol)}`,
+      { headers: headers() },
+    );
+    if (!res.ok) return null;
+    const raw = await res.json() as SignaAnalysisRaw;
+    if (!raw.ok) return null;
+
+    const result: SignaAnalysis = {
+      actionCard: raw.actionCard ? {
+        direction: raw.actionCard.direction ?? '—',
+        confidence: raw.actionCard.confidence ?? 0,
+        riskScore: raw.actionCard.riskScore ?? 0,
+        riskFactors: raw.actionCard.riskFactors ?? [],
+        triggers: raw.actionCard.triggers ?? [],
+        recommendedAction: raw.actionCard.recommendedAction ?? '—',
+      } : null,
+      sentiment: raw.sentiment ? {
+        bullish: raw.sentiment.bullish ?? 0,
+        bearish: raw.sentiment.bearish ?? 0,
+        daysOfHistory: raw.sentiment.daysOfHistory ?? 0,
+      } : null,
+    };
+    setToCache(cacheKey, result, CACHE_TTL_SIGNAL);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+// ── News ──────────────────────────────────────────────────────────────────────
+
+interface SignaNewsRaw {
+  ok?: boolean;
+  data?: Array<{
+    title?: string;
+    url?: string;
+    publishedAt?: string;
+    source?: string;
+    sentiment?: string;
+    summary?: string;
+  }>;
+  articles?: Array<{
+    title?: string;
+    url?: string;
+    publishedAt?: string;
+    source?: string;
+    sentiment?: string;
+    summary?: string;
+  }>;
+  news?: Array<{
+    title?: string;
+    url?: string;
+    publishedAt?: string;
+    source?: string;
+    sentiment?: string;
+    summary?: string;
+  }>;
+}
+
+export async function getSignaNews(symbol: string): Promise<SignaNewsArticle[] | null> {
+  if (!process.env.SIGNA_API_KEY) return null;
+  const cacheKey = `signa-news-${symbol.toUpperCase()}`;
+  const cached = getFromCache<SignaNewsArticle[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `${SIGNA_BASE}/news?sym=${encodeURIComponent(symbol)}`,
+      { headers: headers() },
+    );
+    if (!res.ok) return null;
+    const raw = await res.json() as SignaNewsRaw;
+    if (!raw.ok) return null;
+
+    const articles = raw.data ?? raw.articles ?? raw.news ?? [];
+    const result: SignaNewsArticle[] = articles
+      .map(a => ({
+        title: a.title ?? '',
+        url: a.url ?? '',
+        publishedAt: a.publishedAt ?? '',
+        source: a.source ?? '',
+        sentiment: a.sentiment,
+        summary: a.summary,
+      }))
+      .filter(a => a.title.length > 0);
+
+    setToCache(cacheKey, result, 1800); // 30 min — news changes slowly
+    return result;
+  } catch {
     return null;
   }
 }
