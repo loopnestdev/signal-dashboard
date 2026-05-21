@@ -5,6 +5,7 @@ import {
   getSignaSignal,
   getSignaWeeklySignal,
   getSignaAnalysis,
+  getSignaThesis,
   getSignaNews,
   getOptionsFlow,
   getDarkpool,
@@ -43,12 +44,13 @@ router.get('/stock/:ticker', async (req, res) => {
   const symbol = ticker.toUpperCase();
 
   try {
-    const [stockData, profile, signaData, signaWeekly, signaAnalysis, signaNews, optionsFlow, darkpoolData, gammaData, fundamentalsData] = await Promise.all([
+    const [stockData, profile, signaData, signaWeekly, signaAnalysis, signaThesis, signaNews, optionsFlow, darkpoolData, gammaData, fundamentalsData] = await Promise.all([
       getHistoryAndQuote(symbol, '1y'),
       getStockProfile(symbol),
       getSignaSignal(symbol),
       getSignaWeeklySignal(symbol),
       getSignaAnalysis(symbol),
+      getSignaThesis(symbol),
       getSignaNews(symbol),
       getOptionsFlow(symbol),
       getDarkpool(symbol),
@@ -85,6 +87,7 @@ router.get('/stock/:ticker', async (req, res) => {
       weeklyConfidence: signaWeekly?.confidence,
       actionCard: signaAnalysis?.actionCard ?? undefined,
       sentiment: signaAnalysis?.sentiment ?? undefined,
+      thesis: signaThesis ?? undefined,
       newsItems: signaNews ?? undefined,
     } : null;
 

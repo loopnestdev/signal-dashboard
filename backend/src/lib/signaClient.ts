@@ -394,6 +394,46 @@ export async function getSignaNews(symbol: string): Promise<SignaNewsArticle[] |
   }
 }
 
+// ── Thesis ────────────────────────────────────────────────────────────────────
+// Calls /signal?include=thesis — same endpoint as daily signal but with extra fields
+
+interface SignaThesisRaw {
+  ok?: boolean;
+  thesis?: string;
+  bull?: { thesis?: string; points?: string[] };
+  bear?: { thesis?: string; points?: string[] };
+  data?: { thesis?: string };
+}
+
+export async function getSignaThesis(symbol: string): Promise<string | null> {
+  if (!process.env.SIGNA_API_KEY) return null;
+  const cacheKey = `signa-thesis-${symbol.toUpperCase()}`;
+  const cached = getFromCache<string>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `${SIGNA_BASE}/signal?sym=${encodeURIComponent(symbol)}&include=thesis`,
+      { headers: headers() },
+    );
+    if (!res.ok) return null;
+    const raw = await res.json() as SignaThesisRaw;
+    if (!raw.ok) return null;
+
+    // Try common response shapes
+    const thesis =
+      raw.thesis ??
+      raw.bull?.thesis ??
+      (raw.data as { thesis?: string } | undefined)?.thesis ??
+      null;
+
+    if (thesis) setToCache(cacheKey, thesis, CACHE_TTL_SIGNAL);
+    return thesis;
+  } catch {
+    return null;
+  }
+}
+
 // ── Options flow ─────────────────────────────────────────────────────────────
 
 export interface OptionsFlowItem {

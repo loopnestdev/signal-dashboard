@@ -111,6 +111,14 @@ export function SignaCard({ signa, currentPrice }: Props) {
   const bearishPatterns = signa.patterns.filter(p => p.type === 'bearish' && p.confidence > 0.5);
   const hasWarnings = earlyWarnings.length > 0 || bearishPatterns.length > 0;
 
+  // Validate price levels against engine direction.
+  // The data field may compute a SHORT setup while engine says BULLISH — don't show inverted levels.
+  const isLong = ['BULLISH', 'LONG', 'BUY'].includes(signa.direction.toUpperCase());
+  const entryRef = signa.entry > 0 ? signa.entry : currentPrice;
+  const stopValid  = signa.stop   > 0 && (isLong ? signa.stop   < entryRef : signa.stop   > entryRef);
+  const targetValid = signa.target > 0 && (isLong ? signa.target > entryRef : signa.target < entryRef);
+  const rrValid = stopValid && targetValid && signa.rr > 0;
+
   const hasWeekly = !!signa.weeklyDirection;
   const weeklyDStyle = hasWeekly ? directionStyle(signa.weeklyDirection!) : null;
   const weeklyGStyle = hasWeekly && signa.weeklyGrade ? gradeStyle(signa.weeklyGrade) : null;
@@ -150,7 +158,7 @@ export function SignaCard({ signa, currentPrice }: Props) {
             fontSize: '13px', color: C.primary, background: C.primaryBg,
             border: `1px solid ${C.primaryBorder}`, borderRadius: 9999, padding: '4px 12px',
           }}>
-            {signa.confidence}% conf.
+            Confidence: {signa.confidence}%
           </span>
           {/* Risk */}
           <span style={{
@@ -182,7 +190,7 @@ export function SignaCard({ signa, currentPrice }: Props) {
           )}
           {signa.weeklyConfidence !== undefined && (
             <span style={{ fontSize: '12px', color: C.inkSec }}>
-              {signa.weeklyConfidence}% conf.
+              Confidence: {signa.weeklyConfidence}%
             </span>
           )}
           <span style={{ fontSize: '10px', color: C.inkMute, marginLeft: 'auto' }}>
@@ -194,13 +202,13 @@ export function SignaCard({ signa, currentPrice }: Props) {
       {/* ── Price levels ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
         <PriceCell label="CURRENT"    value={`$${currentPrice.toFixed(2)}`} />
-        <PriceCell label="BEST ENTRY" value={`$${signa.entry.toFixed(2)}`}  color={C.primary} />
-        <PriceCell label="STOP LOSS"  value={signa.stop   > 0 ? `$${signa.stop.toFixed(2)}`   : '—'} color={C.bear} />
-        <PriceCell label="TARGET"     value={signa.target > 0 ? `$${signa.target.toFixed(2)}` : '—'} color={C.bull} />
+        <PriceCell label="BEST ENTRY" value={signa.entry > 0 ? `$${signa.entry.toFixed(2)}` : '—'} color={C.primary} />
+        <PriceCell label="STOP LOSS"  value={stopValid   ? `$${signa.stop.toFixed(2)}`   : '—'} color={stopValid   ? C.bear : undefined} />
+        <PriceCell label="TARGET"     value={targetValid ? `$${signa.target.toFixed(2)}` : '—'} color={targetValid ? C.bull : undefined} />
         <PriceCell
           label="R : R"
-          value={signa.rr > 0 ? `${signa.rr.toFixed(1)}×` : '—'}
-          color={signa.rr >= 2 ? C.bull : signa.rr >= 1 ? C.warn : C.bear}
+          value={rrValid ? `${signa.rr.toFixed(1)}×` : '—'}
+          color={rrValid ? (signa.rr >= 2 ? C.bull : signa.rr >= 1 ? C.warn : C.bear) : undefined}
         />
       </div>
 
@@ -279,6 +287,22 @@ export function SignaCard({ signa, currentPrice }: Props) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Thesis ── */}
+      {signa.thesis && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, marginBottom: 8 }}>
+            BULL THESIS
+          </div>
+          <div style={{
+            fontSize: '13px', color: C.inkSec, lineHeight: 1.65,
+            padding: '12px 14px',
+            background: C.bullBg, border: `1px solid ${C.bullBorder}`, borderRadius: 8,
+          }}>
+            {signa.thesis}
           </div>
         </div>
       )}
