@@ -26,6 +26,14 @@ This preference applies to both:
 
 Changed files: `backend/src/routes/stock.ts`
 
+#### Fixed — Weekly confidence also updated to stock-specific value
+
+The weekly confidence pill (WEEKLY (1W) row in `SignaCard`) was still reading `signaWeekly.confidence` which is `engine.confidence` from the weekly Signa endpoint — the same market-level metric. The weekly Signa API (`tf=1W`) has no dedicated per-stock analysis endpoint.
+
+**Fix:** When a weekly signal is present, `weeklyConfidence` now uses the same `stockConfidence` (analysis endpoint `actionCard.confidence`) that the daily pill uses. This ensures both the daily and weekly confidence pills show stock-specific values.
+
+Changed files: `backend/src/routes/stock.ts`
+
 #### Fixed — CHANGELOG version ordering
 
 v0.6.8 entry was mistakenly inserted after v0.6.7 instead of before it. Correct descending order (newest first) restored.

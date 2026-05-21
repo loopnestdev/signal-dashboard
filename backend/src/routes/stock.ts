@@ -93,7 +93,8 @@ router.get('/stock/:ticker', async (req, res) => {
       confidence: stockConfidence ?? signaData.confidence,
       weeklyDirection: signaWeekly?.direction,
       weeklyGrade: signaWeekly?.grade,
-      weeklyConfidence: signaWeekly?.confidence,
+      // Weekly confidence: use same stock-specific confidence as daily (no per-stock weekly source)
+      weeklyConfidence: signaWeekly ? (stockConfidence ?? signaWeekly.confidence) : undefined,
       actionCard: signaAnalysis?.actionCard ?? undefined,
       sentiment: signaAnalysis?.sentiment ?? undefined,
       thesis: signaThesis ?? undefined,
