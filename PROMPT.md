@@ -76,7 +76,24 @@ Root `package.json`:
 - `node-cache` ^5.1.2
 - `tsx` ^4.22.3 (runtime + dev server)
 - `@google/generative-ai` ^0.24.1
+- `vitest` (devDependency) — test runner
 - TypeScript 5, `"type": "module"`, `"moduleResolution": "Bundler"`, `noEmit: true`
+
+**`backend/package.json` scripts** must include:
+
+```json
+"test": "vitest run",
+"test:watch": "vitest"
+```
+
+**`backend/vitest.config.ts`:**
+
+```typescript
+import { defineConfig } from 'vitest/config';
+export default defineConfig({
+  test: { environment: 'node', include: ['src/**/*.test.ts'], globals: false },
+});
+```
 
 ### File: `backend/src/lib/yahooClient.ts`
 
@@ -327,6 +344,31 @@ VITE_SUPABASE_REDIRECT_URL=https://your-production-domain.com
 - `lucide-react` for icons (imported but optional in v0.1)
 - JetBrains Mono + Inter from Google Fonts (loaded in `index.html`)
 - No UI component library
+- `vitest`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`, `jsdom` (all devDependencies)
+
+**`frontend/package.json` scripts** must include:
+
+```json
+"test": "vitest run",
+"test:watch": "vitest"
+```
+
+### `src/lib/priceLevels.ts`
+
+Pure utility for validating Signa price level directions before display. Extracted from `SignaCard.tsx` so it can be unit-tested independently.
+
+```typescript
+export interface PriceLevelValidity {
+  isLong: boolean; entryRef: number;
+  stopValid: boolean; targetValid: boolean; rrValid: boolean;
+}
+export function validatePriceLevels(
+  direction: string, entry: number, stop: number,
+  target: number, rr: number, currentPrice: number,
+): PriceLevelValidity
+```
+
+For LONG (`BULLISH|LONG|BUY`): stop must be below entryRef, target above. For SHORT: reversed. entryRef = entry when >0, else currentPrice. `rrValid` requires all three to be valid. Invalid levels display `—` in the UI.
 
 ### `index.html`
 
@@ -346,7 +388,19 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: { proxy: { '/api': 'http://localhost:3001' } },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['src/__tests__/setup.ts'],
+    globals: true,
+  },
 });
+```
+
+**`src/__tests__/setup.ts`:**
+
+```typescript
+import '@testing-library/jest-dom';
 ```
 
 ### `src/index.css`

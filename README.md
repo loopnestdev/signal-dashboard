@@ -146,6 +146,7 @@ signal-dashboard/
 │   │   ├── lib/
 │   │   │   ├── api.ts                 # fetch wrappers for backend routes
 │   │   │   ├── colors.ts              # CSS custom property design tokens
+│   │   │   ├── priceLevels.ts         # validatePriceLevels() — stop/target directional validation
 │   │   │   ├── stockApi.ts            # Stock-specific API client
 │   │   │   └── supabase.ts            # Typed Supabase client (null when unconfigured)
 │   │   └── types/
@@ -553,6 +554,35 @@ Cloudflare Pages is automatically behind Cloudflare's WAF. For additional protec
 
 1. **Rate limiting** — Security → WAF → Rate Limiting Rules: `(http.request.uri.path contains "/api")` → max 60 req/min
 2. **Bot Fight Mode** — Security → Bots → **Bot Fight Mode: On**
+
+---
+
+### Testing
+
+The project includes a Vitest test suite covering all business-critical logic. Run tests before pushing changes.
+
+```bash
+# Run all backend tests (134 tests)
+cd backend && npm test
+
+# Run all frontend tests (55 tests)
+cd frontend && npm test
+
+# Watch mode during development
+cd backend && npm run test:watch
+cd frontend && npm run test:watch
+```
+
+Test files live alongside source under `src/__tests__/`:
+
+| Package | File | What it tests |
+| --- | --- | --- |
+| backend | `__tests__/lib/technical.test.ts` | `sma`, `ema`, `rsi`, `pctReturn`, `linearSlope`, `percentileRank`, `clamp` |
+| backend | `__tests__/services/stockScoring.test.ts` | `getStockDecision` (both BULLISH/LONG vocabs), `computeStockTechnicalScore`, `computeSectorETFScore`, `computeFibonacci`, `computeMovingAverages` |
+| backend | `__tests__/lib/signaInsight.test.ts` | `synthesizeOptionsInsight` — all direction combinations, key point content |
+| backend | `__tests__/services/scoring.test.ts` | `scoreVolatility`, `scoreTrend`, `computeMarketQualityScore`, `getDecision` — all weights |
+| frontend | `__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` — LONG/SHORT validation, ASTS inverted-level regression |
+| frontend | `__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path — all CRUD operations, persistence, migration |
 
 ---
 

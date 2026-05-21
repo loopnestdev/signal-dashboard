@@ -1,4 +1,5 @@
 import { C } from '../lib/colors';
+import { validatePriceLevels } from '../lib/priceLevels';
 import type { SignaData, SignaNewsArticle, CongressTrade } from '../types/stock';
 
 interface Props {
@@ -193,11 +194,9 @@ export function SignaCard({ signa, currentPrice }: Props) {
 
   // Validate price levels against engine direction.
   // The data field may compute a SHORT setup while engine says BULLISH — don't show inverted levels.
-  const isLong = ['BULLISH', 'LONG', 'BUY'].includes(signa.direction.toUpperCase());
-  const entryRef = signa.entry > 0 ? signa.entry : currentPrice;
-  const stopValid  = signa.stop   > 0 && (isLong ? signa.stop   < entryRef : signa.stop   > entryRef);
-  const targetValid = signa.target > 0 && (isLong ? signa.target > entryRef : signa.target < entryRef);
-  const rrValid = stopValid && targetValid && signa.rr > 0;
+  const { stopValid, targetValid, rrValid } = validatePriceLevels(
+    signa.direction, signa.entry, signa.stop, signa.target, signa.rr, currentPrice,
+  );
 
   const hasWeekly = !!signa.weeklyDirection;
   const weeklyDStyle = hasWeekly ? directionStyle(signa.weeklyDirection!) : null;

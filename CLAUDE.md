@@ -56,6 +56,7 @@ signal-dashboard/
 │   │   ├── lib/
 │   │   │   ├── api.ts                 # fetch wrappers for backend routes
 │   │   │   ├── colors.ts              # CSS custom property design tokens
+│   │   │   ├── priceLevels.ts         # validatePriceLevels() — stop/target directional validation
 │   │   │   ├── stockApi.ts            # Stock-specific API client
 │   │   │   └── supabase.ts            # Typed Supabase client (null when unconfigured)
 │   │   └── types/
@@ -242,6 +243,47 @@ cd backend && npm run build
 cd frontend && npm run typecheck
 cd frontend && npm run build
 ```
+
+---
+
+## Test Suite
+
+Run the test suite to catch regressions before committing:
+
+```bash
+cd backend && npm test          # 134 tests — one-shot
+cd frontend && npm test         # 55 tests  — one-shot
+
+cd backend && npm run test:watch   # watch mode
+cd frontend && npm run test:watch  # watch mode
+```
+
+**Framework:** Vitest (ESM-native, TypeScript-native, no transpile step needed).
+
+**Backend config:** `backend/vitest.config.ts` — node environment.
+**Frontend config:** `vite.config.ts` `test` block — jsdom, `globals: true`, setup in `src/__tests__/setup.ts`.
+
+### Test file map
+
+| File | Covers |
+| --- | --- |
+| `backend/src/__tests__/lib/technical.test.ts` | All 7 functions in `technical.ts` — edge cases, boundary values, known arithmetic |
+| `backend/src/__tests__/services/stockScoring.test.ts` | `getStockDecision` (both BULLISH/BEARISH + LONG/SHORT vocabularies), `computeStockTechnicalScore`, `computeSectorETFScore`, `computeFibonacci`, `computeMovingAverages`, `SECTOR_TO_ETF` |
+| `backend/src/__tests__/lib/signaInsight.test.ts` | `synthesizeOptionsInsight` — null data, single source, agreement, mixed signals, key points, summary |
+| `backend/src/__tests__/services/scoring.test.ts` | `scoreVolatility`, `scoreTrend`, `computeMarketQualityScore`, `getDecision` — each weight verified |
+| `frontend/src/__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` — direction detection, entryRef fallback, LONG/SHORT level validation, **ASTS regression** |
+| `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path — add/remove, groups CRUD, persistence, legacy migration |
+
+### Price level validation utility
+
+`frontend/src/lib/priceLevels.ts` exports `validatePriceLevels()` — the stop/target directional validation logic extracted from `SignaCard.tsx`. `SignaCard` imports it from here. Always use this utility when displaying price levels; do not duplicate the logic inline.
+
+```typescript
+validatePriceLevels(direction, entry, stop, target, rr, currentPrice)
+// → { isLong, entryRef, stopValid, targetValid, rrValid }
+```
+
+For LONG: stop must be below entryRef, target above. For SHORT: reversed. Invalid levels show `—` in the UI instead of confusing inverted numbers.
 
 ---
 

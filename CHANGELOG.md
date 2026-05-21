@@ -6,6 +6,103 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.6.7] — 2026-05-21
+
+### Added — Vitest Test Suite (189 tests)
+
+Comprehensive regression-prevention test suite covering all business-critical logic. Zero tests existed before this release.
+
+#### Test framework
+
+- **Vitest** installed in both `backend/` and `frontend/` (`npm run test`, `npm run test:watch`)
+- Backend: `backend/vitest.config.ts` — node environment, resolves ESM `.js` imports natively
+- Frontend: `vite.config.ts` extended with `test` block — jsdom environment, `globals: true` for `@testing-library/jest-dom`, setup via `src/__tests__/setup.ts`
+- `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`, `jsdom` added to frontend dev dependencies
+
+#### Backend tests — 134 tests across 4 files
+
+**`backend/src/__tests__/lib/technical.test.ts`** — 42 tests
+
+All 7 utility functions in `technical.ts`:
+- `clamp` — within range, min/max boundary, negative ranges
+- `sma` — insufficient data (null), correct window selection, uniform prices
+- `ema` — insufficient data (null), recency weighting, period=1 edge case, known 3-period result
+- `rsi` — insufficient data (null), pure gain (100), pure loss (~0), alternating series (~50), 0–100 bounds, default period
+- `pctReturn` — insufficient data, zero base price, positive/negative/flat returns, exact boundary
+- `linearSlope` — empty/single array, known slopes (+1, -1, +2), flat series
+- `percentileRank` — empty array (50), all below (0), all above (100), mid-range, duplicate handling
+
+**`backend/src/__tests__/services/stockScoring.test.ts`** — 52 tests
+
+- `SECTOR_TO_ETF` — all alias pairs (Financial Services/Financials, Healthcare/Health Care, Consumer Cyclical/Consumer Discretionary)
+- `getStockDecision` — market score gate (NO when <55), YES_BUY uptrend, YES_SHORT downtrend+bearish, CAUTION 60–79; **both signal vocabularies**: LONG/BULLISH → identical long path; SHORT/BEARISH → identical short path; grade boundary (C falls through, B+/B pass); confidence threshold (≥65 required); regression for BULLISH+low composite → CAUTION not NO
+- `computeStockTechnicalScore` — score 0–100 bounds, high uptrend score, low downtrend score, 5 correct metric labels, N/A MAs on short history, isBearish requires all 3 conditions, score never exceeds 100
+- `computeSectorETFScore` — undefined → 50, healthy sector >70, weak sector <30, clamp floor/ceiling, above both MAs >50
+- `computeFibonacci` — null for <20 candles, null for flat prices, 9 levels, 0% = high, 100% = low, extensions above high, 50% = midpoint, uses last 252 candles only
+- `computeMovingAverages` — all null on short history, ema5 computed with 5+ prices, signaData EMAs passed through, null EMAs when signaData null
+
+**`backend/src/__tests__/lib/signaInsight.test.ts`** — 24 tests
+
+`synthesizeOptionsInsight` (pure function in `signaClient.ts`):
+- All-null → neutral/low/empty
+- Single sources (flow, darkpool, gamma) → high confidence from 1/1 agreement
+- All-3 bullish or all-3 bearish → high confidence
+- 2/3 agreement → medium confidence
+- Split 1-1-1 → neutral/low
+- Key point content: C/P ratio, unusual trade count, avg fill price, gamma flip annotation (above/below), no flip when null, pin risk
+- Summary: symbol + source count (singular/plural)
+- Data objects passed through unchanged
+
+**`backend/src/__tests__/services/scoring.test.ts`** — 16 tests
+
+- `scoreVolatility` — high score for VIX 10, low for VIX 40, clamped 0–100, weight=20, label, falling slope bonus, rising slope penalty, low percentile bonus, healthy/risk-off interpretations, 3 correct metrics
+- `scoreTrend` — uptrend scores high, downtrend scores low, clamped 0–100, weight=25, label, 4 correct metrics, uptrend > downtrend
+- `computeMarketQualityScore` — each of 5 weights verified individually (vol×20, trend×25, breadth×20, momentum×25, macro×10), all-100→100, all-0→0, returns integer
+- `getDecision` — YES_BUY score≥80 non-downtrend, YES_SELL score≥80 downtrend, CAUTION 60–79, NO <60
+
+#### Frontend tests — 55 tests across 2 files
+
+**`frontend/src/__tests__/lib/priceLevels.test.ts`** — 27 tests
+
+New utility `frontend/src/lib/priceLevels.ts` (extracted from `SignaCard.tsx`):
+- Direction detection: BULLISH/LONG/BUY → isLong=true; BEARISH/SHORT → isLong=false; case-insensitive
+- entryRef: uses entry when >0, falls back to currentPrice when ≤0
+- LONG validation: stop < entryRef → valid; stop ≥ entryRef → invalid; stop=0 → invalid; target > entryRef → valid; target ≤ entryRef → invalid
+- SHORT validation: stop > entryRef → valid; stop ≤ entryRef → invalid; target < entryRef → valid; target ≥ entryRef → invalid
+- rrValid: requires all three conditions (stop, target, rr>0)
+- **ASTS regression test**: direction=BULLISH, stop $101.53 > entry $89.58, target $65.68 < entry → both invalid (the exact production bug that was fixed)
+- Correct BULLISH setup with valid levels → all valid
+
+**`frontend/src/__tests__/hooks/useWatchlist.test.ts`** — 28 tests
+
+`useWatchlist` hook, localStorage-only path (Supabase mocked as null):
+- Initial state: Default group, empty tickers
+- Persistence: loads saved state from localStorage on init
+- Legacy migration: flat `signal-dashboard-watchlist` array → Default group
+- `add`: appends ticker, normalises to uppercase, rejects duplicates, persists to localStorage, targets named group
+- `remove`: removes ticker, persists, no-op for unknown ticker
+- `isInWatchlist`: true/false, case-insensitive
+- `createGroup`: creates and switches to group, no duplicate names, trims whitespace, ignores empty name, persists
+- `setActiveGroup`: switches active group
+- `renameGroup`: renames, updates activeGroup when active group is renamed, preserves tickers, no-op same name
+- `deleteGroup`: removes group, switches activeGroup when deleted group was active, refuses to delete last group
+- `getGroupsForTicker`: returns all group names containing ticker, empty array when in none
+- `activeTickers`: reflects active group tickers correctly
+
+#### New file — `frontend/src/lib/priceLevels.ts`
+
+Extracted `validatePriceLevels()` from `SignaCard.tsx` into a standalone pure function. `SignaCard.tsx` now imports it instead of duplicating the logic inline. Enables unit testing of the stop/target validation that prevents inverted price levels from being displayed.
+
+```typescript
+export function validatePriceLevels(
+  direction: string, entry: number, stop: number, target: number, rr: number, currentPrice: number,
+): { isLong: boolean; entryRef: number; stopValid: boolean; targetValid: boolean; rrValid: boolean }
+```
+
+Changed files: `backend/package.json`, `backend/vitest.config.ts`, `backend/src/__tests__/**`, `frontend/package.json`, `frontend/vite.config.ts`, `frontend/src/__tests__/**`, `frontend/src/lib/priceLevels.ts`, `frontend/src/components/SignaCard.tsx`
+
+---
+
 ## [0.6.4] — 2026-05-21
 
 ### Fixed — Signa Signal Source: engine (nightly) replaces data (live single-pass)
