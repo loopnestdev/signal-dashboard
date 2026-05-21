@@ -48,6 +48,25 @@ export interface SignaNewsArticle {
   summary?: string;
 }
 
+export interface CongressTrade {
+  senator: string;
+  party: string;
+  chamber: string;
+  transactionType: string;
+  amount: string;
+  transactionDate: string;
+  filedDate: string;
+}
+
+export interface CongressData {
+  ticker: string;
+  trades: CongressTrade[];
+  purchaseCount: number;
+  saleCount: number;
+  direction: 'bullish' | 'bearish' | 'neutral';
+  summary: string;
+}
+
 export interface SignaData {
   direction: string;
   confidence: number;
@@ -85,6 +104,8 @@ export interface SignaData {
   thesis?: string;
   // News
   newsItems?: SignaNewsArticle[];
+  // Congress signal
+  congress?: CongressData;
 }
 
 export interface FibLevel {

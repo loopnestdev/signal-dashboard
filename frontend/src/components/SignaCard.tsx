@@ -1,5 +1,5 @@
 import { C } from '../lib/colors';
-import type { SignaData, SignaNewsArticle } from '../types/stock';
+import type { SignaData, SignaNewsArticle, CongressTrade } from '../types/stock';
 
 interface Props {
   signa: SignaData;
@@ -99,6 +99,86 @@ function NewsItem({ article }: { article: SignaNewsArticle }) {
         )}
       </div>
     </a>
+  );
+}
+
+function CongressTradeRow({ trade }: { trade: CongressTrade }) {
+  const isBuy = trade.transactionType.toLowerCase().includes('purchase') || trade.transactionType.toLowerCase().includes('buy');
+  const color = isBuy ? C.bull : C.bear;
+  const partyColor = trade.party === 'D' ? '#3b82f6' : trade.party === 'R' ? C.bear : C.inkMute;
+  const date = trade.transactionDate
+    ? new Date(trade.transactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+    : trade.transactionDate;
+
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '1fr auto auto',
+      gap: 10, alignItems: 'center',
+      padding: '8px 12px',
+      background: C.canvasSoft, border: `1px solid ${C.border}`,
+      borderRadius: 7,
+    }}>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: '13px', color: C.ink }}>{trade.senator}</span>
+          <span style={{
+            fontSize: '10px', fontWeight: 500, color: partyColor,
+            border: `1px solid ${partyColor}`, borderRadius: 4,
+            padding: '1px 5px', lineHeight: 1.4,
+          }}>
+            {trade.party}
+          </span>
+          <span style={{ fontSize: '10px', color: C.inkMute }}>{trade.chamber}</span>
+        </div>
+        <div style={{ fontSize: '11px', color: C.inkMute, marginTop: 2 }}>{trade.amount} · {date}</div>
+      </div>
+      <span style={{
+        fontSize: '12px', fontWeight: 500, color,
+        background: isBuy ? C.bullBg : C.bearBg,
+        border: `1px solid ${isBuy ? C.bullBorder : C.bearBorder}`,
+        borderRadius: 9999, padding: '2px 10px',
+      }}>
+        {isBuy ? '▲ Buy' : '▼ Sell'}
+      </span>
+    </div>
+  );
+}
+
+function CongressSection({ congress }: { congress: SignaData['congress'] }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400 }}>
+          CONGRESS SIGNAL
+        </div>
+        {congress && congress.trades.length > 0 && (
+          <span style={{
+            fontSize: '11px', fontWeight: 500,
+            color: congress.direction === 'bullish' ? C.bull : congress.direction === 'bearish' ? C.bear : C.inkMute,
+          }}>
+            {congress.purchaseCount} buy · {congress.saleCount} sell
+          </span>
+        )}
+      </div>
+
+      {congress && congress.trades.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {congress.trades.slice(0, 5).map((trade, i) => (
+            <CongressTradeRow key={i} trade={trade} />
+          ))}
+        </div>
+      ) : (
+        <div style={{
+          fontSize: '13px', color: C.inkMute, fontStyle: 'italic',
+          padding: '12px 14px', background: C.canvasSoft,
+          border: `1px solid ${C.border}`, borderRadius: 8,
+        }}>
+          {congress === undefined
+            ? 'No congressional trading data — available on higher-tier Signa plans.'
+            : 'No recent congressional trades reported for this ticker.'}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -291,12 +371,12 @@ export function SignaCard({ signa, currentPrice }: Props) {
         </div>
       )}
 
-      {/* ── Thesis ── */}
-      {signa.thesis && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, marginBottom: 8 }}>
-            BULL THESIS
-          </div>
+      {/* ── Thesis — always rendered ── */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, marginBottom: 8 }}>
+          BULL THESIS
+        </div>
+        {signa.thesis ? (
           <div style={{
             fontSize: '13px', color: C.inkSec, lineHeight: 1.65,
             padding: '12px 14px',
@@ -304,8 +384,19 @@ export function SignaCard({ signa, currentPrice }: Props) {
           }}>
             {signa.thesis}
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{
+            fontSize: '13px', color: C.inkMute, fontStyle: 'italic',
+            padding: '12px 14px', background: C.canvasSoft,
+            border: `1px solid ${C.border}`, borderRadius: 8,
+          }}>
+            No thesis available — Signa generates this for select tickers on higher-tier plans.
+          </div>
+        )}
+      </div>
+
+      {/* ── Congress signal — always rendered ── */}
+      <CongressSection congress={signa.congress} />
 
       {/* ── News ── */}
       {news.length > 0 && (

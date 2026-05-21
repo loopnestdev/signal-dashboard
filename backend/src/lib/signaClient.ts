@@ -97,6 +97,8 @@ export interface SignaData {
 
   // ── News ──
   newsItems?: SignaNewsArticle[];
+  // ── Congress signal ──
+  congress?: CongressData;
 }
 
 // ── Raw API response shape ────────────────────────────────────────────────────
@@ -429,6 +431,104 @@ export async function getSignaThesis(symbol: string): Promise<string | null> {
 
     if (thesis) setToCache(cacheKey, thesis, CACHE_TTL_SIGNAL);
     return thesis;
+  } catch {
+    return null;
+  }
+}
+
+// ── Congress signal ───────────────────────────────────────────────────────────
+
+export interface CongressTrade {
+  senator: string;
+  party: string;
+  chamber: string;
+  transactionType: string;
+  amount: string;
+  transactionDate: string;
+  filedDate: string;
+}
+
+export interface CongressData {
+  ticker: string;
+  trades: CongressTrade[];
+  purchaseCount: number;
+  saleCount: number;
+  direction: 'bullish' | 'bearish' | 'neutral';
+  summary: string;
+}
+
+interface CongressRaw {
+  ok?: boolean;
+  data?: Array<{
+    senator?: string;
+    representative?: string;
+    member?: string;
+    name?: string;
+    party?: string;
+    chamber?: string;
+    transactionType?: string;
+    transaction?: string;
+    type?: string;
+    amount?: string;
+    transactionDate?: string;
+    date?: string;
+    filedDate?: string;
+    filed?: string;
+  }>;
+  trades?: CongressRaw['data'];
+  ticker?: string;
+  summary?: string;
+}
+
+export async function getSignaCongress(symbol: string): Promise<CongressData | null> {
+  if (!process.env.SIGNA_API_KEY) return null;
+  const cacheKey = `signa-congress-${symbol.toUpperCase()}`;
+  const cached = getFromCache<CongressData>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `${SIGNA_BASE}/congress?sym=${encodeURIComponent(symbol)}`,
+      { headers: headers() },
+    );
+    // 429 = rate-limited; 403 = tier restriction — both are graceful nulls
+    if (!res.ok) return null;
+    const raw = await res.json() as CongressRaw;
+    if (!raw.ok) return null;
+
+    const items = raw.data ?? raw.trades ?? [];
+    const trades: CongressTrade[] = items.map(t => ({
+      senator: t.senator ?? t.representative ?? t.member ?? t.name ?? '—',
+      party: t.party ?? '—',
+      chamber: t.chamber ?? '—',
+      transactionType: t.transactionType ?? t.transaction ?? t.type ?? '—',
+      amount: t.amount ?? '—',
+      transactionDate: t.transactionDate ?? t.date ?? '—',
+      filedDate: t.filedDate ?? t.filed ?? '—',
+    }));
+
+    const purchaseCount = trades.filter(t =>
+      t.transactionType.toLowerCase().includes('purchase') ||
+      t.transactionType.toLowerCase().includes('buy'),
+    ).length;
+    const saleCount = trades.filter(t =>
+      t.transactionType.toLowerCase().includes('sale') ||
+      t.transactionType.toLowerCase().includes('sell'),
+    ).length;
+    const direction: CongressData['direction'] =
+      purchaseCount > saleCount ? 'bullish' :
+      saleCount > purchaseCount ? 'bearish' : 'neutral';
+
+    const result: CongressData = {
+      ticker: symbol,
+      trades,
+      purchaseCount,
+      saleCount,
+      direction,
+      summary: raw.summary ?? `${trades.length} recent congressional trade${trades.length !== 1 ? 's' : ''} — ${purchaseCount} purchase${purchaseCount !== 1 ? 's' : ''}, ${saleCount} sale${saleCount !== 1 ? 's' : ''}.`,
+    };
+    setToCache(cacheKey, result, 3600); // 1 hr — congress filings don't change frequently
+    return result;
   } catch {
     return null;
   }

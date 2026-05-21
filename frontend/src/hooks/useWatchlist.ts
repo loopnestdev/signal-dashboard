@@ -150,13 +150,22 @@ export function useWatchlist(user: User | null): UseWatchlist {
         .single()
         .then(({ data }) => {
           if (!data) return;
-          // Patch the real id into the optimistically-added group
-          setState(prev => ({
-            ...prev,
-            groups: prev.groups.map(g =>
-              g.name === trimmed && !g.id ? { ...g, id: (data as WatchlistRow).id } : g,
-            ),
-          }));
+          const row = data as WatchlistRow;
+          // Patch the real id into the optimistically-added group.
+          // Also sync any tickers that were added while the id was still pending
+          // (add() skips sbUpdate when group.id is undefined — catch up here).
+          setState(prev => {
+            const pending = prev.groups.find(g => g.name === trimmed && !g.id);
+            if (pending && pending.tickers.length > 0) {
+              sbUpdate(row.id, { tickers: pending.tickers });
+            }
+            return {
+              ...prev,
+              groups: prev.groups.map(g =>
+                g.name === trimmed && !g.id ? { ...g, id: row.id } : g,
+              ),
+            };
+          });
         });
     } else {
       setState(prev => {

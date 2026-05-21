@@ -7,6 +7,7 @@ import {
   getSignaAnalysis,
   getSignaThesis,
   getSignaNews,
+  getSignaCongress,
   getOptionsFlow,
   getDarkpool,
   getGammaExposure,
@@ -44,7 +45,7 @@ router.get('/stock/:ticker', async (req, res) => {
   const symbol = ticker.toUpperCase();
 
   try {
-    const [stockData, profile, signaData, signaWeekly, signaAnalysis, signaThesis, signaNews, optionsFlow, darkpoolData, gammaData, fundamentalsData] = await Promise.all([
+    const [stockData, profile, signaData, signaWeekly, signaAnalysis, signaThesis, signaNews, signaCongress, optionsFlow, darkpoolData, gammaData, fundamentalsData] = await Promise.all([
       getHistoryAndQuote(symbol, '1y'),
       getStockProfile(symbol),
       getSignaSignal(symbol),
@@ -52,6 +53,7 @@ router.get('/stock/:ticker', async (req, res) => {
       getSignaAnalysis(symbol),
       getSignaThesis(symbol),
       getSignaNews(symbol),
+      getSignaCongress(symbol),
       getOptionsFlow(symbol),
       getDarkpool(symbol),
       getGammaExposure(symbol),
@@ -89,6 +91,7 @@ router.get('/stock/:ticker', async (req, res) => {
       sentiment: signaAnalysis?.sentiment ?? undefined,
       thesis: signaThesis ?? undefined,
       newsItems: signaNews ?? undefined,
+      congress: signaCongress ?? undefined,
     } : null;
 
     // Engine uses BULLISH/BEARISH; data field uses LONG/SHORT/WAIT — handle both
