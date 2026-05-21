@@ -69,9 +69,15 @@ export function useAuth() {
   }, []);
 
   const signInWithGoogle = () => {
-    supabase?.auth.signInWithOAuth({
+    // VITE_SUPABASE_REDIRECT_URL must be set in Cloudflare Pages env vars to your
+    // production domain AND added to Supabase → Authentication → URL Configuration →
+    // Redirect URLs. Without this, Supabase falls back to its "Site URL" (localhost:3000).
+    const redirectTo =
+      (import.meta.env.VITE_SUPABASE_REDIRECT_URL as string | undefined) ||
+      window.location.origin;
+    void supabase?.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo },
     });
   };
 

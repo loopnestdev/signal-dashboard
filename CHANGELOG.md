@@ -6,6 +6,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.6.3] — 2026-05-21
+
+### Fixed — Google OAuth redirect to localhost:3000 (code + config)
+
+#### Why localhost:3000 appears
+
+Supabase validates the post-OAuth `redirectTo` URL server-side against its "Redirect URLs" allow-list. The app was passing `window.location.origin` (correct at runtime), but Supabase rejected it because the production domain was absent from the allow-list, silently falling back to its default "Site URL" (`http://localhost:3000`).
+
+#### Code fix — `VITE_SUPABASE_REDIRECT_URL`
+
+Added explicit `VITE_SUPABASE_REDIRECT_URL` environment variable. The app now uses this value as `redirectTo` in `signInWithOAuth`, falling back to `window.location.origin` only when the var is absent (local dev). Setting this var in Cloudflare Pages creates a direct, auditable link between what the code sends to Supabase and what must appear in Supabase's Redirect URLs list.
+
+Changed files: `frontend/src/hooks/useAuth.ts`, `frontend/.env.example`
+
+#### Required configuration (two places must match)
+
+1. **Supabase Dashboard → Authentication → URL Configuration:**
+   - **Site URL**: set to production domain (e.g. `https://signal.ailab.build`)
+   - **Redirect URLs**: add `https://signal.ailab.build` and `http://localhost:5173`
+
+2. **Cloudflare Pages → Settings → Environment Variables:**
+   - Add `VITE_SUPABASE_REDIRECT_URL=https://signal.ailab.build`
+   - Trigger a new deployment after adding (VITE_* vars are baked in at build time)
+
+### Reviewed — Cloudflare PR #1 (do not merge)
+
+Cloudflare's `cloudflare-workers-and-pages` bot opened PR #1 ("Add Cloudflare Workers configuration") via Wrangler autoconfig. **Do not merge.** The PR migrates the SPA from Cloudflare Pages (static hosting, correct) to Cloudflare Workers (serverless runtime, incompatible with the current architecture):
+
+- Breaks the `frontend/public/_headers` security file (Pages-only feature)
+- Changes `preview` script to use `wrangler dev` instead of `vite preview`
+- Adds ~1,100 lines to `package-lock.json` for `wrangler` + `@cloudflare/vite-plugin`
+- Cloudflare Pages already handles SPA routing, CDN, and HTTPS — Workers adds no value here
+- Different pricing model (Workers: 100k req/day free vs Pages: unlimited)
+
+### Docs — README, CLAUDE.md, PROMPT.md
+
+- Added `VITE_SUPABASE_REDIRECT_URL` to env var tables in all docs
+- README Supabase Step 4a: rewrote with exact URL Configuration instructions and explanation of why the default causes localhost redirect
+- README Troubleshooting: updated localhost:3000 entry — two-step checklist (Supabase config + Cloudflare Pages env var)
+
+---
+
 ## [0.6.2] — 2026-05-21
 
 ### Fixed — OAuth Redirect to localhost:3000

@@ -245,6 +245,7 @@ All scoring, market data, Fibonacci, and moving averages work fully without any 
 | `VITE_API_URL` | **Production only** | Railway backend public URL — required in Cloudflare Pages; leave blank locally (Vite proxy covers it) |
 | `VITE_SUPABASE_URL` | No | Your Supabase project URL — from Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | No | Your Supabase anon/public key — same location |
+| `VITE_SUPABASE_REDIRECT_URL` | **Required if using auth** | Your exact production domain (e.g. `https://signal.ailab.build`). Must match one of the URLs added to Supabase → Authentication → URL Configuration → Redirect URLs. Without this, Google sign-in redirects to `localhost:3000` after OAuth |
 
 Leave `VITE_SUPABASE_*` blank (or omit the file entirely) to run in localStorage-only mode with no authentication.
 
@@ -374,13 +375,20 @@ From that point you can approve other users directly in the app.
 1. Supabase Dashboard → **Authentication → Providers → Google → Enable**
 2. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials → Create OAuth 2.0 Client ID**
 3. Application type: **Web application**
-4. Authorised redirect URI: `https://<your-project-ref>.supabase.co/auth/v1/callback`
+4. Authorised redirect URI (in Google Console): `https://<your-project-ref>.supabase.co/auth/v1/callback`
 5. Copy the **Client ID** and **Client Secret** back into Supabase → Google provider settings
-6. In Supabase → **Authentication → URL Configuration**:
-   - **Site URL**: set to your production domain (e.g. `https://signal.ailab.build`)
-   - **Redirect URLs**: add `https://signal.ailab.build/**`, `https://signal-dashboard.pages.dev/**`, and `http://localhost:5173/**` (one per line)
 
-> **Critical:** Supabase defaults "Site URL" to `http://localhost:3000`. If you skip this step, clicking "Sign in with Google" will redirect back to localhost after OAuth instead of your production domain.
+#### Step 4a — Configure Supabase redirect URLs (REQUIRED — fixes localhost:3000 redirect)
+
+> **Why this matters:** Every Supabase project defaults "Site URL" to `http://localhost:3000`. After Google OAuth completes, Supabase redirects the user to the `redirectTo` URL only if it appears in the approved list below. If it does not appear there, Supabase silently falls back to "Site URL" — sending the user to `localhost:3000` regardless of where the app is deployed. This is the most common cause of a broken sign-in flow.
+
+In Supabase Dashboard → **Authentication → URL Configuration**, make these two changes:
+
+1. **Site URL** — change from `http://localhost:3000` to your production domain: `https://signal.ailab.build`
+
+2. **Redirect URLs** — add each of the following (one per line, click **Add URL** for each): `https://signal.ailab.build` and `http://localhost:5173`
+
+   Use the exact origin (no trailing slash, no wildcard). These must match the value you will set in `VITE_SUPABASE_REDIRECT_URL` in Step 5.
 
 #### Step 5 — Add env vars to Cloudflare Pages
 
@@ -390,8 +398,11 @@ In Cloudflare Pages → **Settings → Environment Variables**, add:
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | Production | `https://<your-project-ref>.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Production | Your anon/public key |
+| `VITE_SUPABASE_REDIRECT_URL` | Production | `https://signal.ailab.build` (your exact production domain) |
 
-For local development, add the same keys to `frontend/.env` (copy from `frontend/.env.example`).
+> **`VITE_SUPABASE_REDIRECT_URL` is the value the app sends to Supabase as the post-OAuth destination. It must exactly match one of the URLs you added in Step 4a. After adding or changing this variable, trigger a new Cloudflare Pages deployment** (`VITE_*` vars are baked in at build time).
+
+For local development, copy `frontend/.env.example` to `frontend/.env`. Leave `VITE_SUPABASE_REDIRECT_URL` blank locally — the app falls back to `window.location.origin` (`http://localhost:5173`).
 
 ---
 
@@ -490,14 +501,15 @@ Railway redeploys automatically on variable changes.
 
 #### Sign-in with Google redirects to `localhost:3000`
 
-Supabase creates every new project with "Site URL" defaulting to `http://localhost:3000`. OAuth redirects are validated against this list — if your production domain isn't in it, Supabase falls back to the Site URL after the Google callback.
+Two things must be true simultaneously or the redirect fails:
 
-**Fix:** In Supabase → **Authentication → URL Configuration**:
+1. **Supabase dashboard** — `Authentication → URL Configuration`:
+   - **Site URL** must be your production domain (e.g. `https://signal.ailab.build`), not `localhost:3000`
+   - **Redirect URLs** must include `https://signal.ailab.build` and `http://localhost:5173` (exact origins, no wildcards)
 
-1. Set **Site URL** to your production domain (e.g. `https://signal.ailab.build`)
-2. Under **Redirect URLs**, add `https://signal.ailab.build/**` and `http://localhost:5173/**`
+2. **Cloudflare Pages env vars** — `VITE_SUPABASE_REDIRECT_URL` must be set to `https://signal.ailab.build` (the same value as the Supabase Redirect URL entry). After adding this variable, trigger a new deployment — `VITE_*` vars are baked in at build time.
 
-Then trigger a new Cloudflare Pages deployment. No code changes are needed — the app already passes `window.location.origin` as the redirect target; the problem is Supabase rejecting it.
+If either is missing, Supabase falls back to its "Site URL" default (`localhost:3000`) regardless of what the app sends.
 
 #### "Unexpected token '<', '<!doctype'... is not valid JSON"
 

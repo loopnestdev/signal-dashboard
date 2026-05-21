@@ -133,6 +133,7 @@ The frontend Vite dev proxy routes `/api/*` → `http://localhost:3001`, so no C
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | No | Supabase project URL — Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | No | Supabase anon/public key — same location |
+| `VITE_SUPABASE_REDIRECT_URL` | **Production only** | Exact production origin (e.g. `https://signal.ailab.build`). Must match a Supabase → Authentication → URL Configuration → Redirect URL entry. Without this, Google OAuth redirects to `localhost:3000` (Supabase's default Site URL). Leave blank locally — falls back to `window.location.origin`. |
 
 When both Supabase vars are absent, `supabase` client is `null` and the app runs in localStorage-only mode with no auth UI shown.
 

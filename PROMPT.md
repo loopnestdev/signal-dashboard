@@ -286,6 +286,10 @@ SIGNA_API_KEY=
 # Leave blank to run in localStorage-only mode (no auth required).
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Required for production OAuth redirect. Must match a Supabase Redirect URL entry exactly.
+# Without this, Google sign-in redirects to localhost:3000 after OAuth.
+VITE_SUPABASE_REDIRECT_URL=https://your-production-domain.com
 ```
 
 ---
