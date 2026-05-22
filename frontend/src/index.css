@@ -197,3 +197,22 @@ html, body {
     radial-gradient(ellipse 40% 30% at 90%  70%, rgba(244,63,110,0.04)  0%, transparent 60%),
     var(--c-canvas-soft);
 }
+
+/* ── Responsive layout helpers ─────────────────────────────────────────────── */
+
+/* Header and main padding — reduced on small screens */
+.header-band  { padding: 28px 32px 24px; }
+.main-content { padding: 28px 32px 64px; }
+
+/* Fibonacci 2-column grid — stacks to 1 column on mobile */
+.fib-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .header-band  { padding: 14px 16px 14px; }
+  .main-content { padding: 16px 16px 48px; }
+  .fib-grid     { grid-template-columns: 1fr; }
+}

@@ -6,6 +6,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.7.0] — 2026-05-22
+
+### Fixed — Cross-device watchlist sync + mobile layout
+
+#### Fixed — Watchlist not syncing between devices
+
+**Root cause:** The sign-in effect in `useWatchlist.ts` only updated state with Supabase groups *after* a recovery INSERT completed. When Device A had Supabase data and Device B had locally-only groups, Device B waited for the INSERT to finish before displaying Device A's groups. If the INSERT failed silently, Device B never showed Device A's groups at all.
+
+**Fix:** The sign-in effect now **immediately** merges Supabase groups with any local-only groups (optimistic state) before firing the recovery INSERT. This ensures Device B instantly sees all groups from Device A without waiting for any network write. The recovery INSERT still runs asynchronously and patches in Supabase UUIDs once it completes.
+
+Additional improvements:
+- `console.warn` added for SELECT, migration INSERT, and recovery INSERT errors (silent failures now surface in devtools)
+- `activeGroup` is now validated after Supabase load — if the current active group no longer exists in the merged set, falls back to the first group
+- Recovery INSERT failure no longer hides locally-created groups: they stay visible in the UI without a UUID (subsequent mutations will try again)
+
+Changed files: `frontend/src/hooks/useWatchlist.ts`
+
+#### Fixed — Sector Performance overflow on mobile
+
+**Root cause:** The `SectorRow` grid (`60px 1fr 1fr 72px 52px 32px`) has 216px of fixed columns. On a 390px screen with the card's 48px horizontal padding, only ~27px per `1fr` column remained — far too narrow for sector names and the heat bar.
+
+**Fix:** Wrapped the sector rows list in an `overflowX: 'auto'` scroll container with `minWidth: 480` on the inner flex column. On screens wider than ~530px the list is unchanged; on narrow screens it scrolls horizontally.
+
+Changed files: `frontend/src/components/SectorHeatmap.tsx`
+
+#### Fixed — Fibonacci levels cut off on mobile
+
+**Root cause:** The Fibonacci section used a `gridTemplateColumns: '1fr 1fr'` outer grid. Each column was ~163px on a 390px screen. The `FibRow` inner grid (`110px 85px 1fr`) needed 195px of fixed width — it overflowed each 163px column, clipping the support/resistance label.
+
+**Fix:** Replaced the inline two-column style with the CSS class `fib-grid`. A `@media (max-width: 640px)` breakpoint collapses the grid to a single column on mobile, giving each FibRow the full panel width and eliminating overflow.
+
+Changed files: `frontend/src/components/StockPanel.tsx`, `frontend/src/index.css`
+
+#### Fixed — R:R cut off in SIGNA.AI price cells on mobile
+
+**Root cause:** The 5-column price cells grid (`repeat(5, 1fr)`) gave each cell only ~68px on a 390px screen. The "STOP LOSS" and "BEST ENTRY" labels (10px font, ~60px wide) barely fit, and the R:R value was clipped on the narrowest devices.
+
+**Fix:** Wrapped the grid in an `overflowX: 'auto'` scroll container and added `minWidth: 380` to the inner grid. All five cells are always visible; the row scrolls horizontally only when the screen is too narrow to fit them without overflow.
+
+Changed files: `frontend/src/components/SignaCard.tsx`
+
+#### Fixed — Excess padding on mobile in header and main content
+
+**Root cause:** The header and `<main>` used 32px horizontal padding via inline styles, consuming 64px of the ~390px screen width and leaving less space for content.
+
+**Fix:** Moved the `padding` values from inline styles to the CSS classes `.header-band` and `.main-content`. A `@media (max-width: 640px)` breakpoint reduces horizontal padding to 16px on small screens.
+
+Changed files: `frontend/src/App.tsx`, `frontend/src/index.css`
+
+#### Fixed — Options flow notable trades may overflow on very narrow screens
+
+Added `overflowX: 'auto'` scroll container around the OPTIONS FLOW notable trades rows (`gridTemplateColumns: '50px 70px 70px 60px 1fr'`). The `1fr` column for the "⚡ unusual" label was as narrow as 60px on a 390px device.
+
+Changed files: `frontend/src/components/OptionsPanel.tsx`
+
+---
+
 ## [0.6.9] — 2026-05-21
 
 ### Fixed — Confidence score is now stock-specific (was market-level)

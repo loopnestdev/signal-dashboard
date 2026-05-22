@@ -54,36 +54,40 @@ function FlowSection({ flow }: { flow: OptionsFlowData }) {
       </div>
 
       {topItems.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div>
           <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 2 }}>NOTABLE TRADES</div>
-          {topItems.map((item, i) => (
-            <div key={i} style={{
-              display: 'grid', gridTemplateColumns: '50px 70px 70px 60px 1fr',
-              gap: 8, alignItems: 'center', padding: '5px 10px',
-              background: item.unusual ? (item.type === 'CALL' ? C.bullBg : C.bearBg) : C.canvasSoft,
-              border: `1px solid ${item.unusual ? (item.type === 'CALL' ? C.bullBorder : C.bearBorder) : C.border}`,
-              borderRadius: 6, fontSize: '11px',
-            }}>
-              <span style={{
-                color: item.type === 'CALL' ? C.bull : C.bear,
-                fontWeight: 500,
-              }}>
-                {item.type}
-              </span>
-              <span style={{ color: C.inkSec, fontFeatureSettings: '"tnum"' }}>
-                ${item.strike.toFixed(0)} · {item.expiry}
-              </span>
-              <span style={{ color: C.inkSec, fontFeatureSettings: '"tnum"' }}>
-                {fmt(item.premium, '$')}
-              </span>
-              <span style={{ color: C.inkMute, fontFeatureSettings: '"tnum"' }}>
-                ×{item.size.toLocaleString()}
-              </span>
-              {item.unusual && (
-                <span style={{ color: C.warn, fontSize: '10px' }}>⚡ unusual</span>
-              )}
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 340 }}>
+              {topItems.map((item, i) => (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '50px 70px 70px 60px 1fr',
+                  gap: 8, alignItems: 'center', padding: '5px 10px',
+                  background: item.unusual ? (item.type === 'CALL' ? C.bullBg : C.bearBg) : C.canvasSoft,
+                  border: `1px solid ${item.unusual ? (item.type === 'CALL' ? C.bullBorder : C.bearBorder) : C.border}`,
+                  borderRadius: 6, fontSize: '11px',
+                }}>
+                  <span style={{
+                    color: item.type === 'CALL' ? C.bull : C.bear,
+                    fontWeight: 500,
+                  }}>
+                    {item.type}
+                  </span>
+                  <span style={{ color: C.inkSec, fontFeatureSettings: '"tnum"' }}>
+                    ${item.strike.toFixed(0)} · {item.expiry}
+                  </span>
+                  <span style={{ color: C.inkSec, fontFeatureSettings: '"tnum"' }}>
+                    {fmt(item.premium, '$')}
+                  </span>
+                  <span style={{ color: C.inkMute, fontFeatureSettings: '"tnum"' }}>
+                    ×{item.size.toLocaleString()}
+                  </span>
+                  {item.unusual && (
+                    <span style={{ color: C.warn, fontSize: '10px' }}>⚡ unusual</span>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       )}
     </div>

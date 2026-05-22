@@ -282,16 +282,18 @@ export function SignaCard({ signa, currentPrice }: Props) {
       )}
 
       {/* ── Price levels ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
-        <PriceCell label="CURRENT"    value={`$${currentPrice.toFixed(2)}`} />
-        <PriceCell label="BEST ENTRY" value={signa.entry > 0 ? `$${signa.entry.toFixed(2)}` : '—'} color={C.primary} />
-        <PriceCell label="STOP LOSS"  value={signa.stop > 0   ? `$${signa.stop.toFixed(2)}`   : '—'} color={signa.stop > 0   ? (stopValid   ? C.bear : C.inkSec) : undefined} />
-        <PriceCell label="TARGET"     value={signa.target > 0 ? `$${signa.target.toFixed(2)}` : '—'} color={signa.target > 0 ? (targetValid ? C.bull : C.inkSec) : undefined} />
-        <PriceCell
-          label="R : R"
-          value={signa.rr > 0 ? `${signa.rr.toFixed(1)}×` : '—'}
-          color={signa.rr > 0 ? (rrValid ? (signa.rr >= 2 ? C.bull : signa.rr >= 1 ? C.warn : C.bear) : C.inkSec) : undefined}
-        />
+      <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, minWidth: 380 }}>
+          <PriceCell label="CURRENT"    value={`$${currentPrice.toFixed(2)}`} />
+          <PriceCell label="BEST ENTRY" value={signa.entry > 0 ? `$${signa.entry.toFixed(2)}` : '—'} color={C.primary} />
+          <PriceCell label="STOP LOSS"  value={signa.stop > 0   ? `$${signa.stop.toFixed(2)}`   : '—'} color={signa.stop > 0   ? (stopValid   ? C.bear : C.inkSec) : undefined} />
+          <PriceCell label="TARGET"     value={signa.target > 0 ? `$${signa.target.toFixed(2)}` : '—'} color={signa.target > 0 ? (targetValid ? C.bull : C.inkSec) : undefined} />
+          <PriceCell
+            label="R : R"
+            value={signa.rr > 0 ? `${signa.rr.toFixed(1)}×` : '—'}
+            color={signa.rr > 0 ? (rrValid ? (signa.rr >= 2 ? C.bull : signa.rr >= 1 ? C.warn : C.bear) : C.inkSec) : undefined}
+          />
+        </div>
       </div>
 
       {/* ── Sentiment bar ── */}

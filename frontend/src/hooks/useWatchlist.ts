@@ -102,38 +102,65 @@ export function useWatchlist(user: User | null): UseWatchlist {
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
       .then(async ({ data, error }) => {
-        if (error) return;
+        if (error) {
+          console.warn('[useWatchlist] SELECT error:', error.message);
+          return;
+        }
 
         if (!data || data.length === 0) {
           // First sign-in: migrate localStorage groups into Supabase
           const local = loadLocal();
-          const { data: migrated } = await supabase!
+          const { data: migrated, error: migrateErr } = await supabase!
             .from('watchlists')
             .insert(local.groups.map(g => ({ user_id: user.id, name: g.name, tickers: g.tickers })))
             .select('id, name, tickers');
+          if (migrateErr) console.warn('[useWatchlist] migration INSERT error:', migrateErr.message);
           if (migrated) setState(prev => ({ ...prev, groups: migrated as WatchlistRow[] }));
         } else {
-          // Recovery: re-INSERT any localStorage groups that are missing from Supabase
-          // (guards against INSERT failures on previous sessions losing data permanently)
+          // Merge Supabase data with any locally-only groups (created offline / INSERT failed).
+          // IMMEDIATELY update state so Device B sees Device A's groups without waiting for any INSERT.
           const supabaseGroups = data as WatchlistRow[];
           const supabaseNames = new Set(supabaseGroups.map(g => g.name));
           const localGroups = loadLocal().groups;
           const missingFromSupabase = localGroups.filter(g => !supabaseNames.has(g.name));
 
+          const optimisticGroups: WatchlistGroup[] = [
+            ...supabaseGroups,
+            ...missingFromSupabase.map(g => ({ name: g.name, tickers: g.tickers })),
+          ];
+          // Validate activeGroup — fall back to first group if it no longer exists
+          const currentActive = stateRef.current.activeGroup;
+          const validActive = optimisticGroups.find(g => g.name === currentActive)?.name
+            ?? optimisticGroups[0]?.name
+            ?? DEFAULT_LIST;
+
+          setState(prev => ({ ...prev, groups: optimisticGroups, activeGroup: validActive }));
+          persistLocal({
+            groups: optimisticGroups.map(({ name, tickers }) => ({ name, tickers })),
+            activeGroup: validActive,
+          });
+
           if (missingFromSupabase.length > 0) {
+            // Back-fill locally-only groups into Supabase and patch in their UUIDs
             supabase!
               .from('watchlists')
               .insert(missingFromSupabase.map(g => ({ user_id: user.id, name: g.name, tickers: g.tickers })))
               .select('id, name, tickers')
-              .then(({ data: recovered }) => {
+              .then(({ data: recovered, error: insertErr }) => {
+                if (insertErr) {
+                  console.warn('[useWatchlist] recovery INSERT error:', insertErr.message);
+                  return; // Keep optimistic state — groups stay visible without UUIDs
+                }
                 const recoveredRows = (recovered as WatchlistRow[] | null) ?? [];
+                // Patch Supabase UUIDs into the optimistically-added local groups
                 setState(prev => ({
                   ...prev,
-                  groups: [...supabaseGroups, ...recoveredRows],
+                  groups: prev.groups.map(g => {
+                    const match = recoveredRows.find(r => r.name === g.name && !g.id);
+                    return match ? { ...g, id: match.id } : g;
+                  }),
                 }));
               });
-          } else {
-            setState(prev => ({ ...prev, groups: supabaseGroups }));
           }
         }
       });

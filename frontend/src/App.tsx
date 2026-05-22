@@ -50,7 +50,7 @@ export default function App() {
       />
 
       {/* Gradient mesh header band */}
-      <div className="mesh-bg" style={{ padding: '28px 32px 24px', borderBottom: `1px solid ${C.border}` }}>
+      <div className="mesh-bg header-band" style={{ borderBottom: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {/* Title with favicon */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -99,7 +99,7 @@ export default function App() {
       </div>
 
       {/* Main content */}
-      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '28px 32px 64px' }}>
+      <main className="main-content" style={{ maxWidth: 1400, margin: '0 auto' }}>
 
         {/* Connection error */}
         {error && !data && (

@@ -281,7 +281,7 @@ export function StockPanel({ data, loading, error, activeTicker, watchlistGroups
           <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, padding: '16px 0 10px' }}>
             FIBONACCI LEVELS — 52-WEEK RANGE
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="fib-grid">
             <div>
               <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 6, letterSpacing: '0.05em' }}>RETRACEMENT</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

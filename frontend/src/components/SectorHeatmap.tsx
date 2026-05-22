@@ -133,7 +133,8 @@ export function SectorHeatmap({ sectors, subsectors, timeframe }: Props) {
         SECTOR PERFORMANCE — {tfLabel}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ overflowX: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 480 }}>
         {sorted.map((s, i) => {
           const subs = subByParent[s.name];
           const hasSubs = subs && subs.length > 0;
@@ -183,6 +184,7 @@ export function SectorHeatmap({ sectors, subsectors, timeframe }: Props) {
             </div>
           );
         })}
+      </div>
       </div>
 
       {/* Legend */}
