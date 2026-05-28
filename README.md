@@ -287,20 +287,42 @@ When both services are connected to your GitHub repo, you will see multiple entr
 
 When Supabase is configured the app becomes **invite-only**: anonymous users can sign in with Google to request access, but a human admin must approve each account before it gains access. Without Supabase the app is open (suitable for local development).
 
-> **loopnestdev shared database:** This project uses the centralised **coredb** Supabase project — the same instance used by moat-finder and folio-app. One Google sign-in works across all apps. If you are setting up a fresh deployment for your own use, follow Steps 1–5 below. If you are a loopnestdev contributor, skip to **Step 2** (coredb already exists).
+> **loopnestdev shared database:** This project uses the centralised **coredb** Supabase project — the same instance used by moat-finder and folio-app. One Google sign-in works across all apps. Each app is isolated in its own PostgreSQL schema within coredb (signal-dashboard → `signal`, moat-finder → `moat`, folio-app → `folio`). If you are setting up a fresh deployment for your own use, follow Steps 1–6 below. If you are a loopnestdev contributor, skip to **Step 2** (coredb exists — expose the `signal` schema and run the DDL if not already done).
 
 #### Step 1 — Create a Supabase project
 
 1. Go to [supabase.com](https://supabase.com) → **New project**
 2. Note your **Project URL** and **anon/public key** from **Settings → API**
 
-#### Step 2 — Create tables
+#### Step 2 — Expose the `signal` schema via Supabase API settings
+
+Before creating tables, tell PostgREST to expose the `signal` schema:
+
+1. Supabase Dashboard → **Settings → API**
+2. Under **"Exposed schemas"**, add `signal` to the list (alongside `public`)
+3. Click **Save** — the API restarts automatically
+
+> This is required once per Supabase project. Without it, PostgREST returns a 404 for every `signal.*` table query even if the tables exist.
+
+#### Step 3 — Create tables
 
 In **SQL Editor**, run the full schema:
 
 ```sql
+-- ─── signal schema ──────────────────────────────────────────────────────────
+create schema if not exists signal;
+
+-- Grant PostgREST access (anon + authenticated roles)
+grant usage on schema signal to anon, authenticated, service_role;
+alter default privileges in schema signal
+  grant all on tables    to anon, authenticated, service_role;
+alter default privileges in schema signal
+  grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema signal
+  grant all on routines  to anon, authenticated, service_role;
+
 -- Watchlists (cross-device sync)
-create table public.watchlists (
+create table signal.watchlists (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references auth.users(id) on delete cascade,
   name       text not null,
@@ -308,14 +330,14 @@ create table public.watchlists (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-alter table public.watchlists enable row level security;
+alter table signal.watchlists enable row level security;
 create policy "Users manage their own watchlists"
-  on public.watchlists for all
+  on signal.watchlists for all
   using  (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 -- User access approval
-create table public.user_profiles (
+create table signal.user_profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   email        text not null,
   display_name text,
@@ -324,32 +346,32 @@ create table public.user_profiles (
   requested_at timestamptz not null default now(),
   approved_at  timestamptz
 );
-alter table public.user_profiles enable row level security;
+alter table signal.user_profiles enable row level security;
 
 -- Helper to avoid recursive RLS checks
-create or replace function public.is_admin()
+create or replace function signal.is_admin()
 returns boolean as $$
   select exists (
-    select 1 from public.user_profiles
+    select 1 from signal.user_profiles
     where id = auth.uid() and is_admin = true
   );
 $$ language sql security definer stable;
 
 create policy "Users or admin read profiles"
-  on public.user_profiles for select
-  using (auth.uid() = id or public.is_admin());
+  on signal.user_profiles for select
+  using (auth.uid() = id or signal.is_admin());
 create policy "Admins approve profiles"
-  on public.user_profiles for update
-  using (public.is_admin());
+  on signal.user_profiles for update
+  using (signal.is_admin());
 create policy "Insert own profile"
-  on public.user_profiles for insert
+  on signal.user_profiles for insert
   with check (auth.uid() = id);
 
 -- Auto-create profile on first sign-in
-create or replace function public.handle_new_user()
+create or replace function signal.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.user_profiles (id, email, display_name)
+  insert into signal.user_profiles (id, email, display_name)
   values (
     new.id,
     new.email,
@@ -361,22 +383,22 @@ $$ language plpgsql security definer;
 
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+  for each row execute procedure signal.handle_new_user();
 ```
 
-#### Step 3 — Grant yourself admin access
+#### Step 4 — Grant yourself admin access
 
 After your first sign-in, run this in the SQL Editor (replace with your email):
 
 ```sql
-update public.user_profiles
+update signal.user_profiles
 set status = 'approved', is_admin = true
 where email = 'you@example.com';
 ```
 
 From that point you can approve other users directly in the app.
 
-#### Step 4 — Enable Google OAuth
+#### Step 5 — Enable Google OAuth
 
 1. Supabase Dashboard → **Authentication → Providers → Google → Enable**
 2. Go to [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials → Create OAuth 2.0 Client ID**
@@ -384,7 +406,7 @@ From that point you can approve other users directly in the app.
 4. Authorised redirect URI (in Google Console): `https://<your-project-ref>.supabase.co/auth/v1/callback`
 5. Copy the **Client ID** and **Client Secret** back into Supabase → Google provider settings
 
-#### Step 4a — Configure Supabase redirect URLs (REQUIRED — fixes localhost:3000 redirect)
+#### Step 5a — Configure Supabase redirect URLs (REQUIRED — fixes localhost:3000 redirect)
 
 > **Why this matters:** Every Supabase project defaults "Site URL" to `http://localhost:3000`. After Google OAuth completes, Supabase redirects the user to the `redirectTo` URL only if it appears in the approved list below. If it does not appear there, Supabase silently falls back to "Site URL" — sending the user to `localhost:3000` regardless of where the app is deployed. This is the most common cause of a broken sign-in flow.
 
@@ -396,7 +418,7 @@ In Supabase Dashboard → **Authentication → URL Configuration**, make these t
 
    Use the exact origin (no trailing slash, no wildcard). These must match the value you will set in `VITE_SUPABASE_REDIRECT_URL` in Step 5.
 
-#### Step 5 — Add env vars to Cloudflare Pages
+#### Step 6 — Add env vars to Cloudflare Pages
 
 In Cloudflare Pages → **Settings → Environment Variables**, add:
 

@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.7.2] — 2026-05-28
+
+### Changed — Per-app PostgreSQL schema isolation in coredb
+
+Each loopnestdev app now uses its own PostgreSQL schema within the shared coredb Supabase project, preventing table name collisions as more apps are onboarded:
+
+| App | Schema |
+| --- | --- |
+| signal-dashboard | `signal` |
+| moat-finder | `moat` |
+| folio-app | `folio` |
+
+#### Changes
+
+- **`frontend/src/lib/supabase.ts`** — `Database` type key changed from `public` to `signal`; `createClient` now passes `{ db: { schema: 'signal' } }` so all PostgREST queries target `signal.*` tables. Client type updated to `SupabaseClient<Database, 'signal'>`.
+- **README.md** — DDL rewritten: new Step 2 documents exposing the `signal` schema via Supabase Dashboard → Settings → API → Exposed schemas (required for PostgREST to route queries correctly); Step 3 DDL creates `signal` schema, grants privileges, and places all tables/functions/trigger in the `signal` schema.
+- **CLAUDE.md** — Supabase schema section updated to document `signal` schema, per-app isolation architecture, and the Exposed schemas requirement.
+
+#### SQL commands required in coredb (if not yet applied)
+
+1. Supabase Dashboard → Settings → API → Exposed schemas — add `signal`
+2. Run the full DDL from README → Deployment → Supabase → Step 3
+
+Changed files: `frontend/src/lib/supabase.ts`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`
+
+---
+
 ## [0.7.1] — 2026-05-28
 
 ### Changed — Centralised Supabase migration to coredb
@@ -14,14 +41,14 @@ Migrated from the standalone `signal-dashboard` Supabase project to the shared *
 
 #### Root cause — watchlist never synced to Supabase
 
-`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` were never configured in Cloudflare Pages. Without these, `supabase.ts` returns `null` and the app silently falls back to `localStorage`-only mode — watchlist mutations never reached Supabase. The old `signal-dashboard` Supabase project tables were always empty.
+The SQL schema (`watchlists` and `user_profiles` tables) was never applied to coredb. Without these tables, every Supabase query returns a 404 and the app silently falls back to `localStorage`-only mode — watchlist mutations never persisted to the database. The old `signal-dashboard` Supabase project tables were always empty for the same reason.
 
 #### Fix
 
-- **`frontend/.env`** updated: `VITE_SUPABASE_URL` now points to coredb (`https://lcqsatefkutiakhgexue.supabase.co`); `VITE_API_URL` corrected to blank for local dev (was placeholder string that routed local API calls to the wrong host).
-- **Cloudflare Pages** must be updated with coredb `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_REDIRECT_URL=https://signal.ailab.build` (trigger a new deployment after — `VITE_*` vars are baked in at build time).
-- **No data migration** — old Supabase project tables were always empty; coredb needs the DDL schema applied (see README → Deployment → Supabase → Step 2).
-- **No code changes** — `supabase.ts` already reads credentials from env vars; migration is purely configuration.
+- **`frontend/.env`** updated: `VITE_SUPABASE_URL` now points to coredb (`https://lcqsatefkutiakhgexue.supabase.co`); `VITE_SUPABASE_ANON_KEY` set to coredb anon key.
+- **Cloudflare Pages** must have `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_REDIRECT_URL=https://signal.ailab.build` set (trigger a new deployment after — `VITE_*` vars are baked in at build time).
+- **No data migration** — coredb tables were empty; DDL schema must be applied (see README → Deployment → Supabase).
+- **No code changes** — `supabase.ts` already reads credentials from env vars; migration is configuration only.
 
 Changed files: `frontend/.env`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
