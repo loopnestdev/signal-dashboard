@@ -231,6 +231,8 @@ Helper functions:
 
 **Supabase schema (full DDL in README):** signal-dashboard uses the **`signal`** PostgreSQL schema within the shared coredb Supabase project (moat-finder uses `moat`, folio-app uses `folio`). Two tables — `signal.watchlists` (RLS: user owns their rows) and `signal.user_profiles` (status, is_admin; RLS via `signal.is_admin()` security-definer function). A trigger `on_auth_user_created` on `auth.users` auto-inserts a `pending` profile on first sign-in. Admin grants themselves `is_admin=true` via SQL; all subsequent approvals happen in the app UI. The `signal` schema must be added to **Supabase Dashboard → Settings → API → Exposed schemas** before the JS client can query it.
 
+**CRITICAL — `signal.is_admin()` must NOT query `signal.user_profiles`**: doing so causes PostgreSQL error `42P17 infinite recursion detected in policy` because the RLS policy on `user_profiles` calls `is_admin()` which re-triggers the same policy. The function reads from the JWT `app_metadata` claim instead: `coalesce((auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean, false)`. This requires the admin user's `auth.users.raw_app_meta_data` to include `{"is_admin": true}` (set via SQL) AND a fresh sign-in to get a JWT with the updated claim.
+
 **`supabase.ts`** — exports `supabase: SupabaseClient<Database, 'signal'> | null`. `Database` type uses `signal` as the top-level key (not `public`). Client is created with `{ db: { schema: 'signal' } }`. The type must include `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` (required by `SupabaseClient<T>` generics).
 
 ---

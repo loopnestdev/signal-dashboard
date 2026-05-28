@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.7.3] — 2026-05-28
+
+### Fixed — RLS infinite recursion in `signal.is_admin()`
+
+**Root cause:** `signal.is_admin()` queried `signal.user_profiles` to check admin status. The RLS SELECT policy on `signal.user_profiles` called `signal.is_admin()`, which triggered the policy again — infinite recursion (PostgreSQL error `42P17`). Every authenticated profile fetch returned HTTP 500, leaving the app in permanent "Access Pending" state.
+
+**Fix:** `signal.is_admin()` now reads the `is_admin` flag directly from the JWT `app_metadata` claim (`auth.jwt() -> 'app_metadata' ->> 'is_admin'`) — no table query, no recursion. Requires `raw_app_meta_data` to include `{"is_admin": true}` for admin users (set via SQL on `auth.users`), and a sign-out/sign-in to refresh the JWT with the updated claim.
+
+Changed files: `README.md`, `CLAUDE.md`, `CHANGELOG.md`
+
+---
+
 ## [0.7.2] — 2026-05-28
 
 ### Changed — Per-app PostgreSQL schema isolation in coredb

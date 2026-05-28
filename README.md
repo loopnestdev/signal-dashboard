@@ -348,14 +348,12 @@ create table signal.user_profiles (
 );
 alter table signal.user_profiles enable row level security;
 
--- Helper to avoid recursive RLS checks
+-- is_admin reads from the JWT app_metadata claim (set via Step 4 below).
+-- Using a table lookup here causes infinite recursion in PostgreSQL RLS.
 create or replace function signal.is_admin()
 returns boolean as $$
-  select exists (
-    select 1 from signal.user_profiles
-    where id = auth.uid() and is_admin = true
-  );
-$$ language sql security definer stable;
+  select coalesce((auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean, false);
+$$ language sql stable security definer;
 
 create policy "Users or admin read profiles"
   on signal.user_profiles for select
@@ -388,13 +386,23 @@ create trigger on_auth_user_created
 
 #### Step 4 — Grant yourself admin access
 
-After your first sign-in, run this in the SQL Editor (replace with your email):
+After your first sign-in, run both statements in the SQL Editor (replace with your email).
+
+The first updates your profile row (what the app reads). The second adds `is_admin: true` to your JWT `app_metadata` (what the RLS `signal.is_admin()` function reads — required because a table lookup would cause infinite recursion).
 
 ```sql
+-- Approve in the profile table
 update signal.user_profiles
 set status = 'approved', is_admin = true
 where email = 'you@example.com';
+
+-- Set is_admin in JWT claims (sign out and back in after running this)
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"is_admin": true}'::jsonb
+where email = 'you@example.com';
 ```
+
+After running both, **sign out and sign back in** so your browser gets a fresh JWT that includes `app_metadata.is_admin: true`.
 
 From that point you can approve other users directly in the app.
 
