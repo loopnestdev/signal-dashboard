@@ -19,7 +19,7 @@ This file is for AI coding assistants. It documents the project architecture, co
 | Market data | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals | Signa.ai API (optional, `SIGNA_API_KEY`) |
 | AI analysis | Signa.ai → Gemini 1.5 Flash → template fallback |
-| Auth + access control | Supabase (optional — Google OAuth + Postgres; invite-only when configured) |
+| Auth + access control | Supabase **coredb** (optional — Google OAuth + Postgres; invite-only when configured) |
 | Watchlist fallback | `localStorage` when Supabase is unconfigured |
 | Frontend hosting | Cloudflare Pages |
 | Backend hosting | Railway |
@@ -130,11 +130,13 @@ The frontend Vite dev proxy routes `/api/*` → `http://localhost:3001`, so no C
 
 **`frontend/.env`** (optional — enables Google sign-in and cross-device watchlist sync)
 
+This project uses the shared **coredb** Supabase project (`lcqsatefkutiakhgexue`) — the same Supabase instance used by moat-finder and folio-app. All three apps share auth (one Google sign-in works across all) and have their own tables in the same project.
+
 | Variable | Required | Description |
 | --- | --- | --- |
-| `VITE_SUPABASE_URL` | No | Supabase project URL — Dashboard → Settings → API |
-| `VITE_SUPABASE_ANON_KEY` | No | Supabase anon/public key — same location |
-| `VITE_SUPABASE_REDIRECT_URL` | **Production only** | Exact production origin (e.g. `https://signal.ailab.build`). Must match a Supabase → Authentication → URL Configuration → Redirect URL entry. Without this, Google OAuth redirects to `localhost:3000` (Supabase's default Site URL). Leave blank locally — falls back to `window.location.origin`. |
+| `VITE_SUPABASE_URL` | No | `https://lcqsatefkutiakhgexue.supabase.co` (coredb) |
+| `VITE_SUPABASE_ANON_KEY` | No | coredb anon/public key — Dashboard → Settings → API |
+| `VITE_SUPABASE_REDIRECT_URL` | **Production only** | `https://signal.ailab.build`. Must match a Supabase → Authentication → URL Configuration → Redirect URL entry. Leave blank locally — falls back to `window.location.origin`. |
 
 When both Supabase vars are absent, `supabase` client is `null` and the app runs in localStorage-only mode with no auth UI shown.
 

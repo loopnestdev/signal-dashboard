@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.7.1] — 2026-05-28
+
+### Changed — Centralised Supabase migration to coredb
+
+Migrated from the standalone `signal-dashboard` Supabase project to the shared **coredb** Supabase project used across all loopnestdev applications (signal-dashboard, moat-finder, folio-app).
+
+#### Root cause — watchlist never synced to Supabase
+
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` were never configured in Cloudflare Pages. Without these, `supabase.ts` returns `null` and the app silently falls back to `localStorage`-only mode — watchlist mutations never reached Supabase. The old `signal-dashboard` Supabase project tables were always empty.
+
+#### Fix
+
+- **`frontend/.env`** updated: `VITE_SUPABASE_URL` now points to coredb (`https://lcqsatefkutiakhgexue.supabase.co`); `VITE_API_URL` corrected to blank for local dev (was placeholder string that routed local API calls to the wrong host).
+- **Cloudflare Pages** must be updated with coredb `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_REDIRECT_URL=https://signal.ailab.build` (trigger a new deployment after — `VITE_*` vars are baked in at build time).
+- **No data migration** — old Supabase project tables were always empty; coredb needs the DDL schema applied (see README → Deployment → Supabase → Step 2).
+- **No code changes** — `supabase.ts` already reads credentials from env vars; migration is purely configuration.
+
+Changed files: `frontend/.env`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`
+
+---
+
 ## [0.7.0] — 2026-05-22
 
 ### Fixed — Cross-device watchlist sync + mobile layout

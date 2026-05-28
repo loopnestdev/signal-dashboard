@@ -287,6 +287,8 @@ When both services are connected to your GitHub repo, you will see multiple entr
 
 When Supabase is configured the app becomes **invite-only**: anonymous users can sign in with Google to request access, but a human admin must approve each account before it gains access. Without Supabase the app is open (suitable for local development).
 
+> **loopnestdev shared database:** This project uses the centralised **coredb** Supabase project — the same instance used by moat-finder and folio-app. One Google sign-in works across all apps. If you are setting up a fresh deployment for your own use, follow Steps 1–5 below. If you are a loopnestdev contributor, skip to **Step 2** (coredb already exists).
+
 #### Step 1 — Create a Supabase project
 
 1. Go to [supabase.com](https://supabase.com) → **New project**
