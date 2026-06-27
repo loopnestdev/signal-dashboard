@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.9.3] — 2026-06-27
+
+### Fixed — Flow Target Map chart logic
+
+- **Date deduplication:** events are now grouped by expiry date; only the best CALL (highest `flow_score`) and best PUT (most-negative `flow_score`) survive per date — at most 2 dots per expiry
+- **Date-to-date lines:** removed vertical lollipop sticks from the current-price line; dashed lines now connect consecutive expiry-date dots chronologically
+  - Green dashed chain links all CALL dots in date order
+  - Red dashed chain links all PUT dots in date order
+- **Fork lines:** when a date introduces both a CALL and a PUT for the first time, an extra dashed line forks from the previous date's dot to the new opposing-direction dot (colored by destination type)
+
+---
+
 ## [0.9.2] — 2026-06-27
 
 ### Changed — Flow Target Map chart + Options tab cleanup
