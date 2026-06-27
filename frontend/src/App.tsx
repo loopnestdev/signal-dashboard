@@ -15,6 +15,10 @@ import type { StockTab } from './components/StockPanel';
 import { UnusualFlowSection } from './components/UnusualFlowSection';
 import { FundamentalsPanel } from './components/FundamentalsPanel';
 import { MoatPanel } from './components/MoatPanel';
+import { OptionsFlowView } from './components/OptionsFlowView';
+import { DarkPoolView } from './components/DarkPoolView';
+import { GammaView } from './components/GammaView';
+import { MarketScanView } from './components/MarketScanView';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
 import type { View } from './components/layout/Sidebar';
@@ -307,6 +311,26 @@ export default function App() {
                     />
                   </>
                 ) : null
+              )}
+
+              {/* Options Flow view */}
+              {activeView === 'options-flow' && (
+                <OptionsFlowView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
+              )}
+
+              {/* Dark Pool view */}
+              {activeView === 'dark-pool' && (
+                <DarkPoolView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
+              )}
+
+              {/* Gamma / GEX view */}
+              {activeView === 'gamma' && (
+                <GammaView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
+              )}
+
+              {/* Market Scanner view */}
+              {activeView === 'market-scan' && (
+                <MarketScanView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
               )}
 
               {/* Footer */}

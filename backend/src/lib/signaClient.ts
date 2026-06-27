@@ -802,6 +802,300 @@ export async function getCuratedFlow(
   }
 }
 
+// ── Market-wide MCP tool helper ───────────────────────────────────────────────
+
+async function callMcpTool<T>(toolName: string, args: Record<string, unknown> = {}): Promise<T | null> {
+  if (!process.env.SIGNA_API_KEY) return null;
+  try {
+    const res = await fetch(SIGNA_MCP_URL, {
+      method: 'POST',
+      headers: {
+        ...headers(),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'tools/call',
+        params: { name: toolName, arguments: args },
+      }),
+    });
+    if (!res.ok) { console.warn(`[signa-mcp] ${toolName}: HTTP ${res.status}`); return null; }
+    const text = await res.text();
+    const dataLine = text.split('\n').find(l => l.startsWith('data:'));
+    if (!dataLine) return null;
+    const rpc = JSON.parse(dataLine.slice(5).trim()) as { result?: { content?: Array<{ text?: string }> } };
+    return JSON.parse(rpc.result?.content?.[0]?.text ?? 'null') as T;
+  } catch (err) {
+    console.warn(`[signa-mcp] ${toolName} error:`, err);
+    return null;
+  }
+}
+
+// ── Market-wide options flow ──────────────────────────────────────────────────
+
+export interface MarketFlowItem {
+  ticker: string;
+  type: 'CALL' | 'PUT';
+  strike: number;
+  expiry: string;
+  premium: number;
+  volume: number;
+  open_interest: number;
+  vol_oi_ratio: number;
+  has_sweep: boolean;
+  has_floor: boolean;
+  underlying_price: number;
+  alert_rule: string;
+  start_time: number;
+}
+
+export interface MarketFlowResponse {
+  flow: MarketFlowItem[];
+}
+
+export async function getMarketOptionsFlow(limit = 50): Promise<MarketFlowResponse | null> {
+  const cacheKey = `signa-mkt-flow-${limit}`;
+  const cached = getFromCache<MarketFlowResponse>(cacheKey);
+  if (cached) return cached;
+
+  const raw = await callMcpTool<{ flow?: unknown[] }>('get_options_flow', { limit });
+  if (!raw?.flow) return null;
+
+  const result: MarketFlowResponse = {
+    flow: raw.flow.map(item => {
+      const i = item as Record<string, unknown>;
+      return {
+        ticker:           String(i.ticker ?? ''),
+        type:             (String(i.type ?? 'call').toUpperCase()) as 'CALL' | 'PUT',
+        strike:           parseFloat(String(i.strike ?? 0)),
+        expiry:           String(i.expiry ?? ''),
+        premium:          parseFloat(String(i.premium ?? 0)),
+        volume:           Number(i.volume ?? 0),
+        open_interest:    Number(i.open_interest ?? 0),
+        vol_oi_ratio:     parseFloat(String(i.vol_oi_ratio ?? 0)),
+        has_sweep:        Boolean(i.has_sweep),
+        has_floor:        Boolean(i.has_floor),
+        underlying_price: parseFloat(String(i.underlying_price ?? 0)),
+        alert_rule:       String(i.alert_rule ?? ''),
+        start_time:       Number(i.start_time ?? 0),
+      };
+    }),
+  };
+  setToCache(cacheKey, result, 120);
+  return result;
+}
+
+// ── Market-wide dark pool ─────────────────────────────────────────────────────
+
+export interface DpPrint {
+  ticker: string;
+  price: number;
+  size: number;
+  volume: number;
+  premium: number;
+  executed_at: string;
+  nbbo_bid: number;
+  nbbo_ask: number;
+  canceled: boolean;
+  dp_direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  dp_score: number;
+}
+
+export interface MarketDpResponse {
+  prints: DpPrint[];
+}
+
+function scoreDpPrint(
+  price: number,
+  nbbo_bid: number,
+  nbbo_ask: number,
+  premium: number,
+  size: number,
+): { direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL'; score: number } {
+  let score = 0;
+  const spread = nbbo_ask - nbbo_bid;
+  const mid = (nbbo_bid + nbbo_ask) / 2;
+
+  if (spread > 0) {
+    if (price >= nbbo_ask - spread * 0.1)      score += 2;
+    else if (price <= nbbo_bid + spread * 0.1) score -= 2;
+    else if (price > mid)                       score += 1;
+    else if (price < mid)                       score -= 1;
+  }
+
+  if (premium >= 1_000_000)      score += score >= 0 ? 2 : -2;
+  else if (premium >= 500_000)   score += score >= 0 ? 1 : -1;
+
+  if (size >= 10_000)            score += score >= 0 ? 1 : -1;
+  else if (size >= 1_000)        score += score >= 0 ? 0.5 : -0.5;
+
+  const direction = score >= 2 ? 'BULLISH' : score <= -2 ? 'BEARISH' : 'NEUTRAL';
+  return { direction, score: Math.round(score * 10) / 10 };
+}
+
+export async function getMarketDarkPool(limit = 50): Promise<MarketDpResponse | null> {
+  const cacheKey = `signa-mkt-dp-${limit}`;
+  const cached = getFromCache<MarketDpResponse>(cacheKey);
+  if (cached) return cached;
+
+  const raw = await callMcpTool<{ prints?: unknown[] }>('get_dark_pool', { limit });
+  if (!raw?.prints) return null;
+
+  const result: MarketDpResponse = {
+    prints: raw.prints
+      .filter(item => !(item as Record<string, unknown>).canceled)
+      .map(item => {
+        const p = item as Record<string, unknown>;
+        const price    = parseFloat(String(p.price ?? 0));
+        const nbbo_bid = parseFloat(String(p.nbbo_bid ?? 0));
+        const nbbo_ask = parseFloat(String(p.nbbo_ask ?? 0));
+        const premium  = parseFloat(String(p.premium ?? 0));
+        const size     = Number(p.size ?? 0);
+        const { direction, score } = scoreDpPrint(price, nbbo_bid, nbbo_ask, premium, size);
+        return {
+          ticker:      String(p.ticker ?? ''),
+          price,
+          size,
+          volume:      Number(p.volume ?? 0),
+          premium,
+          executed_at: String(p.executed_at ?? ''),
+          nbbo_bid,
+          nbbo_ask,
+          canceled:    Boolean(p.canceled),
+          dp_direction: direction,
+          dp_score:    score,
+        };
+      }),
+  };
+  setToCache(cacheKey, result, 120);
+  return result;
+}
+
+// ── Market scanner ────────────────────────────────────────────────────────────
+
+export interface ScanItem {
+  ticker: string;
+  signal: string;
+  direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  score: number;
+  grade: string;
+  confidence: number;
+  reasons: string[];
+}
+
+export interface MarketScanResponse {
+  results: ScanItem[];
+  count: number;
+}
+
+export async function getMarketScan(opts: {
+  direction?: 'bullish' | 'bearish';
+  minScore?: number;
+  limit?: number;
+} = {}): Promise<MarketScanResponse | null> {
+  const { direction, minScore, limit = 20 } = opts;
+  const cacheKey = `signa-scan-${direction ?? 'all'}-${minScore ?? 0}-${limit}`;
+  const cached = getFromCache<MarketScanResponse>(cacheKey);
+  if (cached) return cached;
+
+  const args: Record<string, unknown> = { limit };
+  if (direction) args.direction = direction;
+  if (minScore) args.min_score = minScore;
+
+  const raw = await callMcpTool<{ results?: unknown[]; count?: number }>('scan_symbols', args);
+  if (!raw) return null;
+
+  const result: MarketScanResponse = {
+    results: (raw.results ?? []).map(item => {
+      const r = item as Record<string, unknown>;
+      return {
+        ticker:     String(r.ticker ?? ''),
+        signal:     String(r.signal ?? ''),
+        direction:  (String(r.direction ?? 'NEUTRAL').toUpperCase()) as 'BULLISH' | 'BEARISH' | 'NEUTRAL',
+        score:      Number(r.score ?? 0),
+        grade:      String(r.grade ?? '—'),
+        confidence: Number(r.confidence ?? 0),
+        reasons:    Array.isArray(r.reasons) ? r.reasons.map(String) : [],
+      };
+    }),
+    count: raw.count ?? 0,
+  };
+  setToCache(cacheKey, result, 300);
+  return result;
+}
+
+// ── GEX via MCP (richer than REST — includes call/put walls, regime) ──────────
+
+export interface GexLevel {
+  strike: number;
+  net_gex: number;
+}
+
+export interface GexData {
+  symbol: string;
+  current_price: number;
+  gamma_flip: number | null;
+  call_wall: number | null;
+  put_wall: number | null;
+  above_flip: boolean | null;
+  net_gex: number | null;
+  levels: GexLevel[];
+}
+
+export async function getGexMcp(symbol: string): Promise<GexData | null> {
+  const cacheKey = `signa-gex-mcp-${symbol.toUpperCase()}`;
+  const cached = getFromCache<GexData>(cacheKey);
+  if (cached) return cached;
+
+  const raw = await callMcpTool<Record<string, unknown>>('get_gex', { symbol });
+  if (!raw) return null;
+
+  const levels: GexLevel[] = [];
+  const rawLevels = raw.levels ?? raw.strikes ?? raw.key_levels ?? raw.keyLevels;
+  if (Array.isArray(rawLevels)) {
+    for (const lv of rawLevels) {
+      const l = lv as Record<string, unknown>;
+      const strike = Number(l.strike ?? l.price ?? 0);
+      const net_gex = Number(l.net_gex ?? l.netGamma ?? l.gamma ?? 0);
+      if (strike > 0) levels.push({ strike, net_gex });
+    }
+  }
+
+  const result: GexData = {
+    symbol: symbol.toUpperCase(),
+    current_price: Number(raw.current_price ?? raw.currentPrice ?? raw.price ?? 0),
+    gamma_flip:    raw.gamma_flip != null ? Number(raw.gamma_flip) :
+                   raw.gammaFlipPoint != null ? Number(raw.gammaFlipPoint) : null,
+    call_wall:     raw.call_wall != null ? Number(raw.call_wall) : null,
+    put_wall:      raw.put_wall != null ? Number(raw.put_wall) : null,
+    above_flip:    raw.above_flip != null ? Boolean(raw.above_flip) :
+                   raw.aboveFlip != null ? Boolean(raw.aboveFlip) : null,
+    net_gex:       raw.net_gex != null ? Number(raw.net_gex) :
+                   raw.netGamma != null ? Number(raw.netGamma) : null,
+    levels,
+  };
+
+  // Derive call/put wall from levels if not in response
+  if (result.call_wall == null && levels.length && result.current_price > 0) {
+    const aboveStrikes = levels.filter(l => l.strike > result.current_price && l.net_gex > 0);
+    result.call_wall = aboveStrikes.length
+      ? aboveStrikes.reduce((best, l) => l.net_gex > best.net_gex ? l : best).strike
+      : null;
+  }
+  if (result.put_wall == null && levels.length && result.current_price > 0) {
+    const belowStrikes = levels.filter(l => l.strike < result.current_price && l.net_gex < 0);
+    result.put_wall = belowStrikes.length
+      ? belowStrikes.reduce((best, l) => l.net_gex < best.net_gex ? l : best).strike
+      : null;
+  }
+  if (result.above_flip == null && result.gamma_flip != null && result.current_price > 0) {
+    result.above_flip = result.current_price > result.gamma_flip;
+  }
+
+  setToCache(cacheKey, result, 900);
+  return result;
+}
+
 // ── Synthesize options insight ────────────────────────────────────────────────
 
 export interface OptionsInsight {

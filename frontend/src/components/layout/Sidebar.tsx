@@ -1,20 +1,21 @@
 import { useState, type KeyboardEvent } from 'react';
 import {
   LayoutDashboard, TrendingUp, Activity, BarChart2, Eye, Map,
-  Plus, X, ChevronRight, LogOut, LogIn, User,
+  Plus, X, ChevronRight, LogOut, LogIn, Search,
 } from 'lucide-react';
 import { C } from '../../lib/colors';
 import type { WatchlistGroup } from '../../hooks/useWatchlist';
 
-export type View = 'dashboard' | 'market' | 'sector-map' | 'options-flow' | 'gamma' | 'dark-pool';
+export type View = 'dashboard' | 'market' | 'sector-map' | 'options-flow' | 'gamma' | 'dark-pool' | 'market-scan';
 
 const NAV = [
-  { id: 'dashboard' as View, label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'market' as View, label: 'Market Analysis', Icon: TrendingUp },
-  { id: 'sector-map' as View, label: 'Sectors', Icon: Map },
-  { id: 'options-flow' as View, label: 'Options Flow', Icon: Activity, soon: true },
-  { id: 'gamma' as View, label: 'Gamma / GEX', Icon: BarChart2, soon: true },
-  { id: 'dark-pool' as View, label: 'Dark Pool', Icon: Eye, soon: true },
+  { id: 'dashboard' as View,    label: 'Dashboard',       Icon: LayoutDashboard },
+  { id: 'market' as View,       label: 'Market Analysis', Icon: TrendingUp },
+  { id: 'sector-map' as View,   label: 'Sectors',         Icon: Map },
+  { id: 'options-flow' as View, label: 'Options Flow',    Icon: Activity },
+  { id: 'gamma' as View,        label: 'Gamma / GEX',     Icon: BarChart2 },
+  { id: 'dark-pool' as View,    label: 'Dark Pool',        Icon: Eye },
+  { id: 'market-scan' as View,  label: 'Market Scanner',  Icon: Search },
 ];
 
 interface Props {
@@ -97,36 +98,25 @@ export function Sidebar({
         <div style={{ fontSize: '11px', fontWeight: 600, color: C.inkMute, letterSpacing: '0.08em', padding: '4px 8px 6px' }}>
           MARKET
         </div>
-        {NAV.map(({ id, label, Icon, soon }) => {
+        {NAV.map(({ id, label, Icon }) => {
           const active = activeView === id;
           return (
             <button
               key={id}
-              onClick={() => { if (!soon) { onViewChange(id); onClose(); } }}
-              disabled={soon}
+              onClick={() => { onViewChange(id); onClose(); }}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center',
                 gap: 10, padding: '8px 10px', borderRadius: 12,
                 border: 'none', background: active ? C.primaryBg : 'none',
-                color: active ? C.primary : soon ? C.inkMute : C.ink,
+                color: active ? C.primary : C.ink,
                 fontSize: '15px', fontWeight: active ? 600 : 500,
-                cursor: soon ? 'default' : 'pointer',
-                marginBottom: 2, opacity: soon ? 0.5 : 1,
+                cursor: 'pointer', marginBottom: 2,
                 transition: 'background 0.12s',
               }}
             >
               <Icon size={17} />
               <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
-              {soon && (
-                <span style={{
-                  fontSize: '9px', color: C.inkMute,
-                  border: `1px solid ${C.border}`, borderRadius: 9999,
-                  padding: '1px 5px', letterSpacing: '0.06em',
-                }}>
-                  SOON
-                </span>
-              )}
-              {active && !soon && <ChevronRight size={13} color={C.primary} />}
+              {active && <ChevronRight size={13} color={C.primary} />}
             </button>
           );
         })}

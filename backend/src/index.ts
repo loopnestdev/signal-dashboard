@@ -5,6 +5,7 @@ import marketRouter from './routes/market.js';
 import stockRouter from './routes/stock.js';
 import moatRouter from './routes/moat.js';
 import unusualFlowRouter from './routes/unusualFlow.js';
+import intelligenceRouter from './routes/intelligence.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -24,6 +25,7 @@ app.use('/api', marketRouter);
 app.use('/api', stockRouter);
 app.use('/api', moatRouter);
 app.use('/api', unusualFlowRouter);
+app.use('/api', intelligenceRouter);
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
 app.listen(PORT, () => {

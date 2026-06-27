@@ -44,6 +44,89 @@ export interface Alert {
   severity: 'info' | 'warning' | 'danger';
 }
 
+// ── Market-wide options flow ──────────────────────────────────────────────────
+
+export interface MarketFlowItem {
+  ticker: string;
+  type: 'CALL' | 'PUT';
+  strike: number;
+  expiry: string;
+  premium: number;
+  volume: number;
+  open_interest: number;
+  vol_oi_ratio: number;
+  has_sweep: boolean;
+  has_floor: boolean;
+  underlying_price: number;
+  alert_rule: string;
+  start_time: number;
+}
+
+export interface MarketFlowResponse {
+  flow: MarketFlowItem[];
+}
+
+// ── Dark pool ─────────────────────────────────────────────────────────────────
+
+export interface DpPrint {
+  ticker: string;
+  price: number;
+  size: number;
+  volume: number;
+  premium: number;
+  executed_at: string;
+  nbbo_bid: number;
+  nbbo_ask: number;
+  canceled: boolean;
+  dp_direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  dp_score: number;
+}
+
+export interface MarketDpResponse {
+  prints: DpPrint[];
+}
+
+// ── Market scanner ────────────────────────────────────────────────────────────
+
+export interface ScanItem {
+  ticker: string;
+  signal: string;
+  direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  score: number;
+  grade: string;
+  confidence: number;
+  reasons: string[];
+}
+
+export interface MarketScanResponse {
+  results: ScanItem[];
+  count: number;
+}
+
+// ── Gamma / GEX ───────────────────────────────────────────────────────────────
+
+export interface GexLevel {
+  strike: number;
+  net_gex: number;
+}
+
+export interface GexData {
+  symbol: string;
+  current_price: number;
+  gamma_flip: number | null;
+  call_wall: number | null;
+  put_wall: number | null;
+  above_flip: boolean | null;
+  net_gex: number | null;
+  levels: GexLevel[];
+}
+
+export interface GammaGexResponse {
+  spy: GexData | null;
+  qqq: GexData | null;
+  iwm: GexData | null;
+}
+
 export interface MarketResponse {
   timestamp: string;
   fromCache: boolean;
