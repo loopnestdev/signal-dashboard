@@ -18,6 +18,11 @@ router.get('/unusual-flow', async (req, res) => {
   }
 
   const scored = raw.events.map(scoreFlowEvent);
+  scored.sort((a, b) => {
+    const diff = b.flow_score - a.flow_score;
+    if (diff !== 0) return diff;
+    return b.flow_events.premium_size - a.flow_events.premium_size;
+  });
   const summary = summarizeFlow(scored);
 
   res.json({ events: scored, summary });
