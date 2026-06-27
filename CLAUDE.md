@@ -206,6 +206,7 @@ Helper functions:
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
 - **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`≤768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
+- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` → stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` → `TerminalAnalysis` (Signa.ai market analysis); `'sector-map'` → `SectorHeatmap` with timeframe selector. `SectorHeatmap` and `TerminalAnalysis` only render on their own views — they do NOT appear in the dashboard view. `'options-flow'`, `'gamma'`, `'dark-pool'` are SOON (sidebar shows badge, click is disabled).
 - **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column → single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code — use CSS classes instead.
 
 ### API Routes
