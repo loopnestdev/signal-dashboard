@@ -3,6 +3,7 @@ import { C } from '../lib/colors';
 import { fetchUnusualFlow } from '../lib/api';
 import type { ScoredFlowEvent, UnusualFlowResponse, FlowDirection } from '../types/stock';
 import { FlowDirectionChart } from './FlowDirectionChart';
+import { FlowTimelineChart } from './FlowTimelineChart';
 
 // ── Tooltip text ──────────────────────────────────────────────────────────────
 
@@ -281,9 +282,10 @@ const VISIBLE_MAX = 5;
 
 interface Props {
   ticker: string;
+  currentPrice?: number;
 }
 
-export function UnusualFlowSection({ ticker }: Props) {
+export function UnusualFlowSection({ ticker, currentPrice = 0 }: Props) {
   const [data, setData] = useState<UnusualFlowResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -311,7 +313,7 @@ export function UnusualFlowSection({ ticker }: Props) {
   const hasMore = events.length > VISIBLE_MAX;
 
   return (
-    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginTop: 4 }}>
+    <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <span style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 600 }}>
@@ -368,6 +370,8 @@ export function UnusualFlowSection({ ticker }: Props) {
         </div>
       ) : (
         <>
+          <FlowTimelineChart events={events} currentPrice={currentPrice} />
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginTop: 4 }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {visible.map(e => <FlowRow key={e.id || e.curated_id} event={e} />)}
           </div>

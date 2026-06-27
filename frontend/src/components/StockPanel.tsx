@@ -10,8 +10,8 @@ const TABS: { id: StockTab; label: string }[] = [
   { id: 'signal',       label: 'Signal' },
   { id: 'technical',    label: 'Technical' },
   { id: 'options',      label: 'Options' },
-  { id: 'fundamentals', label: 'Fundamentals' },
   { id: 'moat',         label: 'Moat' },
+  { id: 'fundamentals', label: 'Fundamentals' },
 ];
 
 interface Props {
