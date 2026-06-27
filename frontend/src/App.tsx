@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMarketData } from './hooks/useMarketData';
 import { useStockData } from './hooks/useStockData';
 import { useWatchlist } from './hooks/useWatchlist';
@@ -11,6 +11,7 @@ import { AlertBanner } from './components/AlertBanner';
 import { TerminalAnalysis } from './components/TerminalAnalysis';
 import { AdminPanel } from './components/AdminPanel';
 import { StockPanel } from './components/StockPanel';
+import type { StockTab } from './components/StockPanel';
 import { OptionsPanel } from './components/OptionsPanel';
 import { FundamentalsPanel } from './components/FundamentalsPanel';
 import { MoatPanel } from './components/MoatPanel';
@@ -37,6 +38,10 @@ export default function App() {
   const { dark, toggle: toggleTheme } = useTheme();
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<StockTab>('signal');
+
+  // Reset to Signal tab whenever a new ticker is loaded
+  useEffect(() => { setActiveTab('signal'); }, [activeTicker]);
 
   // Moat research for active ticker
   const { data: moatData, loading: moatLoading } = useMoatData(activeTicker);
@@ -209,28 +214,46 @@ export default function App() {
                     loading={stockLoading}
                     error={stockError}
                     activeTicker={activeTicker}
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
                     watchlistGroups={groups}
                     activeWatchlistGroup={activeGroup}
                     getGroupsForTicker={getGroupsForTicker}
                     onWatch={addToWatchlist}
                     onUnwatch={removeFromWatchlist}
                   />
-                  {stockData?.optionsInsight && (
-                    <OptionsPanel
-                      insight={stockData.optionsInsight}
-                      currentPrice={stockData.price}
+
+                  {/* Options tab */}
+                  {activeTab === 'options' && (
+                    stockData?.optionsInsight ? (
+                      <OptionsPanel insight={stockData.optionsInsight} currentPrice={stockData.price} />
+                    ) : (
+                      <div style={{
+                        background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 12,
+                        padding: '40px 24px', textAlign: 'center', boxShadow: C.s1,
+                      }}>
+                        <div style={{ fontSize: '13px', color: C.inkMute }}>Options data not available for {activeTicker}</div>
+                        <div style={{ fontSize: '11px', color: C.inkMute, marginTop: 4, opacity: 0.7 }}>
+                          Requires Signa.ai API key with options access
+                        </div>
+                      </div>
+                    )
+                  )}
+
+                  {/* Fundamentals tab */}
+                  {activeTab === 'fundamentals' && (
+                    <FundamentalsPanel data={stockData?.fundamentals ?? null} />
+                  )}
+
+                  {/* Moat tab */}
+                  {activeTab === 'moat' && (
+                    <MoatPanel
+                      ticker={activeTicker}
+                      data={moatData}
+                      loading={moatLoading}
+                      currentPrice={stockData?.price}
                     />
                   )}
-                  {stockData && (
-                    <FundamentalsPanel data={stockData.fundamentals ?? null} />
-                  )}
-                  {/* Moat research — blank if not in moat-finder */}
-                  <MoatPanel
-                    ticker={activeTicker}
-                    data={moatData}
-                    loading={moatLoading}
-                    currentPrice={stockData?.price}
-                  />
                 </div>
               )}
 

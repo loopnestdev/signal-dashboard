@@ -4,11 +4,23 @@ import type { StockResponse, StockDecision, MovingAverages, FibLevel } from '../
 import type { WatchlistGroup } from '../hooks/useWatchlist';
 import { SignaCard } from './SignaCard';
 
+export type StockTab = 'signal' | 'technical' | 'options' | 'fundamentals' | 'moat';
+
+const TABS: { id: StockTab; label: string }[] = [
+  { id: 'signal',       label: 'Signal' },
+  { id: 'technical',    label: 'Technical' },
+  { id: 'options',      label: 'Options' },
+  { id: 'fundamentals', label: 'Fundamentals' },
+  { id: 'moat',         label: 'Moat' },
+];
+
 interface Props {
   data: StockResponse | null;
   loading: boolean;
   error: string | null;
   activeTicker: string | null;
+  activeTab: StockTab;
+  onTabChange: (tab: StockTab) => void;
   watchlistGroups: WatchlistGroup[];
   activeWatchlistGroup: string;
   getGroupsForTicker: (ticker: string) => string[];
@@ -22,7 +34,7 @@ function MABar({ label, maValue, price }: { label: string; maValue: number | nul
   const pct = ((price - maValue) / maValue) * 100;
   const above = price >= maValue;
   const color = above ? C.bull : C.bear;
-  const halfW = Math.min(Math.abs(pct) * 3, 48); // cap at 48% of half-width
+  const halfW = Math.min(Math.abs(pct) * 3, 48);
 
   return (
     <div style={{
@@ -33,13 +45,9 @@ function MABar({ label, maValue, price }: { label: string; maValue: number | nul
       border: `1px solid ${above ? C.bullBorder : C.bearBorder}`,
     }}>
       <span style={{ fontSize: '11px', color: C.inkMute, fontWeight: 400 }}>{label}</span>
-      <span style={{
-        fontSize: '13px', color: C.inkSec, fontFeatureSettings: '"tnum"',
-        letterSpacing: '-0.02em', fontWeight: 400,
-      }}>
+      <span className="tnum" style={{ fontSize: '13px', color: C.inkSec, fontWeight: 400 }}>
         ${maValue.toFixed(2)}
       </span>
-      {/* centered heat bar */}
       <div style={{ position: 'relative', height: 6, background: C.border, borderRadius: 3 }}>
         <div style={{
           position: 'absolute', top: 0, height: '100%', width: 1,
@@ -59,10 +67,7 @@ function MABar({ label, maValue, price }: { label: string; maValue: number | nul
           }} />
         )}
       </div>
-      <span style={{
-        fontSize: '12px', color, textAlign: 'right',
-        fontFeatureSettings: '"tnum"', fontWeight: 500,
-      }}>
+      <span className="tnum" style={{ fontSize: '12px', color, textAlign: 'right', fontWeight: 500 }}>
         {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
       </span>
     </div>
@@ -84,7 +89,7 @@ function FibRow({ level, price }: { level: FibLevel; price: number }) {
       border: `1px solid ${isNear ? C.warnBorder : C.border}`,
     }}>
       <span style={{ fontSize: '11px', color: C.inkMute }}>{level.label}</span>
-      <span style={{ fontSize: '12px', color, fontFeatureSettings: '"tnum"', fontWeight: 500 }}>
+      <span className="tnum" style={{ fontSize: '12px', color, fontWeight: 500 }}>
         ${level.price.toFixed(2)}
       </span>
       <span style={{ fontSize: '11px', color: isNear ? C.warn : C.inkMute }}>
@@ -94,7 +99,7 @@ function FibRow({ level, price }: { level: FibLevel; price: number }) {
   );
 }
 
-// ── decision label (no YES/NO now — just colour badge) ────────────────────────
+// ── decision badge ────────────────────────────────────────────────────────────
 function decisionBadge(d: StockDecision) {
   const map: Record<StockDecision, { label: string; color: string; bg: string; border: string }> = {
     YES_BUY:   { label: 'BULLISH',  color: C.bull,    bg: C.bullBg,    border: C.bullBorder },
@@ -106,8 +111,13 @@ function decisionBadge(d: StockDecision) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export function StockPanel({ data, loading, error, activeTicker, watchlistGroups, activeWatchlistGroup, getGroupsForTicker, onWatch, onUnwatch }: Props) {
+export function StockPanel({
+  data, loading, error, activeTicker,
+  activeTab, onTabChange,
+  watchlistGroups, activeWatchlistGroup, getGroupsForTicker, onWatch, onUnwatch,
+}: Props) {
   const [showGroupPicker, setShowGroupPicker] = useState(false);
+
   if (loading) {
     return (
       <div style={{
@@ -147,17 +157,16 @@ export function StockPanel({ data, loading, error, activeTicker, watchlistGroups
   return (
     <div style={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.s2, overflow: 'hidden' }}>
 
-      {/* ── HEADER: symbol / name / price ── */}
-      <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.border}`, background: C.canvasSoft }}>
+      {/* ── HEADER ── */}
+      <div style={{ padding: '20px 24px', background: C.canvasSoft }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '22px', fontWeight: 500, color: C.ink, letterSpacing: '-0.44px' }}>
+              <span style={{ fontSize: '22px', fontWeight: 600, color: C.ink, letterSpacing: '-0.5px' }}>
                 {data.symbol}
               </span>
-              {/* Decision badge */}
               <span style={{
-                fontSize: '11px', fontWeight: 400, color: badge.color,
+                fontSize: '11px', fontWeight: 500, color: badge.color,
                 background: badge.bg, border: `1px solid ${badge.border}`,
                 borderRadius: 9999, padding: '3px 10px', letterSpacing: '0.04em',
               }}>
@@ -183,13 +192,12 @@ export function StockPanel({ data, loading, error, activeTicker, watchlistGroups
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-            <div style={{ fontSize: '22px', fontWeight: 500, color: C.ink, fontFeatureSettings: '"tnum"', letterSpacing: '-0.44px' }}>
+            <div className="tnum" style={{ fontSize: '22px', fontWeight: 600, color: C.ink, letterSpacing: '-0.5px' }}>
               ${data.price.toFixed(2)}
             </div>
-            <div style={{ fontSize: '13px', color: priceColor, fontFeatureSettings: '"tnum"' }}>
+            <div className="tnum" style={{ fontSize: '13px', color: priceColor }}>
               {data.change1d >= 0 ? '+' : ''}{data.change1d.toFixed(2)}%
             </div>
-            {/* Watchlist button with group picker */}
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowGroupPicker(p => !p)}
@@ -240,12 +248,7 @@ export function StockPanel({ data, loading, error, activeTicker, watchlistGroups
                       </button>
                     );
                   })}
-                  <div
-                    onClick={() => setShowGroupPicker(false)}
-                    style={{
-                      position: 'fixed', inset: 0, zIndex: -1,
-                    }}
-                  />
+                  <div onClick={() => setShowGroupPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: -1 }} />
                 </div>
               )}
             </div>
@@ -253,105 +256,158 @@ export function StockPanel({ data, loading, error, activeTicker, watchlistGroups
         </div>
       </div>
 
-      {/* ── SIGNA.AI — shown at top if data available ── */}
-      {data.signa && (
-        <div style={{ padding: '0 24px' }}>
-          <SignaCard signa={data.signa} currentPrice={data.price} />
-        </div>
-      )}
-
-      {/* ── MOVING AVERAGES ── */}
-      {ma && (
-        <div style={{ padding: '0 24px 20px', borderTop: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, padding: '16px 0 10px' }}>
-            MOVING AVERAGES
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <MABar label="EMA 5"   maValue={ma.ema5}   price={data.price} />
-            <MABar label="EMA 21"  maValue={ma.ema21}  price={data.price} />
-            <MABar label="EMA 55"  maValue={ma.ema55}  price={data.price} />
-            <MABar label="SMA 200" maValue={ma.sma200} price={data.price} />
-          </div>
-        </div>
-      )}
-
-      {/* ── FIBONACCI LEVELS ── */}
-      {data.fibonacci && data.fibonacci.length > 0 && (
-        <div style={{ padding: '0 24px 20px', borderTop: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, padding: '16px 0 10px' }}>
-            FIBONACCI LEVELS — 52-WEEK RANGE
-          </div>
-          <div className="fib-grid">
-            <div>
-              <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 6, letterSpacing: '0.05em' }}>RETRACEMENT</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {data.fibonacci.filter(l => !l.isExtension).map(l => (
-                  <FibRow key={l.label} level={l} price={data.price} />
-                ))}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 6, letterSpacing: '0.05em' }}>EXTENSIONS</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {data.fibonacci.filter(l => l.isExtension).map(l => (
-                  <FibRow key={l.label} level={l} price={data.price} />
-                ))}
-              </div>
-              <div style={{
-                marginTop: 8, padding: '8px 10px',
-                background: C.primaryBg, border: `1px solid ${C.primaryBorder}`,
-                borderRadius: 6,
-              }}>
-                <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 3 }}>CURRENT PRICE</div>
-                <div style={{ fontSize: '15px', color: C.primary, fontFeatureSettings: '"tnum"', fontWeight: 500 }}>
-                  ${data.price.toFixed(2)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TECHNICALS ── */}
-      <div style={{ padding: '0 24px 20px', borderTop: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 400, padding: '16px 0 10px' }}>
-          TECHNICALS
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {data.metrics.map(m => {
-            const color = m.direction === 'up' ? C.bull : m.direction === 'down' ? C.bear : C.inkMute;
-            return (
-              <div key={m.label} style={{
-                background: C.canvasSoft, border: `1px solid ${C.border}`,
-                borderRadius: 8, padding: '10px 12px',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: '11px', color: C.inkMute }}>{m.label}</span>
-                  <span style={{ fontSize: '13px', color, fontFeatureSettings: '"tnum"', fontWeight: 500 }}>
-                    {m.direction === 'up' ? '▲ ' : m.direction === 'down' ? '▼ ' : '— '}{m.value}
-                  </span>
-                </div>
-                <div style={{ fontSize: '11px', color: C.inkMute, fontWeight: 300 }}>{m.note}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── ANALYSIS TEXT ── */}
+      {/* ── TAB BAR ── */}
       <div style={{
-        margin: '0 24px 24px',
-        background: C.canvasSoft, border: `1px solid ${C.border}`,
-        borderRadius: 8, padding: '14px 16px',
+        display: 'flex',
+        borderTop: `1px solid ${C.border}`,
+        borderBottom: `1px solid ${C.border}`,
+        background: C.canvasSoft,
+        overflowX: 'auto',
+        paddingLeft: 8,
       }}>
-        <pre style={{
-          margin: 0, fontSize: '12px', color: C.inkSec,
-          fontFamily: 'Inter, system-ui', whiteSpace: 'pre-wrap',
-          lineHeight: 1.65, fontWeight: 300,
-        }}>
-          {data.analysis}
-        </pre>
+        {TABS.map(t => {
+          const active = t.id === activeTab;
+          return (
+            <button
+              key={t.id}
+              onClick={() => onTabChange(t.id)}
+              style={{
+                padding: '9px 16px',
+                border: 'none',
+                borderBottom: `2px solid ${active ? C.primary : 'transparent'}`,
+                background: 'none',
+                color: active ? C.primary : C.inkMute,
+                fontSize: '13px',
+                fontWeight: active ? 600 : 400,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                transition: 'color 0.12s',
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
+
+      {/* ── SIGNAL TAB ── */}
+      {activeTab === 'signal' && (
+        <>
+          {data.signa ? (
+            <div style={{ padding: '0 24px' }}>
+              <SignaCard signa={data.signa} currentPrice={data.price} />
+            </div>
+          ) : (
+            <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', color: C.inkMute }}>No signal data for {data.symbol}</div>
+              <div style={{ fontSize: '11px', color: C.inkMute, marginTop: 4, opacity: 0.7 }}>
+                Requires Signa.ai API key
+              </div>
+            </div>
+          )}
+
+          {/* Composite score / analysis */}
+          {data.analysis && (
+            <div style={{
+              margin: '0 24px 24px',
+              background: C.canvasSoft, border: `1px solid ${C.border}`,
+              borderRadius: 8, padding: '14px 16px',
+            }}>
+              <pre style={{
+                margin: 0, fontSize: '12px', color: C.inkSec,
+                fontFamily: 'inherit', whiteSpace: 'pre-wrap',
+                lineHeight: 1.65, fontWeight: 300,
+              }}>
+                {data.analysis}
+              </pre>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── TECHNICAL TAB ── */}
+      {activeTab === 'technical' && (
+        <>
+          {/* Moving Averages */}
+          {ma && (
+            <div style={{ padding: '0 24px 20px', borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 600, padding: '16px 0 10px' }}>
+                MOVING AVERAGES
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <MABar label="EMA 5"   maValue={ma.ema5}   price={data.price} />
+                <MABar label="EMA 21"  maValue={ma.ema21}  price={data.price} />
+                <MABar label="EMA 55"  maValue={ma.ema55}  price={data.price} />
+                <MABar label="SMA 200" maValue={ma.sma200} price={data.price} />
+              </div>
+            </div>
+          )}
+
+          {/* Fibonacci */}
+          {data.fibonacci && data.fibonacci.length > 0 && (
+            <div style={{ padding: '0 24px 20px', borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 600, padding: '16px 0 10px' }}>
+                FIBONACCI LEVELS — 52-WEEK RANGE
+              </div>
+              <div className="fib-grid">
+                <div>
+                  <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 6, letterSpacing: '0.05em' }}>RETRACEMENT</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {data.fibonacci.filter(l => !l.isExtension).map(l => (
+                      <FibRow key={l.label} level={l} price={data.price} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 6, letterSpacing: '0.05em' }}>EXTENSIONS</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {data.fibonacci.filter(l => l.isExtension).map(l => (
+                      <FibRow key={l.label} level={l} price={data.price} />
+                    ))}
+                  </div>
+                  <div style={{
+                    marginTop: 8, padding: '8px 10px',
+                    background: C.primaryBg, border: `1px solid ${C.primaryBorder}`,
+                    borderRadius: 6,
+                  }}>
+                    <div style={{ fontSize: '10px', color: C.inkMute, marginBottom: 3 }}>CURRENT PRICE</div>
+                    <div className="tnum" style={{ fontSize: '15px', color: C.primary, fontWeight: 600 }}>
+                      ${data.price.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Technicals grid */}
+          <div style={{ padding: '0 24px 24px', borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: '11px', color: C.inkMute, letterSpacing: '0.08em', fontWeight: 600, padding: '16px 0 10px' }}>
+              TECHNICALS
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {data.metrics.map(m => {
+                const color = m.direction === 'up' ? C.bull : m.direction === 'down' ? C.bear : C.inkMute;
+                return (
+                  <div key={m.label} style={{
+                    background: C.canvasSoft, border: `1px solid ${C.border}`,
+                    borderRadius: 8, padding: '10px 12px',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: '11px', color: C.inkMute }}>{m.label}</span>
+                      <span className="tnum" style={{ fontSize: '13px', color, fontWeight: 500 }}>
+                        {m.direction === 'up' ? '▲ ' : m.direction === 'down' ? '▼ ' : '— '}{m.value}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: C.inkMute, fontWeight: 300 }}>{m.note}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

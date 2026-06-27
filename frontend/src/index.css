@@ -147,8 +147,12 @@ input, textarea, select, button { font-family: inherit; font-size: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--c-ink-mute); }
 
-/* Numeric cells always use tabular figures */
-.tnum { font-feature-settings: "tnum"; letter-spacing: -0.02em; }
+/* Numeric cells — JetBrains Mono with tabular figures */
+.tnum {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
+}
 
 /* ── Ticker animation ──────────────────────────────────────────────────────── */
 @keyframes ticker-scroll {
