@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.9.1] — 2026-06-27
+
+### Changed — Unusual Flow UX improvements
+
+- **Sorting fixed:** events now sort by `flow_score` desc (our Radon-adapted direction score), with `premium_size` as tiebreaker. Previously sorted by Signa's `conviction_score`, which didn't reflect stacked directional evidence.
+- **Dynamic top-N:** shows up to 5 highest-scoring events by default. If more than 5 exist, a "Show all N flows" toggle reveals the rest and collapses back to top 5. Resets to collapsed on each ticker load or refresh.
+- **Field tooltips:** every data point now has a `?` icon that shows a plain-English explanation on hover — CALL/PUT, direction, strike, expiry, DTE, SWEEP/MEGA/GEX PIN tags, conv, score (including the −10 to +10 range and how each factor contributes), Premium, Vol/OI, IV, and "confirms signal".
+
+---
+
 ## [0.9.0] — 2026-06-27
 
 ### Added — Unusual Flow Analyzer (Options tab)
