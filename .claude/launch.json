@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "signal-dashboard",
+      "name": "frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:frontend"],
-      "port": 5173
+      "port": 5174
     }
   ]
 }

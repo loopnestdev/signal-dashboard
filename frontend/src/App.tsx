@@ -17,12 +17,12 @@ import { FundamentalsPanel } from './components/FundamentalsPanel';
 import { MoatPanel } from './components/MoatPanel';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
+import type { View } from './components/layout/Sidebar';
 import { Topnav } from './components/layout/Topnav';
 import { C } from './lib/colors';
 import { supabase } from './lib/supabase';
 
 type SectorTimeframe = '1d' | '5d' | '20d';
-type View = 'dashboard' | 'options-flow' | 'gamma' | 'dark-pool' | 'sector-map';
 
 export default function App() {
   const { data, loading, error, secondsAgo, refresh } = useMarketData();
@@ -206,8 +206,8 @@ export default function App() {
                 </div>
               )}
 
-              {/* Stock panels */}
-              {activeTicker && (
+              {/* Dashboard view — stock analysis */}
+              {activeView === 'dashboard' && activeTicker && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
                   <StockPanel
                     data={stockData}
@@ -223,7 +223,6 @@ export default function App() {
                     onUnwatch={removeFromWatchlist}
                   />
 
-                  {/* Options tab */}
                   {activeTab === 'options' && (
                     stockData?.optionsInsight ? (
                       <OptionsPanel insight={stockData.optionsInsight} currentPrice={stockData.price} />
@@ -240,12 +239,10 @@ export default function App() {
                     )
                   )}
 
-                  {/* Fundamentals tab */}
                   {activeTab === 'fundamentals' && (
                     <FundamentalsPanel data={stockData?.fundamentals ?? null} />
                   )}
 
-                  {/* Moat tab */}
                   {activeTab === 'moat' && (
                     <MoatPanel
                       ticker={activeTicker}
@@ -257,47 +254,66 @@ export default function App() {
                 </div>
               )}
 
-              {/* Divider */}
-              {activeTicker && (
-                <div style={{ borderTop: `1px solid ${C.border}`, marginBottom: 24 }} />
+              {/* Market Analysis view */}
+              {activeView === 'market' && (
+                loading && !data ? (
+                  <div style={{ padding: '40px 0', textAlign: 'center', color: C.inkMute, fontSize: '13px' }}>
+                    Loading market analysis…
+                  </div>
+                ) : data ? (
+                  <>
+                    <div style={{ marginBottom: 20 }}>
+                      <h2 style={{ fontSize: '20px', fontWeight: 600, color: C.ink, margin: 0, letterSpacing: '-0.02em' }}>
+                        Market Analysis
+                      </h2>
+                      <p style={{ fontSize: '13px', color: C.inkMute, marginTop: 4, marginBottom: 0 }}>
+                        Signa.ai · {new Date(data.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                    <TerminalAnalysis analysis={data.analysis} timestamp={data.timestamp} />
+                  </>
+                ) : null
               )}
 
-              {/* Sector heatmap */}
-              <div style={{ marginBottom: 24 }}>
-                {loading && !data ? (
+              {/* Sectors view */}
+              {activeView === 'sector-map' && (
+                loading && !data ? (
                   <SectorSkeleton />
                 ) : data ? (
-                  <div>
-                    <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
-                      {(['1d', '5d', '20d'] as SectorTimeframe[]).map(tf => (
-                        <button
-                          key={tf}
-                          onClick={() => setSectorTimeframe(tf)}
-                          style={{
-                            padding: '5px 14px', borderRadius: 9999, fontSize: '13px',
-                            fontWeight: 400, cursor: 'pointer',
-                            border: `1px solid ${sectorTimeframe === tf ? C.primary : C.border}`,
-                            background: sectorTimeframe === tf ? C.primaryBg : C.canvas,
-                            color: sectorTimeframe === tf ? C.primary : C.inkMute,
-                            boxShadow: sectorTimeframe === tf ? 'none' : C.s1,
-                          }}
-                        >
-                          {tf}
-                        </button>
-                      ))}
+                  <>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      marginBottom: 16, flexWrap: 'wrap', gap: 8,
+                    }}>
+                      <h2 style={{ fontSize: '20px', fontWeight: 600, color: C.ink, margin: 0, letterSpacing: '-0.02em' }}>
+                        Sector Performance
+                      </h2>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {(['1d', '5d', '20d'] as SectorTimeframe[]).map(tf => (
+                          <button
+                            key={tf}
+                            onClick={() => setSectorTimeframe(tf)}
+                            style={{
+                              padding: '5px 14px', borderRadius: 9999, fontSize: '13px',
+                              fontWeight: 400, cursor: 'pointer',
+                              border: `1px solid ${sectorTimeframe === tf ? C.primary : C.border}`,
+                              background: sectorTimeframe === tf ? C.primaryBg : C.canvas,
+                              color: sectorTimeframe === tf ? C.primary : C.inkMute,
+                              boxShadow: sectorTimeframe === tf ? 'none' : C.s1,
+                            }}
+                          >
+                            {tf}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <SectorHeatmap
                       sectors={data.sectors}
                       subsectors={data.subsectors}
                       timeframe={sectorTimeframe}
                     />
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Terminal analysis */}
-              {data && (
-                <TerminalAnalysis analysis={data.analysis} timestamp={data.timestamp} />
+                  </>
+                ) : null
               )}
 
               {/* Footer */}

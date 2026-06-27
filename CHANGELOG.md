@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.8.2] — 2026-06-27
+
+### Changed — Dedicated Market Analysis and Sectors views
+
+`TerminalAnalysis` (Signa.ai market analysis) and `SectorHeatmap` (sector performance) are no longer pinned below every stock tab. They now live in their own sidebar nav items:
+
+| Nav item | View | Content |
+| --- | --- | --- |
+| **Dashboard** | `dashboard` | Stock analysis tabs (Signal / Technical / Options / Fundamentals / Moat) |
+| **Market Analysis** | `market` | Signa.ai market analysis (`TerminalAnalysis`) with page heading and timestamp |
+| **Sectors** | `sector-map` | Sector heatmap (`SectorHeatmap`) with 1d / 5d / 20d timeframe selector inline in header |
+
+- Sidebar `View` type exported from `Sidebar.tsx` (single source of truth); `App.tsx` imports it
+- `Market Analysis` and `Sectors` nav items are fully active (no SOON badge)
+- `Options Flow`, `Gamma / GEX`, `Dark Pool` remain SOON
+
+---
+
 ## [0.8.1] — 2026-06-27
 
 ### Changed — Tabbed stock view + JetBrains Mono numerics
