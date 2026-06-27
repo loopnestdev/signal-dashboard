@@ -14,7 +14,8 @@
     "@supabase/supabase-js": "^2.106.0",
     "lucide-react": "^0.400.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "recharts": "^3.9.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.6",

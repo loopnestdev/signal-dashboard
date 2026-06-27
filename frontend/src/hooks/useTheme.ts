@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 
 export function useTheme() {
   const [dark, setDark] = useState<boolean>(() => {
-    try { return localStorage.getItem('signal-theme') === 'dark'; }
-    catch { return false; }
+    try {
+      const saved = localStorage.getItem('signal-theme');
+      return saved ? saved === 'dark' : true; // default dark
+    } catch { return true; }
   });
 
   useEffect(() => {

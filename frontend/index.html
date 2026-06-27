@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Signal Dashboard</title>
     <!-- Apply saved theme before first paint to prevent flash -->
-    <script>try{var t=localStorage.getItem('signal-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+    <script>try{var t=localStorage.getItem('signal-theme');document.documentElement.setAttribute('data-theme',t&&t!=='dark'?t:'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}</script>
     <meta name="description" content="Real-time swing trading signal dashboard powered by Signa.ai" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

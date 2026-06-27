@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import marketRouter from './routes/market.js';
 import stockRouter from './routes/stock.js';
+import moatRouter from './routes/moat.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -20,6 +21,7 @@ app.use(cors({
 app.use(express.json());
 app.use('/api', marketRouter);
 app.use('/api', stockRouter);
+app.use('/api', moatRouter);
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
 app.listen(PORT, () => {

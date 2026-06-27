@@ -15,8 +15,8 @@
   --color-bear:        #ea2261;
   --color-warn:        #d97706;
 
-  --font-ui:   "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "Inter", ui-monospace, monospace;
+  --font-ui:   "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --radius-xs:   4px;
   --radius-sm:   6px;
@@ -121,13 +121,31 @@ html, body {
   padding: 0;
   background: var(--c-canvas-soft);
   color: var(--c-ink);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   font-weight: 300;
   font-feature-settings: "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.2s ease, color 0.2s ease;
 }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--c-ink);
+  margin: 0;
+}
+
+a { color: var(--c-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+input, textarea, select, button { font-family: inherit; font-size: inherit; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-ink-mute); }
 
 /* Numeric cells always use tabular figures */
 .tnum { font-feature-settings: "tnum"; letter-spacing: -0.02em; }
@@ -198,11 +216,58 @@ html, body {
     var(--c-canvas-soft);
 }
 
-/* ── Responsive layout helpers ─────────────────────────────────────────────── */
+/* ── App shell — sidebar + main ────────────────────────────────────────────── */
 
-/* Header and main padding — reduced on small screens */
-.header-band  { padding: 28px 32px 24px; }
-.main-content { padding: 28px 32px 64px; }
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  width: 220px;
+  min-width: 220px;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 40;
+  background: var(--c-canvas);
+  border-right: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-canvas-soft);
+}
+
+.app-topnav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--c-canvas);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.app-content {
+  flex: 1;
+  padding: 24px 28px 64px;
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 39;
+}
 
 /* Fibonacci 2-column grid — stacks to 1 column on mobile */
 .fib-grid {
@@ -211,8 +276,42 @@ html, body {
   gap: 16px;
 }
 
+/* Desktop: hide hamburger */
+.topnav-hamburger { display: none !important; }
+.sidebar-close-btn { display: none !important; }
+
+@media (max-width: 768px) {
+  .topnav-hamburger { display: flex !important; }
+  .sidebar-close-btn { display: flex !important; }
+
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    transform: translateX(-100%);
+  }
+  .app-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .app-main {
+    width: 100%;
+  }
+  .sidebar-overlay.active {
+    display: block;
+  }
+  .app-content {
+    padding: 16px 16px 48px;
+  }
+  .fib-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Legacy — kept so nothing breaks if still referenced */
+.header-band  { padding: 28px 32px 24px; }
+.main-content { padding: 28px 32px 64px; }
 @media (max-width: 640px) {
   .header-band  { padding: 14px 16px 14px; }
   .main-content { padding: 16px 16px 48px; }
-  .fib-grid     { grid-template-columns: 1fr; }
 }
