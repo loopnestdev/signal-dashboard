@@ -113,61 +113,53 @@ export function FlowTimelineChart({
 
   // ── Build connecting lines ────────────────────────────────────────────────
   //
-  // Rule 1 — CALL chain: connect consecutive CALL dots (same direction)
-  // Rule 2 — PUT chain:  connect consecutive PUT dots (same direction)
-  // Rule 3 — Fork:  when the PREVIOUS date had only ONE direction and the CURRENT
-  //          date introduces BOTH, draw an extra dashed line from the prev dot
-  //          to the new opposing-direction dot (colour of the destination).
+  // Three cases for consecutive date pairs (from → to):
+  //  • 1 source → N destinations : connect source to ALL destinations (fork if 2)
+  //  • 2 sources → 1 destination : connect BOTH sources to the single dest (merge)
+  //  • 2 sources → 2 destinations: connect same-direction pairs (CALL→CALL, PUT→PUT)
+  //
+  // Line colour always follows the DESTINATION dot's type.
   //
   const lines: ChartLine[] = [];
 
-  // Helpers
-  const callGroups = groups.filter(g => g.call);
-  const putGroups  = groups.filter(g => g.put);
+  groups.slice(0, -1).forEach((from, i) => {
+    const to = groups[i + 1];
+    const froms = [from.call, from.put].filter((e): e is ScoredFlowEvent => e !== undefined);
+    const tos   = [to.call,   to.put  ].filter((e): e is ScoredFlowEvent => e !== undefined);
+    if (!froms.length || !tos.length) return;
 
-  callGroups.slice(0, -1).forEach((from, i) => {
-    const to = callGroups[i + 1];
-    lines.push({
-      key: `call-chain-${i}`,
-      x1: xScale(from.ts), y1: yScale(from.call!.flow_events.strike),
-      x2: xScale(to.ts),   y2: yScale(to.call!.flow_events.strike),
-      color: C.bull as string,
-    });
-  });
-
-  putGroups.slice(0, -1).forEach((from, i) => {
-    const to = putGroups[i + 1];
-    lines.push({
-      key: `put-chain-${i}`,
-      x1: xScale(from.ts), y1: yScale(from.put!.flow_events.strike),
-      x2: xScale(to.ts),   y2: yScale(to.put!.flow_events.strike),
-      color: C.bear as string,
-    });
-  });
-
-  // Fork lines: when a date introduces BOTH directions, connect from the prev
-  // date's single dot to the newly-appearing opposing dot.
-  groups.forEach((g, i) => {
-    if (!g.call || !g.put) return;  // not a conflict date
-    if (i === 0) return;            // no predecessor
-    const prev = groups[i - 1];
-
-    // Prev had only CALL → fork to the new PUT
-    if (prev.call && !prev.put) {
-      lines.push({
-        key: `fork-call-to-put-${i}`,
-        x1: xScale(prev.ts), y1: yScale(prev.call.flow_events.strike),
-        x2: xScale(g.ts),    y2: yScale(g.put.flow_events.strike),
-        color: C.bear as string,
+    if (froms.length === 1) {
+      // Single source → all destinations
+      tos.forEach((dst, di) => {
+        lines.push({
+          key: `l${i}-${di}`,
+          x1: xScale(from.ts), y1: yScale(froms[0].flow_events.strike),
+          x2: xScale(to.ts),   y2: yScale(dst.flow_events.strike),
+          color: dotColor(dst),
+        });
       });
-    }
-    // Prev had only PUT → fork to the new CALL
-    else if (prev.put && !prev.call) {
-      lines.push({
-        key: `fork-put-to-call-${i}`,
-        x1: xScale(prev.ts), y1: yScale(prev.put.flow_events.strike),
-        x2: xScale(g.ts),    y2: yScale(g.call.flow_events.strike),
-        color: C.bull as string,
+    } else if (tos.length === 1) {
+      // Both sources → single destination (merge)
+      froms.forEach((src, si) => {
+        lines.push({
+          key: `l${i}-${si}`,
+          x1: xScale(from.ts), y1: yScale(src.flow_events.strike),
+          x2: xScale(to.ts),   y2: yScale(tos[0].flow_events.strike),
+          color: dotColor(tos[0]),
+        });
+      });
+    } else {
+      // Both have 2 dots — same-direction pairs (avoids crossing lines)
+      froms.forEach((src, si) => {
+        const dst = tos.find(d => d.flow_events.option_type === src.flow_events.option_type);
+        if (dst) {
+          lines.push({
+            key: `l${i}-${si}`,
+            x1: xScale(from.ts), y1: yScale(src.flow_events.strike),
+            x2: xScale(to.ts),   y2: yScale(dst.flow_events.strike),
+            color: dotColor(dst),
+          });
+        }
       });
     }
   });
