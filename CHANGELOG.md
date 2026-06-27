@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.8.1] — 2026-06-27
+
+### Changed — Tabbed stock view + JetBrains Mono numerics
+
+Stock data is now organized into five tabs instead of a single long scroll. The tab bar lives inside the stock header card and resets to Signal whenever a new ticker is loaded.
+
+| Tab | Content |
+| --- | --- |
+| **Signal** | Signa.ai grade/stage/confidence/risk, weekly signal, price levels, market sentiment, early warnings, signal checklist, bull thesis, congress signal, composite score text |
+| **Technical** | Moving Averages heat bars (EMA 5/21/55, SMA 200), Fibonacci levels (retracement + extensions), Technicals metrics grid |
+| **Options** | OptionsPanel; empty state shown when no Signa.ai options key |
+| **Fundamentals** | FundamentalsPanel |
+| **Moat** | MoatPanel (peer chart, peer table, bear/base/bull scenarios) |
+
+- `StockPanel` gains `activeTab: StockTab` and `onTabChange` props; exports `StockTab` type
+- `App.tsx` manages `activeTab` state; resets to `'signal'` via `useEffect` on ticker change
+- `Options`, `Fundamentals`, `Moat` panels rendered by `App.tsx` below the stock header for their respective tabs
+- **Numeric font:** `.tnum` class now sets `font-family: "JetBrains Mono"` — prices, percentages, and all tabular data render in monospace
+- Fixed hardcoded `'Inter, system-ui'` in analysis `<pre>` element → `inherit`
+- Section labels (`MOVING AVERAGES`, `FIBONACCI LEVELS`, `TECHNICALS`) bumped to `font-weight: 600`
+
+---
+
 ## [0.8.0] — 2026-06-27
 
 ### Changed — Folio-style sidebar layout + font refresh + MoatPanel

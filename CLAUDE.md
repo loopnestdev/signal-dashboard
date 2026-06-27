@@ -47,7 +47,7 @@ signal-dashboard/
 │   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN, FCG)
 │   │   │   ├── SignaCard.tsx          # Signa.ai signal: entry/stop/target/triggers
 │   │   │   ├── Skeleton.tsx           # Loading shimmer skeletons
-│   │   │   ├── StockPanel.tsx         # Full stock analysis panel (no composite ring)
+│   │   │   ├── StockPanel.tsx         # Stock header + tab bar (Signal/Technical/Options/Fundamentals/Moat)
 │   │   │   ├── StockSearch.tsx        # (legacy — superseded by Sidebar/Topnav, kept for reference)
 │   │   │   ├── TerminalAnalysis.tsx   # Structured AI market analysis
 │   │   │   └── TickerBar.tsx          # Scrolling live ticker
@@ -197,7 +197,7 @@ Helper functions:
 - Labels/headers: `fontSize: '11px', letterSpacing: '0.08em', fontWeight: 600` (uppercase label style)
 - Sidebar nav items: `fontSize: '15px'`, `fontWeight: 600` active / `500` inactive, `borderRadius: 12`
 - Body: `fontSize: '13px', color: C.inkSec, lineHeight: 1.5`
-- Data values: `fontFeatureSettings: '"tnum"'` for tabular numbers
+- Data values: use `.tnum` class — sets `font-family: "JetBrains Mono"` + `font-feature-settings: "tnum"`. Always use `.tnum` on prices, percentages, and tabular numbers. Never use `fontFeatureSettings` inline without also setting the mono font.
 - Pill badges: `borderRadius: 9999, padding: '4px 12px'`
 
 ### Components
