@@ -40,6 +40,7 @@ signal-dashboard/
 │   │   │   ├── AdminPanel.tsx         # Admin: pending access requests + approve button
 │   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
 │   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
+│   │   │   ├── FlowDirectionChart.tsx # Mini SVG arrow + full Recharts chart (Options tab)
 │   │   │   ├── FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
 │   │   │   ├── MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
@@ -50,7 +51,8 @@ signal-dashboard/
 │   │   │   ├── StockPanel.tsx         # Stock header + tab bar (Signal/Technical/Options/Fundamentals/Moat)
 │   │   │   ├── StockSearch.tsx        # (legacy — superseded by Sidebar/Topnav, kept for reference)
 │   │   │   ├── TerminalAnalysis.tsx   # Structured AI market analysis
-│   │   │   └── TickerBar.tsx          # Scrolling live ticker
+│   │   │   ├── TickerBar.tsx          # Scrolling live ticker
+│   │   │   └── UnusualFlowSection.tsx # Unusual flow events: scored rows, backtest strip (Options tab)
 │   │   ├── hooks/
 │   │   │   ├── useAuth.ts             # Supabase session state + Google OAuth
 │   │   │   ├── useMarketData.ts       # 45s polling + secondsAgo counter
@@ -77,16 +79,18 @@ signal-dashboard/
 │   │   ├── routes/
 │   │   │   ├── market.ts              # GET /api/market-data, POST /api/refresh
 │   │   │   ├── moat.ts                # GET /api/moat/:ticker — Supabase moat schema proxy
-│   │   │   └── stock.ts               # GET /api/stock/:symbol
+│   │   │   ├── stock.ts               # GET /api/stock/:symbol
+│   │   │   └── unusualFlow.ts         # GET /api/unusual-flow?ticker=AAPL
 │   │   ├── services/
 │   │   │   ├── ai.ts                  # Signa → Gemini → template priority chain
+│   │   │   ├── flowScoring.ts         # Unusual flow direction scoring (Radon-adapted)
 │   │   │   ├── marketData.ts          # Parallel data fetch orchestration
 │   │   │   ├── scoring.ts             # 5 market scoring functions
 │   │   │   └── stockScoring.ts        # Stock score + Fibonacci + Moving Averages
 │   │   └── lib/
 │   │       ├── cache.ts               # NodeCache wrapper (30s TTL)
 │   │       ├── fomc.ts                # FOMC calendar + Fed stance (update annually)
-│   │       ├── signaClient.ts         # Signa.ai API client
+│   │       ├── signaClient.ts         # Signa.ai API client (REST + MCP Streamable HTTP)
 │   │       ├── technical.ts           # sma, ema, rsi, slope, percentileRank
 │   │       └── yahooClient.ts         # Yahoo Finance v8 Chart API client
 │   ├── .env.example
@@ -215,7 +219,22 @@ Helper functions:
 - `POST /api/refresh` — invalidate cache
 - `GET /api/stock/:symbol` — individual stock signal (Signa.ai + Yahoo Finance)
 - `GET /api/moat/:ticker` — proxy to Supabase `moat` schema; returns 503 if `SUPABASE_URL`/`SUPABASE_ANON_KEY` not set, 404 if ticker not found. Note: `useMoatData` queries Supabase directly from the browser (not via this route), so Railway Supabase vars are optional.
+- `GET /api/unusual-flow?ticker=AAPL` — AI-curated high-conviction options events (Signa `get_curated_flow` via MCP Streamable HTTP), scored with Radon-adapted confluence algorithm. Returns `{ events: ScoredFlowEvent[], summary: FlowSummary | null }`. Requires `SIGNA_API_KEY`; returns empty events array when key is absent. 5 min cache.
 - `GET /health` — health check
+
+### Signa MCP Streamable HTTP
+
+The Signa `get_curated_flow` tool is only available via MCP, not REST. `signaClient.getCuratedFlow()` calls it by POSTing a JSON-RPC 2.0 body to `https://app.getsigna.ai/api/mcp/sse` and parsing the SSE `data:` line from the response:
+
+```typescript
+POST https://app.getsigna.ai/api/mcp/sse
+Content-Type: application/json
+Authorization: Bearer <SIGNA_API_KEY>
+
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_curated_flow","arguments":{...}}}
+```
+
+Response is SSE (`data: {...}` lines). Parse with `text.split('\n').find(l => l.startsWith('data:'))`. The JSON-RPC result wraps the payload in `result.content[0].text` (a double-stringified JSON string).
 
 ### Auth, Access Control & Watchlist
 

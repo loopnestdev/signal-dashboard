@@ -234,6 +234,68 @@ export interface FundamentalsData {
   shortFloat: number | null;
 }
 
+// ── Unusual / curated options flow ───────────────────────────────────────────
+export type FlowDirection = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+
+export interface CuratedFlowEventInner {
+  id: string;
+  symbol: string;
+  option_type: 'CALL' | 'PUT';
+  strike: number;
+  expiry: string;
+  dte: number;
+  premium_size: number;
+  volume: number;
+  open_interest: number;
+  volume_oi_ratio: number;
+  is_sweep: boolean;
+  is_block: boolean;
+  iv: number;
+  underlying_price: number;
+  signal_type: string;
+  sentiment: string;
+  unusual_score: number;
+  sector: string | null;
+  gex_at_strike: number | null;
+  timestamp: string;
+}
+
+export interface ScoredFlowEvent {
+  id: string;
+  event_id: string;
+  curated_id: string;
+  conviction_score: number;
+  direction: FlowDirection;
+  confirms_signal: boolean | null;
+  contradicts_signal: boolean | null;
+  near_gamma_pin: boolean;
+  near_call_wall: boolean;
+  near_put_wall: boolean;
+  tag_mega_premium: boolean;
+  tag_unusual_vol_oi: boolean;
+  tag_earnings_window: boolean;
+  rationale_short: string;
+  scored_at: string;
+  expires_at: string;
+  flow_events: CuratedFlowEventInner;
+  flow_score: number;
+  flow_direction: FlowDirection;
+}
+
+export interface UnusualFlowSummary {
+  totalPremium: number;
+  bullishCount: number;
+  bearishCount: number;
+  neutralCount: number;
+  marketBias: FlowDirection;
+  avgConviction: number;
+}
+
+export interface UnusualFlowResponse {
+  events: ScoredFlowEvent[];
+  summary: UnusualFlowSummary | null;
+}
+
 export interface StockResponse {
   symbol: string;
   name: string;

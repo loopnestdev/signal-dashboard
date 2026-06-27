@@ -13,6 +13,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { StockPanel } from './components/StockPanel';
 import type { StockTab } from './components/StockPanel';
 import { OptionsPanel } from './components/OptionsPanel';
+import { UnusualFlowSection } from './components/UnusualFlowSection';
 import { FundamentalsPanel } from './components/FundamentalsPanel';
 import { MoatPanel } from './components/MoatPanel';
 import { SectorSkeleton } from './components/Skeleton';
@@ -224,19 +225,22 @@ export default function App() {
                   />
 
                   {activeTab === 'options' && (
-                    stockData?.optionsInsight ? (
-                      <OptionsPanel insight={stockData.optionsInsight} currentPrice={stockData.price} />
-                    ) : (
-                      <div style={{
-                        background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 12,
-                        padding: '40px 24px', textAlign: 'center', boxShadow: C.s1,
-                      }}>
-                        <div style={{ fontSize: '13px', color: C.inkMute }}>Options data not available for {activeTicker}</div>
-                        <div style={{ fontSize: '11px', color: C.inkMute, marginTop: 4, opacity: 0.7 }}>
-                          Requires Signa.ai API key with options access
+                    <div style={{
+                      background: C.canvas, border: `1px solid ${C.border}`,
+                      borderRadius: 12, boxShadow: C.s1, padding: '20px 24px',
+                    }}>
+                      {stockData?.optionsInsight ? (
+                        <OptionsPanel insight={stockData.optionsInsight} currentPrice={stockData.price} />
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '20px 0 16px' }}>
+                          <div style={{ fontSize: '13px', color: C.inkMute }}>Options data not available for {activeTicker}</div>
+                          <div style={{ fontSize: '11px', color: C.inkMute, marginTop: 4, opacity: 0.7 }}>
+                            Requires Signa.ai API key with options access
+                          </div>
                         </div>
-                      </div>
-                    )
+                      )}
+                      {activeTicker && <UnusualFlowSection ticker={activeTicker} />}
+                    </div>
                   )}
 
                   {activeTab === 'fundamentals' && (

@@ -726,6 +726,82 @@ export async function getFundamentals(symbol: string): Promise<FundamentalsData 
   }
 }
 
+// ── Curated flow (via MCP Streamable HTTP) ───────────────────────────────────
+// Signa exposes curated-flow only through its MCP endpoint, not a REST path.
+// We call it using the MCP JSON-RPC protocol over HTTP and parse the SSE response.
+
+import type { CuratedFlowEvent } from '../services/flowScoring.js';
+
+const SIGNA_MCP_URL = 'https://app.getsigna.ai/api/mcp/sse';
+
+interface CuratedFlowPayload {
+  events?: CuratedFlowEvent[];
+  pagination?: { has_more?: boolean };
+}
+
+export interface CuratedFlowResult {
+  events: CuratedFlowEvent[];
+  hasMore: boolean;
+}
+
+export async function getCuratedFlow(
+  symbol: string,
+  opts: { minScore?: number; limit?: number } = {},
+): Promise<CuratedFlowResult | null> {
+  if (!process.env.SIGNA_API_KEY) return null;
+
+  const { minScore = 60, limit = 20 } = opts;
+  const cacheKey = `signa-curated-${symbol.toUpperCase()}-${minScore}-${limit}`;
+  const cached = getFromCache<CuratedFlowResult>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(SIGNA_MCP_URL, {
+      method: 'POST',
+      headers: {
+        ...headers(),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'get_curated_flow',
+          arguments: { symbol, min_score: minScore, limit },
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn(`[signa] curated-flow ${symbol}: HTTP ${res.status}`);
+      return null;
+    }
+
+    const text = await res.text();
+    // SSE response: "event: message\ndata: {...}\n"
+    const dataLine = text.split('\n').find(l => l.startsWith('data:'));
+    if (!dataLine) return null;
+
+    const rpc = JSON.parse(dataLine.slice(5).trim()) as {
+      result?: { content?: Array<{ text?: string }> };
+    };
+    const raw = JSON.parse(rpc.result?.content?.[0]?.text ?? 'null') as CuratedFlowPayload | null;
+    if (!raw) return null;
+
+    const result: CuratedFlowResult = {
+      events: raw.events ?? [],
+      hasMore: raw.pagination?.has_more ?? false,
+    };
+    setToCache(cacheKey, result, 300); // 5 min
+    return result;
+  } catch (err) {
+    console.warn(`[signa] curated-flow ${symbol} error:`, err);
+    return null;
+  }
+}
+
 // ── Synthesize options insight ────────────────────────────────────────────────
 
 export interface OptionsInsight {

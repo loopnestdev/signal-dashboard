@@ -6,6 +6,69 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.9.0] — 2026-06-27
+
+### Added — Unusual Flow Analyzer (Options tab)
+
+AI-curated high-conviction options flow is now surfaced in the **Options tab** of the selected stock, below the existing OptionsPanel. Data comes from Signa.ai's `get_curated_flow` tool (via MCP Streamable HTTP), scored with a Radon-inspired confluence algorithm.
+
+**Backend**
+
+| File | What it does |
+| --- | --- |
+| `backend/src/services/flowScoring.ts` (new) | Direction scoring algorithm: CALL/PUT base ±2, sentiment ±1, sweep urgency ×1.5, vol/OI new-position check, signal confirmation ±2, mega premium ±1, GEX amplification ±0.5; outputs `BULLISH` / `BEARISH` / `NEUTRAL` |
+| `backend/src/lib/signaClient.ts` (modified) | Added `getCuratedFlow(symbol, opts)` — calls Signa via **MCP Streamable HTTP** (POST JSON-RPC to `/api/mcp/sse`, parses SSE `data:` line); 5 min cache |
+| `backend/src/routes/unusualFlow.ts` (new) | `GET /api/unusual-flow?ticker=AAPL` — fetches curated events, scores each, returns `{ events: ScoredFlowEvent[], summary: FlowSummary }` |
+
+**Frontend**
+
+| File | What it does |
+| --- | --- |
+| `frontend/src/components/UnusualFlowSection.tsx` (new) | Header with market bias pill + total premium + bull/bear count; event rows (type badge, direction, strike·expiry, DTE, SWEEP/MEGA/GEX PIN tags, conviction score, premium, vol/OI, IV, rationale); backtest strip (approx. win rate for past-expiry events) |
+| `frontend/src/components/FlowDirectionChart.tsx` (new) | Mini inline SVG arrow card (current→strike direction); click to expand Recharts `ComposedChart` with projected linear price path, strike and expiry reference lines |
+| `frontend/src/types/stock.ts` (modified) | Added `FlowDirection`, `CuratedFlowEventInner`, `ScoredFlowEvent`, `UnusualFlowSummary`, `UnusualFlowResponse` |
+| `frontend/src/lib/api.ts` (modified) | Added `fetchUnusualFlow(ticker)` |
+| `frontend/src/App.tsx` (modified) | Options tab now renders `<UnusualFlowSection ticker={activeTicker} />` below `<OptionsPanel />` |
+
+**Scoring algorithm (Radon-adapted confluence):**
+
+```
+score = 0
+CALL → +2 | PUT → -2
+BULLISH sentiment → +1 | BEARISH → -1
+is_sweep → score × 1.5
+volume_oi_ratio > 5 → ±1 (new position)
+confirms_signal → +2 | contradicts_signal → -2
+tag_mega_premium → ±1
+near_gamma_pin → ±1
+gex_at_strike < 0 → ±0.5 (dealers short gamma)
+→ BULLISH if ≥ 2 | BEARISH if ≤ -2 | NEUTRAL otherwise
+```
+
+**Supabase DDL (optional — run once in coredb to enable outcome logging):**
+
+```sql
+create table signal.flow_events (
+  id uuid primary key default gen_random_uuid(),
+  event_id text unique not null,
+  ticker text not null, option_type text not null check (option_type in ('CALL','PUT')),
+  strike numeric not null, expiry date not null, dte_at_capture int not null,
+  premium numeric not null, volume int not null, open_interest int not null,
+  volume_oi_ratio numeric, iv numeric, underlying_price numeric not null,
+  direction text not null check (direction in ('BULLISH','BEARISH','NEUTRAL')),
+  conviction_score int not null, is_sweep boolean not null default false,
+  confirms_signal boolean, gex_at_strike numeric, rationale text,
+  captured_at timestamptz not null default now(),
+  outcome_price numeric, outcome_itm boolean, outcome_pnl_pct numeric, outcome_at timestamptz
+);
+alter table signal.flow_events enable row level security;
+create policy "flow_events_read" on signal.flow_events for select using (true);
+```
+
+Add `SUPABASE_SERVICE_ROLE_KEY` to `backend/.env` to enable backend upserts.
+
+---
+
 ## [0.8.2] — 2026-06-27
 
 ### Changed — Dedicated Market Analysis and Sectors views
