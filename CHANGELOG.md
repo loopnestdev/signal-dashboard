@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.9.2] — 2026-06-27
+
+### Changed — Flow Target Map chart + Options tab cleanup
+
+**Flow Target Map** (new chart at the top of the Options tab):
+- Pure SVG scatter chart: X-axis = expiry date (today → max(3 months, last event expiry + 2 weeks)), Y-axis = strike price
+- Each event rendered as a dot positioned at its (expiry, strike) coordinate
+- Dashed lollipop stick connects the current-price reference line to each dot, making the distance to target visually clear
+- Dot size = Radon signal strength (`5 + |score| × 1.5`, max 20px) — bigger dot = stronger directional evidence
+- Dot color = option type: CALL → green, PUT → red (regardless of position relative to current price)
+- `±X.X%` label on each dot showing distance from current stock price
+- Hover tooltip: type, direction, strike, expiry, DTE, **Radon score / 10**, conviction, premium, rationale
+- Horizontal events at the same expiry date are spread out horizontally with a 20px offset to avoid overlap
+- X-axis shows monthly gridlines; Y-axis uses nice rounded price intervals
+
+**Options tab cleanup:**
+- Removed `OptionsPanel` (OPTIONS INTELLIGENCE) — no Signa options data available yet; can be re-added when the API provides it
+- `UnusualFlowSection` is now the sole content of the Options tab card; leading `borderTop` separator removed
+
+**Tab order:** Signal → Technical → Options → **Moat** → **Fundamentals** (Moat and Fundamentals swapped)
+
+---
+
 ## [0.9.1] — 2026-06-27
 
 ### Changed — Unusual Flow UX improvements
