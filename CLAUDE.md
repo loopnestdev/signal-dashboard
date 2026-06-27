@@ -34,24 +34,29 @@ signal-dashboard/
 │   ├── src/
 │   │   ├── App.tsx                   # Main layout, polling, theme, auth
 │   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   │   ├── Sidebar.tsx        # Left sidebar: nav items, watchlist groups, user pill
+│   │   │   │   └── Topnav.tsx         # Sticky topnav: search, Analyze, index pills, theme toggle
 │   │   │   ├── AdminPanel.tsx         # Admin: pending access requests + approve button
 │   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
 │   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
 │   │   │   ├── FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
+│   │   │   ├── MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
 │   │   │   ├── ScoringBreakdown.tsx   # (legacy — not used in layout, kept for reference)
 │   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN, FCG)
 │   │   │   ├── SignaCard.tsx          # Signa.ai signal: entry/stop/target/triggers
 │   │   │   ├── Skeleton.tsx           # Loading shimmer skeletons
 │   │   │   ├── StockPanel.tsx         # Full stock analysis panel (no composite ring)
-│   │   │   ├── StockSearch.tsx        # Search bar + named watchlist groups
+│   │   │   ├── StockSearch.tsx        # (legacy — superseded by Sidebar/Topnav, kept for reference)
 │   │   │   ├── TerminalAnalysis.tsx   # Structured AI market analysis
 │   │   │   └── TickerBar.tsx          # Scrolling live ticker
 │   │   ├── hooks/
 │   │   │   ├── useAuth.ts             # Supabase session state + Google OAuth
 │   │   │   ├── useMarketData.ts       # 45s polling + secondsAgo counter
+│   │   │   ├── useMoatData.ts         # Fetch moat research from Supabase moat schema
 │   │   │   ├── useStockData.ts        # Stock/Signa data fetch on ticker change
-│   │   │   ├── useTheme.ts            # Light/dark mode toggle (localStorage)
+│   │   │   ├── useTheme.ts            # Light/dark mode toggle (localStorage); default dark
 │   │   │   └── useWatchlist.ts        # Named watchlist groups (Supabase or localStorage)
 │   │   ├── lib/
 │   │   │   ├── api.ts                 # fetch wrappers for backend routes
@@ -71,6 +76,7 @@ signal-dashboard/
 │   │   ├── index.ts                   # Express entry point
 │   │   ├── routes/
 │   │   │   ├── market.ts              # GET /api/market-data, POST /api/refresh
+│   │   │   ├── moat.ts                # GET /api/moat/:ticker — Supabase moat schema proxy
 │   │   │   └── stock.ts               # GET /api/stock/:symbol
 │   │   ├── services/
 │   │   │   ├── ai.ts                  # Signa → Gemini → template priority chain
@@ -186,7 +192,10 @@ Helper functions:
 
 ### Typography
 
-- Labels/headers: `fontSize: '11px', letterSpacing: '0.10em', fontWeight: 400` (uppercase label style)
+- UI font: **Plus Jakarta Sans** (weights 200–800; loaded via Google Fonts)
+- Mono/numeric font: **JetBrains Mono** (weights 400, 500; loaded via Google Fonts)
+- Labels/headers: `fontSize: '11px', letterSpacing: '0.08em', fontWeight: 600` (uppercase label style)
+- Sidebar nav items: `fontSize: '15px'`, `fontWeight: 600` active / `500` inactive, `borderRadius: 12`
 - Body: `fontSize: '13px', color: C.inkSec, lineHeight: 1.5`
 - Data values: `fontFeatureSettings: '"tnum"'` for tabular numbers
 - Pill badges: `borderRadius: 9999, padding: '4px 12px'`
@@ -196,13 +205,15 @@ Helper functions:
 - All inline styles (no Tailwind in components — Tailwind is used only in `index.css` for global reset/utilities)
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
-- **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column → single-column) use CSS classes in `index.css` with `@media (max-width: 640px)` breakpoints (e.g. `.fib-grid`, `.header-band`, `.main-content`). Never add per-component dark-mode or responsive code — use CSS classes instead.
+- **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`≤768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
+- **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column → single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code — use CSS classes instead.
 
 ### API Routes
 
 - `GET /api/market-data` — full market payload (cached 30s)
 - `POST /api/refresh` — invalidate cache
 - `GET /api/stock/:symbol` — individual stock signal (Signa.ai + Yahoo Finance)
+- `GET /api/moat/:ticker` — proxy to Supabase `moat` schema; returns 503 if `SUPABASE_URL`/`SUPABASE_ANON_KEY` not set, 404 if ticker not found. Note: `useMoatData` queries Supabase directly from the browser (not via this route), so Railway Supabase vars are optional.
 - `GET /health` — health check
 
 ### Auth, Access Control & Watchlist

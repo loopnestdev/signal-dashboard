@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.8.0] — 2026-06-27
+
+### Changed — Folio-style sidebar layout + font refresh + MoatPanel
+
+#### Layout redesign
+
+Replaced the top-header layout with a folio-app-style flexbox shell: sticky 220px sidebar + `flex:1` main content area. Mobile: sidebar is `position: fixed` and slides in via `.mobile-open` class toggled by a hamburger button in the topnav.
+
+- **`Sidebar`** (`components/layout/Sidebar.tsx`) — left sidebar with nav items (Dashboard + SOON placeholders for Options Flow, Gamma/GEX, Dark Pool, Sector Map), watchlist group tabs + ticker list, new-group input, user pill with sign in/out
+- **`Topnav`** (`components/layout/Topnav.tsx`) — sticky topnav with hamburger (mobile), ticker search input, Analyze button, SPY/QQQ/IWM/DIA index pills, theme toggle, auth button
+- `StockSearch` component removed from layout — search moved to Topnav, watchlist management to Sidebar
+- Dark mode is now the default on first visit (`useTheme`, `index.html` inline script)
+- CSS layout classes in `index.css`: `.app-shell`, `.app-sidebar`, `.app-main`, `.app-topnav`, `.app-content`, `.sidebar-overlay`
+
+#### MoatPanel
+
+New `MoatPanel` component and `useMoatData` hook integrate moat-finder peer valuation data for the active stock:
+
+- **`useMoatData(ticker)`** — queries Supabase coredb `moat` schema directly from the browser via `Accept-Profile: moat` REST header; returns `null` when ticker not found (no research trigger)
+- **`MoatPanel`** — Recharts `BarChart` for P/S ratio peer comparison, peer comparison table (P/S, EV/EBITDA, gross margin, YoY growth), bear/base/bull scenario cards; empty state when ticker is not in moat-finder
+- **`backend/src/routes/moat.ts`** — `GET /api/moat/:ticker` backend proxy to Supabase moat schema (returns 503 if unconfigured, 404 if ticker not found)
+- `recharts` added as frontend dependency
+
+**Deployment requirement:** Add `moat` to Supabase Dashboard → Settings → API → Exposed schemas for `useMoatData` to work.
+
+#### Font refresh
+
+- UI font changed from **Inter** to **Plus Jakarta Sans** (weights 200–800 + italics)
+- Mono/numeric font changed from Inter to **JetBrains Mono** (weights 400, 500)
+- Sidebar nav items: 15px, `border-radius: 12px`, `font-weight: 600` active / `500` inactive — matches folio-app
+- Sidebar section labels: `font-weight: 600`, wider tracking
+- Added custom 6px scrollbar (themed to `--c-border`), `h1–h6` defaults, form element font inheritance, link defaults
+
+---
+
 ## [0.7.3] — 2026-05-28
 
 ### Fixed — RLS infinite recursion in `signal.is_admin()`
