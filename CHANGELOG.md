@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.9.4] — 2026-06-27
+
+### Fixed — Flow Target Map missing dashed line connections
+
+- Replaced separate CALL-chain / PUT-chain / fork-line rules with a unified matrix approach that handles all consecutive-date combinations:
+  - **1 source → N destinations**: single dot connects to all dots at the next date (fork when both directions appear)
+  - **2 sources → 1 destination**: both CALL and PUT dots each draw a line to the single next dot (merge)
+  - **2 sources → 2 destinations**: same-direction pairs (CALL→CALL, PUT→PUT) — no crossing lines
+- Fixes missing red dashed lines between consecutive PUT dates when the preceding date also had a CALL (the merge case was previously unhandled, leaving intermediate PUT dots disconnected)
+
+---
+
 ## [0.9.3] — 2026-06-27
 
 ### Fixed — Flow Target Map chart logic
