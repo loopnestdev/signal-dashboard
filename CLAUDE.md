@@ -45,6 +45,7 @@ signal-dashboard/
 │   │   │   ├── FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
 │   │   │   ├── GammaView.tsx          # Gamma/GEX view: SPY/QQQ/IWM cards with flip level/walls
 │   │   │   ├── MarketScanView.tsx     # Market Scanner view: Signa 30-model ranked setups
+│   │   │   ├── PlaybookView.tsx       # Playbook view: static strategy reference (GEX, Radon, combined read)
 │   │   │   ├── MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
 │   │   │   ├── OptionsFlowView.tsx    # Options Flow view: market-wide unusual flow feed
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
@@ -214,7 +215,7 @@ Helper functions:
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
 - **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`≤768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
-- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` → stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` → `TerminalAnalysis`; `'sector-map'` → `SectorHeatmap`; `'options-flow'` → `OptionsFlowView`; `'dark-pool'` → `DarkPoolView`; `'gamma'` → `GammaView`; `'market-scan'` → `MarketScanView`. All four intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
+- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` → stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` → `TerminalAnalysis`; `'sector-map'` → `SectorHeatmap`; `'options-flow'` → `OptionsFlowView`; `'dark-pool'` → `DarkPoolView`; `'gamma'` → `GammaView`; `'market-scan'` → `MarketScanView`; `'playbook'` → `PlaybookView` (static strategy reference, no data deps). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
 - **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column → single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code — use CSS classes instead.
 
 ### API Routes

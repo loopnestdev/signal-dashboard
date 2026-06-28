@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.6] — 2026-06-28
+
+### Added — Playbook view + GEX Action Cards
+
+- **Playbook sidebar view** (`PlaybookView.tsx`) — persistent strategy reference, always accessible from sidebar. Four accordion sections:
+  - *GEX 101*: positive/negative gamma, gamma flip, call/put wall, net GEX — including the key rule that negative GEX below price is an acceleration zone, not support
+  - *Spot Trading with GEX*: 4-step framework (regime check, entry floor, exit ceiling, stop at flip), LONG and SHORT setup rules, intraday vs daily-close clarification
+  - *Radon Flow Detection*: full scoring table (CALL/PUT base, sentiment, sweep multiplier, vol/OI ratio, confirms/contradicts, mega premium, gamma pin, negative GEX at strike), direction thresholds, 3-event confluence rule
+  - *Combined GEX + Flow*: 6-scenario signal matrix, timing rules, position sizing guideline
+
+- **GEX Action Cards** — trade setup card auto-generated from live GEX data, shown in the GEX panel above the charts:
+  - LONG card (positive regime): Entry at nearest positive GEX floor below price, Stop just below gamma flip, Exit at Call Wall or GEX ceiling
+  - SHORT card (negative regime): Entry on bounce toward gamma flip re-test, Stop just above flip, Exit (cover) at Put Wall or GEX floor
+  - `safeRange()` guard prevents degenerate low >= high ranges
+  - Danger note warns when negative GEX sits below current price (amplification zone, not support)
+
+- **GEX Timeline dot tooltips** — context-aware hover text per dot:
+  - Green above price: resistance / profit-taking zone
+  - Green below price: entry floor (dealers buy dips here)
+  - Red above price: acceleration zone above (not resistance)
+  - Red below price: NOT support — dealers amplify declines
+
+---
+
 ## [1.0.5] — 2026-06-28
 
 ### Fixed — GEX bar chart font scaling + test coverage

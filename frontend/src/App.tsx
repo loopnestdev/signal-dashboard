@@ -20,6 +20,7 @@ import { OptionsFlowView } from './components/OptionsFlowView';
 import { DarkPoolView } from './components/DarkPoolView';
 import { GammaView } from './components/GammaView';
 import { MarketScanView } from './components/MarketScanView';
+import { PlaybookView } from './components/PlaybookView';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
 import type { View } from './components/layout/Sidebar';
@@ -339,6 +340,9 @@ export default function App() {
               {activeView === 'market-scan' && (
                 <MarketScanView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
               )}
+
+              {/* Playbook view */}
+              {activeView === 'playbook' && <PlaybookView />}
 
               {/* Footer */}
               <div style={{

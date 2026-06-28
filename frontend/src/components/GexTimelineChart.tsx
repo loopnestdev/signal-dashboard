@@ -257,24 +257,39 @@ export function GexTimelineChart({
       </svg>
 
       {/* Hover tooltip */}
-      {hovered && (
-        <div style={{
-          position: 'fixed', left: hovered.mx + 14, top: hovered.my - 16,
-          background: C.canvas as string, border: `1px solid ${C.border as string}`,
-          borderRadius: 8, padding: '10px 14px', fontSize: '11px',
-          color: C.inkSec as string, lineHeight: 1.7, zIndex: 500,
-          pointerEvents: 'none', boxShadow: C.s2 as string, minWidth: 210,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: '12px', color: hovered.level.net_gex >= 0 ? C.bull as string : C.bear as string, marginBottom: 5 }}>
-            {hovered.level.net_gex >= 0 ? 'Positive GEX — Dampen' : 'Negative GEX — Amplify'}
+      {hovered && (() => {
+        const isPos   = hovered.level.net_gex >= 0;
+        const isAbove = hovered.level.strike > currentPrice;
+        const col     = isPos ? C.bull as string : C.bear as string;
+
+        let actionNote: string;
+        if (isPos && isAbove)  actionNote = 'Resistance — dealers sell as price rises here, dampening upside. Good profit-taking zone; scale out as price approaches.';
+        else if (isPos)        actionNote = 'Entry floor — dealers buy when price dips here. Low-risk long entry zone while regime stays above gamma flip.';
+        else if (isAbove)      actionNote = 'Acceleration zone above — if price breaks through here, dealers amplify the upside move. Not natural resistance; gap higher possible.';
+        else                   actionNote = 'NOT support — dealers amplify declines when price reaches here. Avoid buying this dip; reduce or hedge instead.';
+
+        return (
+          <div style={{
+            position: 'fixed', left: hovered.mx + 14, top: hovered.my - 16,
+            background: C.canvas as string, border: `1px solid ${C.border as string}`,
+            borderRadius: 8, padding: '10px 14px', fontSize: '11px',
+            color: C.inkSec as string, lineHeight: 1.7, zIndex: 500,
+            pointerEvents: 'none', boxShadow: C.s2 as string, minWidth: 240,
+          }}>
+            <div style={{ fontWeight: 700, fontSize: '12px', color: col, marginBottom: 5 }}>
+              {isPos ? 'Positive GEX — Dampen' : 'Negative GEX — Amplify'}
+            </div>
+            <div>Strike <strong>${hovered.level.strike.toLocaleString()}</strong> ({pct(hovered.level.strike, currentPrice)})</div>
+            {hovered.level.expiry && (
+              <div>Expiry {new Date(hovered.level.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+            )}
+            <div>Net GEX <strong style={{ color: col }}>{fmtGex(hovered.level.net_gex)}</strong></div>
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border as string}`, color: col, fontSize: '10.5px', lineHeight: 1.5 }}>
+              {actionNote}
+            </div>
           </div>
-          <div>Strike <strong>${hovered.level.strike.toLocaleString()}</strong> ({pct(hovered.level.strike, currentPrice)})</div>
-          {hovered.level.expiry && (
-            <div>Expiry {new Date(hovered.level.expiry).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-          )}
-          <div>Net GEX <strong style={{ color: hovered.level.net_gex >= 0 ? C.bull as string : C.bear as string }}>{fmtGex(hovered.level.net_gex)}</strong></div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

@@ -224,6 +224,90 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
     ? 'Price is below the gamma flip — dealers are short gamma and amplify moves in both directions. Higher volatility expected.'
     : null;
 
+  // Action Card — entry / stop loss / exit derived from GEX structure
+  interface GexActionCard {
+    direction: 'LONG' | 'SHORT';
+    entry:    { low: number; high: number; note: string } | null;
+    stopLoss: { low: number; high: number; note: string } | null;
+    exit:     { low: number; high: number; note: string } | null;
+    dangerNote: string | null;
+  }
+
+  const actionCard: GexActionCard | null = (() => {
+    if (!data?.levels?.length || !price || aboveFlip === null) return null;
+    const levels = data.levels;
+    const flip   = data.gamma_flip;
+
+    const posAbove = levels.filter(l => l.strike > price && l.net_gex > 0).sort((a, b) => a.strike - b.strike);
+    const posBelow = levels.filter(l => l.strike < price && l.net_gex > 0).sort((a, b) => b.strike - a.strike);
+    const negBelow = levels.filter(l => l.strike < price && l.net_gex < 0).sort((a, b) => b.strike - a.strike);
+
+    const safeRange = (low: number, high: number) =>
+      high <= low ? { low, high: low * 1.008 } : { low, high };
+
+    if (aboveFlip) {
+      // ── LONG ──
+      const floorStrike = posBelow[0]?.strike ?? flip;
+      const ceilStrike  = data.call_wall ?? posAbove[0]?.strike;
+
+      const entry = floorStrike
+        ? safeRange(floorStrike, Math.min(floorStrike * 1.012, price * 0.999))
+        : null;
+      const entryNote = posBelow[0]
+        ? 'Positive GEX floor — dealers buy dips here'
+        : 'Gamma flip — regime boundary support';
+
+      const stopLow  = flip ? flip * 0.990 : entry ? entry.low * 0.970 : null;
+      const stopHigh = flip ? flip * 0.998 : entry ? entry.low * 0.972 : null;
+      const stopNote = flip
+        ? 'Close below flip = regime change → exit long immediately'
+        : '~3% below entry — thesis invalidated';
+
+      const exit = ceilStrike
+        ? safeRange(ceilStrike * 0.985, ceilStrike)
+        : null;
+      const exitNote = data.call_wall
+        ? 'Call Wall — dealers dampen here. Scale out as price approaches.'
+        : 'Positive GEX ceiling — resistance zone';
+
+      const dangerNote = negBelow[0]
+        ? `If price falls to ${fmtPrice(negBelow[0].strike)}, dealers amplify the decline — that is NOT support. Reduce or hedge.`
+        : null;
+
+      return {
+        direction: 'LONG',
+        entry:    entry ? { ...entry, note: entryNote } : null,
+        stopLoss: stopLow && stopHigh ? { ...safeRange(stopLow, stopHigh), note: stopNote } : null,
+        exit:     exit   ? { ...exit,  note: exitNote  } : null,
+        dangerNote,
+      };
+    } else {
+      // ── SHORT ──
+      const flipRef    = flip ?? price;
+      const entryRaw   = safeRange(Math.min(flipRef * 0.992, price), Math.min(flipRef * 1.005, price * 1.01));
+      const entryNote  = flip ? 'Short on bounce toward gamma flip re-test' : 'Current level — negative gamma regime active';
+
+      const stopRaw    = flip ? safeRange(flip * 1.008, flip * 1.020) : safeRange(price * 1.028, price * 1.032);
+      const stopNote   = flip ? 'Reclaim above flip = regime recovery → cover immediately' : '~3% above entry — thesis invalidated';
+
+      const coverStrike = data.put_wall ?? posBelow[0]?.strike;
+      const exit = coverStrike ? safeRange(coverStrike, coverStrike * 1.015) : null;
+      const exitNote = data.put_wall ? 'Put Wall — potential support for covering' : 'Positive GEX floor — dealers buy near here';
+
+      const dangerNote = negBelow[0]
+        ? `Negative GEX at ${fmtPrice(negBelow[0].strike)} below — price breaking there will accelerate the decline (dealers amplify).`
+        : null;
+
+      return {
+        direction: 'SHORT',
+        entry:    { ...entryRaw, note: entryNote },
+        stopLoss: { ...stopRaw,  note: stopNote  },
+        exit:     exit ? { ...exit, note: exitNote } : null,
+        dangerNote,
+      };
+    }
+  })();
+
   const netGex = data?.net_gex ?? null;
   const netGexCol  = netGex != null && netGex >= 0 ? C.bull : C.bear;
   const netGexBg   = netGex != null && netGex >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
@@ -315,6 +399,84 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
               {netGexNote}
             </div>
           )}
+
+          {/* Action Card — Entry / Stop Loss / Exit */}
+          {actionCard && (() => {
+            const isLong  = actionCard.direction === 'LONG';
+            const dirCol  = isLong ? C.bull  : C.bear;
+            const dirBg   = isLong ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)';
+            const dirBorder = isLong ? 'rgba(34,197,94,0.20)' : 'rgba(239,68,68,0.20)';
+            const fmtRange = (low: number, high: number) =>
+              `${fmtPrice(low)} – ${fmtPrice(high)}`;
+
+            const cols: Array<{
+              label: string;
+              range: string | null;
+              note: string;
+              col: string;
+            }> = [
+              {
+                label: isLong ? 'ENTRY — BUY DIP' : 'ENTRY — SHORT',
+                range: actionCard.entry ? fmtRange(actionCard.entry.low, actionCard.entry.high) : null,
+                note:  actionCard.entry?.note ?? 'No clear floor identified',
+                col:   dirCol as string,
+              },
+              {
+                label: 'STOP LOSS',
+                range: actionCard.stopLoss ? fmtRange(actionCard.stopLoss.low, actionCard.stopLoss.high) : null,
+                note:  actionCard.stopLoss?.note ?? '—',
+                col:   C.bear as string,
+              },
+              {
+                label: isLong ? 'EXIT — SELL' : 'EXIT — COVER',
+                range: actionCard.exit ? fmtRange(actionCard.exit.low, actionCard.exit.high) : null,
+                note:  actionCard.exit?.note ?? 'No clear target identified',
+                col:   (isLong ? C.bull : C.primary) as string,
+              },
+            ];
+
+            return (
+              <div style={{ background: dirBg, border: `1px solid ${dirBorder}`, borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+                {/* Direction badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: dirCol as string }}>
+                    {isLong ? '↑ LONG' : '↓ SHORT'}
+                  </span>
+                  <span style={{ fontSize: '11px', color: C.inkMute as string }}>
+                    · {isLong ? 'Positive' : 'Negative'} Gamma Regime · Spot trade setup
+                  </span>
+                </div>
+
+                {/* Three columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  {cols.map((col, i) => (
+                    <div key={i} style={{
+                      background: C.canvas as string,
+                      border: `1px solid ${C.border as string}`,
+                      borderRadius: 8, padding: '10px 12px',
+                    }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: col.col as string, marginBottom: 5 }}>
+                        {col.label}
+                      </div>
+                      <div className="tnum" style={{ fontSize: '14px', fontWeight: 700, color: col.col as string, marginBottom: 4, lineHeight: 1.3 }}>
+                        {col.range ?? '—'}
+                      </div>
+                      <div style={{ fontSize: '10px', color: C.inkMute as string, lineHeight: 1.5 }}>
+                        {col.note}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Danger note */}
+                {actionCard.dangerNote && (
+                  <div style={{ marginTop: 10, fontSize: '11px', color: C.bear as string, lineHeight: 1.5 }}>
+                    ⚠ {actionCard.dangerNote}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Chart 1 — Strike × Expiry (same style as Options tab FlowTimelineChart) */}
           {data.rawLevels && data.rawLevels.length > 0 && (

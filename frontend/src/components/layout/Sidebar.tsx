@@ -1,12 +1,12 @@
 import { useState, type KeyboardEvent } from 'react';
 import {
   LayoutDashboard, TrendingUp, Activity, BarChart2, Eye, Map,
-  Plus, X, ChevronRight, LogOut, LogIn, Search,
+  Plus, X, ChevronRight, LogOut, LogIn, Search, BookOpen,
 } from 'lucide-react';
 import { C } from '../../lib/colors';
 import type { WatchlistGroup } from '../../hooks/useWatchlist';
 
-export type View = 'dashboard' | 'market' | 'sector-map' | 'options-flow' | 'gamma' | 'dark-pool' | 'market-scan';
+export type View = 'dashboard' | 'market' | 'sector-map' | 'options-flow' | 'gamma' | 'dark-pool' | 'market-scan' | 'playbook';
 
 const NAV = [
   { id: 'dashboard' as View,    label: 'Dashboard',       Icon: LayoutDashboard },
@@ -16,6 +16,7 @@ const NAV = [
   { id: 'gamma' as View,        label: 'Gamma / GEX',     Icon: BarChart2 },
   { id: 'dark-pool' as View,    label: 'Dark Pool',        Icon: Eye },
   { id: 'market-scan' as View,  label: 'Market Scanner',  Icon: Search },
+  { id: 'playbook' as View,     label: 'Playbook',         Icon: BookOpen },
 ];
 
 interface Props {
