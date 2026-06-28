@@ -1,7 +1,58 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { C } from '../lib/colors';
 import { fetchGammaGex } from '../lib/api';
 import type { GexData } from '../types/market';
+
+function GexTip({ label, tip, color }: { label: string; tip: string; color?: string }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLSpanElement>(null);
+  const handleEnter = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.top - 8, left: r.left });
+    }
+  };
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <span style={{ fontSize: '11px', color: color ?? (C.inkMute as string) }}>{label}</span>
+      <span
+        ref={btnRef}
+        onMouseEnter={handleEnter}
+        onMouseLeave={() => setPos(null)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 13, height: 13, borderRadius: '50%',
+          border: `1px solid ${C.border}`, color: C.inkMute as string,
+          fontSize: '8px', cursor: 'default', lineHeight: 1, flexShrink: 0,
+        }}
+      >
+        ?
+      </span>
+      {pos && createPortal(
+        <div style={{
+          position: 'fixed', top: pos.top, left: pos.left,
+          transform: 'translateY(-100%)',
+          background: C.canvas as string, border: `1px solid ${C.border}`,
+          borderRadius: 8, padding: '8px 11px', fontSize: '11px',
+          color: C.inkSec as string, lineHeight: 1.5, zIndex: 9999,
+          pointerEvents: 'none', boxShadow: C.s2 as string,
+          width: 240, fontWeight: 400,
+        }}>
+          {tip}
+        </div>,
+        document.body,
+      )}
+    </span>
+  );
+}
+
+const TIPS = {
+  callWall:   'The strike above the current price with the highest positive dealer gamma. Dealers are long gamma here — they sell into rallies approaching this level, creating a natural ceiling that tends to cap upside.',
+  gammaFlip:  'The price where total dealer net gamma flips from positive to negative. Above = dealers dampen moves (buy dips, sell rallies). Below = dealers amplify moves in both directions, increasing volatility.',
+  putWall:    'The strike below current price with the largest negative dealer gamma concentration. Dealers must buy stock as price falls here, creating a support cushion — but a break below accelerates the move down.',
+  netGex:     'Sum of all dealer gamma exposure across all strikes. Positive = dampening regime (lower volatility expected). Negative = amplifying regime (higher volatility, dealers chase moves). Larger absolute value = stronger effect.',
+};
 
 function GexCard({ data, onAnalyze }: { data: GexData; onAnalyze: (t: string) => void }) {
   const { symbol, current_price, gamma_flip, call_wall, put_wall, above_flip, net_gex } = data;
@@ -51,12 +102,12 @@ function GexCard({ data, onAnalyze }: { data: GexData; onAnalyze: (t: string) =>
       {/* Key levels */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
         {[
-          { label: 'Call Wall', value: call_wall, color: C.bull },
-          { label: 'Gamma Flip', value: gamma_flip, color: C.warn },
-          { label: 'Put Wall', value: put_wall, color: C.bear },
-        ].map(({ label, value, color }) => (
+          { label: 'Call Wall', tipKey: 'callWall' as const, value: call_wall, color: C.bull },
+          { label: 'Gamma Flip', tipKey: 'gammaFlip' as const, value: gamma_flip, color: C.warn },
+          { label: 'Put Wall', tipKey: 'putWall' as const, value: put_wall, color: C.bear },
+        ].map(({ label, tipKey, value, color }) => (
           <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', color: C.inkMute as string }}>{label}</span>
+            <GexTip label={label} tip={TIPS[tipKey]} />
             <span className="tnum" style={{ fontSize: '12px', fontWeight: 600, color: value != null ? color as string : C.inkMute as string }}>
               {value != null ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}` : '—'}
             </span>
@@ -64,7 +115,7 @@ function GexCard({ data, onAnalyze }: { data: GexData; onAnalyze: (t: string) =>
         ))}
         {net_gex != null && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, borderTop: `1px solid ${C.border}` }}>
-            <span style={{ fontSize: '11px', color: C.inkMute as string }}>Net GEX</span>
+            <GexTip label="Net GEX" tip={TIPS.netGex} />
             <span className="tnum" style={{ fontSize: '12px', fontWeight: 600, color: net_gex >= 0 ? C.bull as string : C.bear as string }}>
               {fmtGex(net_gex)}
             </span>
