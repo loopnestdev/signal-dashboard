@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.5] — 2026-06-28
+
+### Fixed — GEX bar chart font scaling + test coverage
+
+- **SVG fixed-width rendering**: `GexChart` now uses `width={680}` (fixed px) instead of `width="100%" viewBox="0 0 560 H"`. The viewBox scaling was multiplying every font size by ~1.6× (560px viewBox in a ~900px container), making `fontSize={9}` appear as ~14px visually — much larger than the 11px CSS text in the rest of the UI. Fixed sizes are now 1:1 CSS pixels: 11px strike labels, 10px bar values, matching the surrounding UI labels.
+- **48 new unit tests** (134 → 182 total):
+  - `flowScoring.test.ts` (24 tests) — `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, ±2 boundary); `summarizeFlow`: direction counts, totals, average conviction, market bias edge cases
+  - `gexParsing.test.ts` (24 tests) — `parseGexRawResponse`: Signa camelCase vs snake_case field name fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` fallback sum, zero-strike skip, symbol normalisation
+- **Refactor**: extracted `parseGexRawResponse()` as a named exported pure function from `getGexMcp()` so the Signa field-name parsing is unit-testable without mocking the MCP network layer
+
+---
+
 ## [1.0.4] — 2026-06-28
 
 ### Improved — GEX panel polish

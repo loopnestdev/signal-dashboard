@@ -295,7 +295,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 134 tests — one-shot
+cd backend && npm test          # 182 tests — one-shot
 cd frontend && npm test         # 64 tests  — one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -318,6 +318,12 @@ cd frontend && npm run test:watch  # watch mode
 | `frontend/src/__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` — direction detection, entryRef fallback, LONG/SHORT level validation, **ASTS regression** |
 | `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path — add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
 | `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` | `useWatchlist` Supabase-mode path — all mutations write to localStorage (dual persistence), in-memory state correct immediately |
+| `backend/src/__tests__/services/flowScoring.test.ts` | `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, ±2 boundary, field preservation); `summarizeFlow`: direction counts, premium totals, avg conviction, market bias tie-breaking |
+| `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |
+
+### Test policy
+
+All new exported pure functions must have unit tests before they are committed. The test count must not decrease between commits. When extracting logic from a route or component into a standalone function, add tests for the new function at the same time.
 
 ### Price level validation utility
 
