@@ -4,12 +4,13 @@ import type { StockResponse, StockDecision, MovingAverages, FibLevel } from '../
 import type { WatchlistGroup } from '../hooks/useWatchlist';
 import { SignaCard } from './SignaCard';
 
-export type StockTab = 'signal' | 'technical' | 'options' | 'fundamentals' | 'moat';
+export type StockTab = 'signal' | 'technical' | 'options' | 'gex' | 'fundamentals' | 'moat';
 
 const TABS: { id: StockTab; label: string }[] = [
   { id: 'signal',       label: 'Signal' },
   { id: 'technical',    label: 'Technical' },
   { id: 'options',      label: 'Options' },
+  { id: 'gex',          label: 'GEX' },
   { id: 'moat',         label: 'Moat' },
   { id: 'fundamentals', label: 'Fundamentals' },
 ];

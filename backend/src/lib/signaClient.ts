@@ -1050,17 +1050,21 @@ export async function getGexMcp(symbol: string): Promise<GexData | null> {
   const raw = await callMcpTool<Record<string, unknown>>('get_gex', { symbol });
   if (!raw) return null;
 
-  // Signa returns netGexByStrike array with { strike, expiry, netGex } entries
-  const levels: GexLevel[] = [];
+  // Signa returns netGexByStrike: [{ strike, expiry, netGex }, ...]
+  // Aggregate across expirations so each strike has one total net_gex value
+  const strikeMap = new Map<number, number>();
   const rawLevels = raw.netGexByStrike ?? raw.levels ?? raw.strikes ?? raw.key_levels ?? raw.keyLevels;
   if (Array.isArray(rawLevels)) {
     for (const lv of rawLevels) {
       const l = lv as Record<string, unknown>;
       const strike = Number(l.strike ?? l.price ?? 0);
       const net_gex = Number(l.netGex ?? l.net_gex ?? l.netGamma ?? l.gamma ?? 0);
-      if (strike > 0) levels.push({ strike, net_gex });
+      if (strike > 0) strikeMap.set(strike, (strikeMap.get(strike) ?? 0) + net_gex);
     }
   }
+  const levels: GexLevel[] = [...strikeMap.entries()]
+    .map(([strike, net_gex]) => ({ strike, net_gex }))
+    .sort((a, b) => a.strike - b.strike);
 
   const result: GexData = {
     symbol: symbol.toUpperCase(),

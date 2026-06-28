@@ -127,6 +127,11 @@ export interface GammaGexResponse {
   iwm: GexData | null;
 }
 
+export interface StockGexResponse extends GexData {
+  fromCache: boolean;
+  capturedAt?: string;
+}
+
 export interface MarketResponse {
   timestamp: string;
   fromCache: boolean;

@@ -13,6 +13,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { StockPanel } from './components/StockPanel';
 import type { StockTab } from './components/StockPanel';
 import { UnusualFlowSection } from './components/UnusualFlowSection';
+import { GexPanel } from './components/GexPanel';
 import { FundamentalsPanel } from './components/FundamentalsPanel';
 import { MoatPanel } from './components/MoatPanel';
 import { OptionsFlowView } from './components/OptionsFlowView';
@@ -233,6 +234,12 @@ export default function App() {
                       borderRadius: 12, boxShadow: C.s1, padding: '20px 24px',
                     }}>
                       {activeTicker && <UnusualFlowSection ticker={activeTicker} currentPrice={stockData?.price} />}
+                    </div>
+                  )}
+
+                  {activeTab === 'gex' && (
+                    <div style={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.s1, padding: '20px 24px' }}>
+                      {activeTicker && <GexPanel ticker={activeTicker} currentPrice={stockData?.price} />}
                     </div>
                   )}
 
