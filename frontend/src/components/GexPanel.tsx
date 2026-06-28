@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { C } from '../lib/colors';
 import { fetchStockGex } from '../lib/api';
 import type { StockGexResponse } from '../types/market';
+import { GexTimelineChart } from './GexTimelineChart';
+import { GexHistoryChart } from './GexHistoryChart';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -310,6 +312,24 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
             Longer bar = stronger structural effect. The{' '}
             <span style={{ color: C.warn as string }}>gamma flip</span> divides the two regimes.
           </div>
+
+          {/* Chart 1 — Strike × Expiry (same style as Options tab FlowTimelineChart) */}
+          {data.rawLevels && data.rawLevels.length > 0 && (
+            <GexTimelineChart
+              rawLevels={data.rawLevels}
+              currentPrice={price}
+              callWall={data.call_wall}
+              putWall={data.put_wall}
+            />
+          )}
+
+          {/* Chart 2 — Historical key-level timeline from Supabase */}
+          {data.history && data.history.length >= 2 && (
+            <GexHistoryChart
+              history={data.history}
+              currentPrice={price}
+            />
+          )}
 
           {/* Filter toggle + count */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>

@@ -1031,6 +1031,12 @@ export interface GexLevel {
   net_gex: number;
 }
 
+export interface GexRawLevel {
+  strike: number;
+  expiry: string;
+  net_gex: number;
+}
+
 export interface GexData {
   symbol: string;
   current_price: number;
@@ -1040,6 +1046,7 @@ export interface GexData {
   above_flip: boolean | null;
   net_gex: number | null;
   levels: GexLevel[];
+  rawLevels: GexRawLevel[];
 }
 
 export async function getGexMcp(symbol: string): Promise<GexData | null> {
@@ -1051,15 +1058,20 @@ export async function getGexMcp(symbol: string): Promise<GexData | null> {
   if (!raw) return null;
 
   // Signa returns netGexByStrike: [{ strike, expiry, netGex }, ...]
-  // Aggregate across expirations so each strike has one total net_gex value
+  // Preserve per-expiry data in rawLevels; aggregate across expirations for levels[]
   const strikeMap = new Map<number, number>();
+  const perExpiry: GexRawLevel[] = [];
   const rawLevels = raw.netGexByStrike ?? raw.levels ?? raw.strikes ?? raw.key_levels ?? raw.keyLevels;
   if (Array.isArray(rawLevels)) {
     for (const lv of rawLevels) {
       const l = lv as Record<string, unknown>;
-      const strike = Number(l.strike ?? l.price ?? 0);
+      const strike  = Number(l.strike ?? l.price ?? 0);
       const net_gex = Number(l.netGex ?? l.net_gex ?? l.netGamma ?? l.gamma ?? 0);
-      if (strike > 0) strikeMap.set(strike, (strikeMap.get(strike) ?? 0) + net_gex);
+      const expiry  = String(l.expiry ?? l.expiryDate ?? '');
+      if (strike > 0) {
+        perExpiry.push({ strike, expiry, net_gex });
+        strikeMap.set(strike, (strikeMap.get(strike) ?? 0) + net_gex);
+      }
     }
   }
   const levels: GexLevel[] = [...strikeMap.entries()]
@@ -1083,6 +1095,7 @@ export async function getGexMcp(symbol: string): Promise<GexData | null> {
                    raw.netGamma != null ? Number(raw.netGamma) :
                    levels.length ? levels.reduce((s, l) => s + l.net_gex, 0) : null,
     levels,
+    rawLevels: perExpiry,
   };
 
   setToCache(cacheKey, result, 900);

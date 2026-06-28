@@ -110,6 +110,22 @@ export interface GexLevel {
   net_gex: number;
 }
 
+export interface GexRawLevel {
+  strike: number;
+  expiry: string;
+  net_gex: number;
+}
+
+export interface GexHistoryPoint {
+  call_wall: number | null;
+  gamma_flip: number | null;
+  put_wall: number | null;
+  current_price: number;
+  above_flip: boolean | null;
+  net_gex: number | null;
+  captured_at: string;
+}
+
 export interface GexData {
   symbol: string;
   current_price: number;
@@ -119,6 +135,7 @@ export interface GexData {
   above_flip: boolean | null;
   net_gex: number | null;
   levels: GexLevel[];
+  rawLevels?: GexRawLevel[];
 }
 
 export interface GammaGexResponse {
@@ -130,6 +147,7 @@ export interface GammaGexResponse {
 export interface StockGexResponse extends GexData {
   fromCache: boolean;
   capturedAt?: string;
+  history?: GexHistoryPoint[];
 }
 
 export interface MarketResponse {
