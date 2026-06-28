@@ -40,9 +40,13 @@ signal-dashboard/
 │   │   │   ├── AdminPanel.tsx         # Admin: pending access requests + approve button
 │   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
 │   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
+│   │   │   ├── DarkPoolView.tsx       # Dark Pool view: Radon-scored off-exchange block prints
 │   │   │   ├── FlowDirectionChart.tsx # Mini SVG arrow + full Recharts chart (Options tab)
 │   │   │   ├── FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
+│   │   │   ├── GammaView.tsx          # Gamma/GEX view: SPY/QQQ/IWM cards with flip level/walls
+│   │   │   ├── MarketScanView.tsx     # Market Scanner view: Signa 30-model ranked setups
 │   │   │   ├── MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
+│   │   │   ├── OptionsFlowView.tsx    # Options Flow view: market-wide unusual flow feed
 │   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
 │   │   │   ├── ScoringBreakdown.tsx   # (legacy — not used in layout, kept for reference)
 │   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN, FCG)
@@ -210,7 +214,7 @@ Helper functions:
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
 - **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`≤768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
-- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` → stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` → `TerminalAnalysis` (Signa.ai market analysis); `'sector-map'` → `SectorHeatmap` with timeframe selector. `SectorHeatmap` and `TerminalAnalysis` only render on their own views — they do NOT appear in the dashboard view. `'options-flow'`, `'gamma'`, `'dark-pool'` are SOON (sidebar shows badge, click is disabled).
+- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` → stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` → `TerminalAnalysis`; `'sector-map'` → `SectorHeatmap`; `'options-flow'` → `OptionsFlowView`; `'dark-pool'` → `DarkPoolView`; `'gamma'` → `GammaView`; `'market-scan'` → `MarketScanView`. All four intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
 - **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column → single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code — use CSS classes instead.
 
 ### API Routes
@@ -220,6 +224,10 @@ Helper functions:
 - `GET /api/stock/:symbol` — individual stock signal (Signa.ai + Yahoo Finance)
 - `GET /api/moat/:ticker` — proxy to Supabase `moat` schema; returns 503 if `SUPABASE_URL`/`SUPABASE_ANON_KEY` not set, 404 if ticker not found. Note: `useMoatData` queries Supabase directly from the browser (not via this route), so Railway Supabase vars are optional.
 - `GET /api/unusual-flow?ticker=AAPL` — AI-curated high-conviction options events (Signa `get_curated_flow` via MCP Streamable HTTP), scored with Radon-adapted confluence algorithm. Returns `{ events: ScoredFlowEvent[], summary: FlowSummary | null }`. Requires `SIGNA_API_KEY`; returns empty events array when key is absent. 5 min cache.
+- `GET /api/options-flow` — market-wide unusual options flow (Signa `get_options_flow` MCP, no ticker required). Returns `{ flow: MarketFlowItem[] }`. 2 min cache.
+- `GET /api/dark-pool` — market-wide dark pool prints (Signa `get_dark_pool` MCP), Radon-scored by NBBO positioning. Returns `{ prints: DpPrint[] }`. 2 min cache.
+- `GET /api/gamma-gex` — GEX data for SPY, QQQ, IWM in parallel (Signa `get_gex` MCP). Returns `{ spy, qqq, iwm }`. 15 min cache. Call/put walls derived from levels if not in response.
+- `GET /api/market-scan?direction=bullish|bearish` — ranked market setups from Signa `scan_symbols` MCP. Returns `{ results: ScanItem[], count }`. 5 min cache.
 - `GET /health` — health check
 
 ### Signa MCP Streamable HTTP

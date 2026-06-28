@@ -6,6 +6,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.0] — 2026-06-28
+
+### Added — Options Intelligence views (four new sidebar sections)
+
+**Options Flow** (`/options-flow`)
+- Market-wide unusual options flow via Unusual Whales, no ticker required
+- Table: CALL/PUT type badge, clickable ticker, strike × expiry, DTE, premium, volume, vol/OI ratio, sweep ⚡ flag, alert pattern, time ago
+- Filter tabs: All / CALL / PUT / Sweep only
+- Auto-refreshes every 90 seconds; color-coded green/red by type
+- Click any ticker → loads full stock analysis in Dashboard
+
+**Dark Pool** (`/dark-pool`)
+- Real-time off-exchange institutional block prints, Radon-scored by NBBO positioning:
+  - Price at/near ask → BULLISH (+2); at/near bid → BEARISH (−2); above/below mid → ±1
+  - Premium size bonus: >$1M = +2, >$500K = +1
+  - Block size bonus: >10K shares = +1
+- Summary strip: total premium, bullish/bearish print counts, largest print
+- Table sorted by highest |score| × premium; direction badge + score, NBBO position label
+- Click any ticker → loads Dashboard
+
+**Gamma / GEX** (`/gamma`)
+- GEX cards for SPY, QQQ, IWM pulled in parallel via Signa MCP
+- Each card: current price, regime pill (ABOVE FLIP = damping, BELOW FLIP = amplifying), call wall, gamma flip level, put wall, net GEX
+- Visual horizontal scale showing current price (indigo) vs call wall (green), gamma flip (amber), put wall (red)
+- Plain-English regime explanation per card
+- Click ticker → Dashboard
+
+**Market Scanner** (`/market-scan`)
+- Ranked setups from Signa.ai 30-model consensus (`scan_symbols` MCP tool)
+- Filter: All / BULLISH / BEARISH
+- Each row: rank, ticker (clickable), direction badge, signal label, grade, score bar/value, confidence %
+- Click to expand: full list of signals/reasons that fired for that ticker
+- Click ticker → Dashboard
+
+**Backend**
+- New route file `backend/src/routes/intelligence.ts` with 4 endpoints:
+  - `GET /api/options-flow` — market-wide flow, 2 min cache
+  - `GET /api/dark-pool` — Radon-scored dark pool prints, 2 min cache
+  - `GET /api/gamma-gex` — GEX for SPY/QQQ/IWM, 15 min cache
+  - `GET /api/market-scan` — scanner results, 5 min cache
+- `callMcpTool<T>()` private helper added to `signaClient.ts` — reusable MCP SSE call wrapper
+- New exported functions: `getMarketOptionsFlow`, `getMarketDarkPool` (with `scoreDpPrint`), `getMarketScan`, `getGexMcp`
+- Sidebar `View` type extended with `'market-scan'`; all three SOON items unlocked
+
+---
+
 ## [0.9.4] — 2026-06-27
 
 ### Fixed — Flow Target Map missing dashed line connections
