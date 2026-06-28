@@ -1049,16 +1049,8 @@ export interface GexData {
   rawLevels: GexRawLevel[];
 }
 
-export async function getGexMcp(symbol: string): Promise<GexData | null> {
-  const cacheKey = `signa-gex-mcp-${symbol.toUpperCase()}`;
-  const cached = getFromCache<GexData>(cacheKey);
-  if (cached) return cached;
-
-  const raw = await callMcpTool<Record<string, unknown>>('get_gex', { symbol });
-  if (!raw) return null;
-
-  // Signa returns netGexByStrike: [{ strike, expiry, netGex }, ...]
-  // Preserve per-expiry data in rawLevels; aggregate across expirations for levels[]
+// Pure parser — extracted so it can be unit-tested without mocking the MCP network layer.
+export function parseGexRawResponse(raw: Record<string, unknown>, symbol: string): GexData {
   const strikeMap = new Map<number, number>();
   const perExpiry: GexRawLevel[] = [];
   const rawLevels = raw.netGexByStrike ?? raw.levels ?? raw.strikes ?? raw.key_levels ?? raw.keyLevels;
@@ -1078,7 +1070,7 @@ export async function getGexMcp(symbol: string): Promise<GexData | null> {
     .map(([strike, net_gex]) => ({ strike, net_gex }))
     .sort((a, b) => a.strike - b.strike);
 
-  const result: GexData = {
+  return {
     symbol: symbol.toUpperCase(),
     current_price: Number(raw.current_price ?? raw.currentPrice ?? raw.price ?? 0),
     gamma_flip:    raw.gammaFlipLevel != null ? Number(raw.gammaFlipLevel) :
@@ -1097,7 +1089,17 @@ export async function getGexMcp(symbol: string): Promise<GexData | null> {
     levels,
     rawLevels: perExpiry,
   };
+}
 
+export async function getGexMcp(symbol: string): Promise<GexData | null> {
+  const cacheKey = `signa-gex-mcp-${symbol.toUpperCase()}`;
+  const cached = getFromCache<GexData>(cacheKey);
+  if (cached) return cached;
+
+  const raw = await callMcpTool<Record<string, unknown>>('get_gex', { symbol });
+  if (!raw) return null;
+
+  const result = parseGexRawResponse(raw, symbol);
   setToCache(cacheKey, result, 900);
   return result;
 }

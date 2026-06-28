@@ -63,13 +63,13 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
     );
   }
 
-  const labelW = 62;
-  const badgeW = 100;
-  const svgW   = 560;
-  const rowH   = 20;
-  const padTop = 22;
-  const padBot = 8;
-  const svgH   = rows.length * rowH + padTop + padBot;
+  const labelW  = 72;
+  const badgeW  = 104;
+  const svgW    = 680;
+  const rowH    = 20;
+  const padTop  = 22;
+  const padBot  = 8;
+  const svgH    = rows.length * rowH + padTop + padBot;
   const barArea = svgW - labelW - badgeW;
   const centerX = labelW + barArea * 0.5;
   const barScale = (barArea * 0.48) / (maxAbs || 1);
@@ -88,7 +88,7 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
   );
 
   return (
-    <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: 'block', overflow: 'visible' }}>
+    <svg width={svgW} height={svgH} style={{ display: 'block', overflow: 'visible', maxWidth: '100%' }}>
       {/* Center zero line */}
       <line x1={centerX} y1={padTop - 4} x2={centerX} y2={svgH - padBot + 4} stroke={C.border as string} strokeWidth={1} />
 
@@ -112,10 +112,10 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
               <rect x={0} y={y + 1} width={svgW} height={rowH - 2} fill={`${barColor as string}08`} rx={2} />
             )}
 
-            {/* Strike label — JetBrains Mono, smaller */}
+            {/* Strike label — JetBrains Mono, 11px (matches UI label size) */}
             <text
               x={labelW - 6} y={cy + 3.5}
-              textAnchor="end" fontSize={9}
+              textAnchor="end" fontSize={11}
               fill={isKey ? (C.ink as string) : (C.inkMute as string)}
               fontWeight={isKey ? 600 : 400}
               fontFamily={MONO}
@@ -129,12 +129,12 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
               fill={barColor as string} opacity={opacity} rx={2}
             />
 
-            {/* GEX value label inside bar — JetBrains Mono */}
-            {barW > 28 && (
+            {/* GEX value label inside bar — JetBrains Mono, 10px */}
+            {barW > 32 && (
               <text
-                x={isPos ? barX + 4 : centerX - barW + 4}
-                y={cy + 3}
-                fontSize={8} fill="white" opacity={0.9} fontFamily={MONO}
+                x={isPos ? barX + 5 : centerX - barW + 5}
+                y={cy + 3.5}
+                fontSize={10} fill="white" opacity={0.9} fontFamily={MONO}
               >
                 {fmtGex(l.net_gex)}
               </text>
@@ -176,16 +176,16 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
       />
       <text
         x={labelW + 3} y={priceY - 3}
-        fontSize={8} fill={C.primary as string} fontFamily={MONO} fontWeight={600}
+        fontSize={10} fill={C.primary as string} fontFamily={MONO} fontWeight={600}
       >
         {fmtPrice(currentPrice)}
       </text>
 
       {/* Axis labels */}
-      <text x={centerX - 2} y={padTop - 6} fontSize={8} fill={C.bear as string} textAnchor="end" fontFamily="inherit">
+      <text x={centerX - 2} y={padTop - 6} fontSize={10} fill={C.bear as string} textAnchor="end" fontFamily="inherit">
         ← negative GEX
       </text>
-      <text x={centerX + 2} y={padTop - 6} fontSize={8} fill={C.bull as string} textAnchor="start" fontFamily="inherit">
+      <text x={centerX + 2} y={padTop - 6} fontSize={10} fill={C.bull as string} textAnchor="start" fontFamily="inherit">
         positive GEX →
       </text>
     </svg>
