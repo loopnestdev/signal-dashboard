@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.4] — 2026-06-28
+
+### Improved — GEX panel polish
+
+- **Unusual threshold raised 5% → 15%**: bar chart now shows only structurally significant levels (those large enough to carry a dollar label); tiny noise bars are hidden in Unusual mode
+- **Bar chart font**: strike labels and GEX values switched to JetBrains Mono at smaller sizes (9px strikes, 8px values) — consistent with the rest of the UI's tabular number style
+- **"How to read" repositioned**: now sits directly above the diverging bar chart (was above the timeline chart), where it is contextually relevant; updated text clarifies the 15% unusual threshold
+- **Net GEX explanation note**: added a regime-style contextual note below the regime note — positive net GEX = dealers collectively long gamma (dampening), negative = net short (amplifying)
+
+---
+
 ## [1.0.3] — 2026-06-28
 
 ### Added — Per-ticker GEX tab
