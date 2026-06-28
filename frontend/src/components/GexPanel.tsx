@@ -29,6 +29,8 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+const MONO = '"JetBrains Mono", "Courier New", monospace';
+
 // ── diverging bar chart ───────────────────────────────────────────────────────
 
 interface Level { strike: number; net_gex: number }
@@ -43,51 +45,46 @@ interface ChartProps {
 }
 
 function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll }: ChartProps) {
-  // Filter to ±20% proximity window
   const window = currentPrice * 0.20;
   const inRange = levels.filter(l => l.strike >= currentPrice - window && l.strike <= currentPrice + window);
 
-  // Unusual threshold: |net_gex| > 5% of max in range
   const maxAbs = inRange.reduce((m, l) => Math.max(m, Math.abs(l.net_gex)), 0);
-  const threshold = maxAbs * 0.05;
+  // Unusual mode: only levels with |net_gex| > 15% of max — large enough to carry a dollar label
+  const threshold = maxAbs * 0.15;
   const filtered = showAll ? inRange : inRange.filter(l => Math.abs(l.net_gex) >= threshold);
 
-  // Sort descending (highest strike at top)
   const rows = [...filtered].sort((a, b) => b.strike - a.strike);
 
   if (!rows.length) {
     return (
       <div style={{ fontSize: '12px', color: C.inkMute, padding: '20px 0', textAlign: 'center' }}>
-        No GEX levels found in ±20% range of current price.
+        No significant GEX levels found in ±20% range. Switch to "All" to see every strike.
       </div>
     );
   }
 
-  // SVG layout
-  const labelW = 64;
+  const labelW = 62;
   const badgeW = 100;
-  const svgW = 560;
-  const rowH = 22;
-  const padTop = 24; // extra room for axis labels above first row
+  const svgW   = 560;
+  const rowH   = 20;
+  const padTop = 22;
   const padBot = 8;
-  const svgH = rows.length * rowH + padTop + padBot;
+  const svgH   = rows.length * rowH + padTop + padBot;
   const barArea = svgW - labelW - badgeW;
   const centerX = labelW + barArea * 0.5;
   const barScale = (barArea * 0.48) / (maxAbs || 1);
 
-  // Current price interpolated y
   const priceY = (() => {
     const above = rows.findIndex(l => l.strike <= currentPrice);
-    if (above === -1) return padTop;
-    if (above === 0) return padTop;
-    const a = rows[above - 1]; // strike above price
-    const b = rows[above];     // strike below price
+    if (above === -1 || above === 0) return padTop;
+    const a = rows[above - 1];
+    const b = rows[above];
     const frac = (a.strike - currentPrice) / (a.strike - b.strike);
     return padTop + (above - 1 + frac) * rowH + rowH / 2;
   })();
 
   const badge = (label: string, color: string) => (
-    <rect rx="3" ry="3" height="13" width={label.length * 6 + 8} fill={`${color}22`} stroke={`${color}66`} strokeWidth={0.5} />
+    <rect rx="3" ry="3" height="13" width={label.length * 5.5 + 8} fill={`${color}22`} stroke={`${color}66`} strokeWidth={0.5} />
   );
 
   return (
@@ -96,11 +93,11 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
       <line x1={centerX} y1={padTop - 4} x2={centerX} y2={svgH - padBot + 4} stroke={C.border as string} strokeWidth={1} />
 
       {rows.map((l, i) => {
-        const y = padTop + i * rowH;
+        const y  = padTop + i * rowH;
         const cy = y + rowH / 2;
-        const barW = Math.abs(l.net_gex) * barScale;
-        const isPos = l.net_gex >= 0;
-        const barX = isPos ? centerX : centerX - barW;
+        const barW    = Math.abs(l.net_gex) * barScale;
+        const isPos   = l.net_gex >= 0;
+        const barX    = isPos ? centerX : centerX - barW;
         const barColor = isPos ? C.bull : C.bear;
 
         const isCallWall = callWall != null && l.strike === callWall;
@@ -111,34 +108,33 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
 
         return (
           <g key={l.strike}>
-            {/* Row background highlight for key levels */}
             {isKey && (
               <rect x={0} y={y + 1} width={svgW} height={rowH - 2} fill={`${barColor as string}08`} rx={2} />
             )}
 
-            {/* Strike label */}
+            {/* Strike label — JetBrains Mono, smaller */}
             <text
-              x={labelW - 6} y={cy + 4}
-              textAnchor="end" fontSize={10}
+              x={labelW - 6} y={cy + 3.5}
+              textAnchor="end" fontSize={9}
               fill={isKey ? (C.ink as string) : (C.inkMute as string)}
               fontWeight={isKey ? 600 : 400}
-              fontFamily="inherit"
+              fontFamily={MONO}
             >
               {fmtPrice(l.strike)}
             </text>
 
             {/* Bar */}
             <rect
-              x={barX} y={y + 5} width={Math.max(barW, 1)} height={rowH - 10}
+              x={barX} y={y + 4} width={Math.max(barW, 1)} height={rowH - 8}
               fill={barColor as string} opacity={opacity} rx={2}
             />
 
-            {/* GEX value label on bar */}
-            {barW > 30 && (
+            {/* GEX value label inside bar — JetBrains Mono */}
+            {barW > 28 && (
               <text
                 x={isPos ? barX + 4 : centerX - barW + 4}
                 y={cy + 3}
-                fontSize={9} fill="white" opacity={0.85} fontFamily="inherit"
+                fontSize={8} fill="white" opacity={0.9} fontFamily={MONO}
               >
                 {fmtGex(l.net_gex)}
               </text>
@@ -148,7 +144,7 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
             {isCallWall && (
               <g transform={`translate(${svgW - badgeW + 4}, ${cy - 7})`}>
                 {badge('CALL WALL', C.bull as string)}
-                <text x={4} y={10} fontSize={8} fontWeight={700} fill={C.bull as string} fontFamily="inherit" letterSpacing="0.05em">
+                <text x={4} y={10} fontSize={7.5} fontWeight={700} fill={C.bull as string} fontFamily="inherit" letterSpacing="0.05em">
                   CALL WALL
                 </text>
               </g>
@@ -156,7 +152,7 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
             {isPutWall && (
               <g transform={`translate(${svgW - badgeW + 4}, ${cy - 7})`}>
                 {badge('PUT WALL', C.bear as string)}
-                <text x={4} y={10} fontSize={8} fontWeight={700} fill={C.bear as string} fontFamily="inherit" letterSpacing="0.05em">
+                <text x={4} y={10} fontSize={7.5} fontWeight={700} fill={C.bear as string} fontFamily="inherit" letterSpacing="0.05em">
                   PUT WALL
                 </text>
               </g>
@@ -164,7 +160,7 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
             {isFlip && !isCallWall && !isPutWall && (
               <g transform={`translate(${svgW - badgeW + 4}, ${cy - 7})`}>
                 {badge('FLIP', C.warn as string)}
-                <text x={4} y={10} fontSize={8} fontWeight={700} fill={C.warn as string} fontFamily="inherit" letterSpacing="0.05em">
+                <text x={4} y={10} fontSize={7.5} fontWeight={700} fill={C.warn as string} fontFamily="inherit" letterSpacing="0.05em">
                   FLIP
                 </text>
               </g>
@@ -180,7 +176,7 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
       />
       <text
         x={labelW + 3} y={priceY - 3}
-        fontSize={9} fill={C.primary as string} fontFamily="inherit" fontWeight={600}
+        fontSize={8} fill={C.primary as string} fontFamily={MONO} fontWeight={600}
       >
         {fmtPrice(currentPrice)}
       </text>
@@ -219,13 +215,22 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
 
   const price = data?.current_price ?? currentPrice ?? 0;
   const aboveFlip = data?.above_flip ?? (data?.gamma_flip != null && price > 0 ? price > data.gamma_flip : null);
-  const regimeCol = aboveFlip === true ? C.bull : aboveFlip === false ? C.bear : C.inkMute;
-  const regimeBg  = aboveFlip === true ? 'rgba(34,197,94,0.1)' : aboveFlip === false ? 'rgba(239,68,68,0.1)' : C.canvasSoft;
-  const regimeLabel  = aboveFlip === true ? 'ABOVE GAMMA FLIP' : aboveFlip === false ? 'BELOW GAMMA FLIP' : null;
-  const regimeNote   = aboveFlip === true
+  const regimeCol  = aboveFlip === true ? C.bull : aboveFlip === false ? C.bear : C.inkMute;
+  const regimeBg   = aboveFlip === true ? 'rgba(34,197,94,0.1)' : aboveFlip === false ? 'rgba(239,68,68,0.1)' : C.canvasSoft;
+  const regimeLabel = aboveFlip === true ? 'ABOVE GAMMA FLIP' : aboveFlip === false ? 'BELOW GAMMA FLIP' : null;
+  const regimeNote  = aboveFlip === true
     ? 'Price is above the gamma flip — dealers are long gamma and dampen moves (buy dips, sell rallies). Lower volatility expected.'
     : aboveFlip === false
     ? 'Price is below the gamma flip — dealers are short gamma and amplify moves in both directions. Higher volatility expected.'
+    : null;
+
+  const netGex = data?.net_gex ?? null;
+  const netGexCol  = netGex != null && netGex >= 0 ? C.bull : C.bear;
+  const netGexBg   = netGex != null && netGex >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+  const netGexNote = netGex != null
+    ? netGex >= 0
+      ? `Net GEX is positive (${fmtGex(netGex)}) — dealers are collectively long gamma across all strikes. Overall price movement is likely to be dampened; mean-reversion conditions favor range-bound trading.`
+      : `Net GEX is negative (${fmtGex(netGex)}) — dealers are collectively short gamma across all strikes. Overall price movement may be amplified; trending conditions are more likely.`
     : null;
 
   return (
@@ -276,17 +281,17 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
       ) : data ? (
         <>
           {/* Summary strip */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: regimeNote ? 8 : 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {regimeLabel && (
               <div style={{ background: regimeBg, border: `1px solid ${regimeCol}33`, borderRadius: 9999, padding: '4px 12px', fontSize: '11px', fontWeight: 700, color: regimeCol as string, letterSpacing: '0.06em' }}>
                 {regimeLabel}
               </div>
             )}
             {[
-              { label: 'Call Wall', value: data.call_wall, color: C.bull },
+              { label: 'Call Wall',  value: data.call_wall,  color: C.bull },
               { label: 'Gamma Flip', value: data.gamma_flip, color: C.warn },
-              { label: 'Put Wall', value: data.put_wall, color: C.bear },
-              { label: 'Net GEX', value: data.net_gex != null ? fmtGex(data.net_gex) : null, color: data.net_gex != null && data.net_gex >= 0 ? C.bull : C.bear },
+              { label: 'Put Wall',   value: data.put_wall,   color: C.bear },
+              { label: 'Net GEX',    value: netGex != null ? fmtGex(netGex) : null, color: netGexCol },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ background: C.canvasSoft, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: '11px' }}>
                 <div style={{ color: C.inkMute as string, marginBottom: 2 }}>{label}</div>
@@ -299,19 +304,17 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
 
           {/* Regime note */}
           {regimeNote && (
-            <div style={{ fontSize: '11px', color: regimeCol as string, background: regimeBg, border: `1px solid ${regimeCol}22`, borderRadius: 8, padding: '6px 12px', marginBottom: 16, lineHeight: 1.5 }}>
+            <div style={{ fontSize: '11px', color: regimeCol as string, background: regimeBg, border: `1px solid ${regimeCol}22`, borderRadius: 8, padding: '6px 12px', marginBottom: 8, lineHeight: 1.5 }}>
               {regimeNote}
             </div>
           )}
 
-          {/* How to read */}
-          <div style={{ padding: '8px 12px', background: C.canvasSoft, borderRadius: 8, fontSize: '11px', color: C.inkMute, lineHeight: 1.6, marginBottom: 14 }}>
-            <strong style={{ color: C.inkSec as string }}>How to read: </strong>
-            Green bars = positive GEX (dealers long gamma → dampen moves, pin price).
-            Red bars = negative GEX (dealers short gamma → amplify moves).
-            Longer bar = stronger structural effect. The{' '}
-            <span style={{ color: C.warn as string }}>gamma flip</span> divides the two regimes.
-          </div>
+          {/* Net GEX note */}
+          {netGexNote && (
+            <div style={{ fontSize: '11px', color: netGexCol as string, background: netGexBg, border: `1px solid ${netGexCol as string}22`, borderRadius: 8, padding: '6px 12px', marginBottom: 16, lineHeight: 1.5 }}>
+              {netGexNote}
+            </div>
+          )}
 
           {/* Chart 1 — Strike × Expiry (same style as Options tab FlowTimelineChart) */}
           {data.rawLevels && data.rawLevels.length > 0 && (
@@ -331,7 +334,17 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
             />
           )}
 
-          {/* Filter toggle + count */}
+          {/* How to read — sits directly above the bar chart */}
+          <div style={{ padding: '8px 12px', background: C.canvasSoft, borderRadius: 8, fontSize: '11px', color: C.inkMute, lineHeight: 1.6, marginBottom: 12 }}>
+            <strong style={{ color: C.inkSec as string }}>How to read the bar chart: </strong>
+            Green bars = positive GEX (dealers long gamma → dampen moves, pin price).
+            Red bars = negative GEX (dealers short gamma → amplify moves).
+            Longer bar = stronger structural effect. The{' '}
+            <span style={{ color: C.warn as string }}>gamma flip</span> divides the two regimes.
+            Unusual mode shows only the most significant levels (top 15% by magnitude).
+          </div>
+
+          {/* Filter toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: '11px', fontWeight: 600, color: C.inkMute, letterSpacing: '0.08em' }}>
               UNUSUAL GEX LEVELS
@@ -368,7 +381,6 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
               />
             </div>
           </div>
-
         </>
       ) : null}
     </div>
