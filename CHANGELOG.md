@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.3] — 2026-06-28
+
+### Added — Per-ticker GEX tab
+
+- New **GEX** tab in the stock panel (between Options and Moat) for any analyzed ticker
+- `GET /api/gex/:ticker` backend route — calls Signa `get_gex` + Yahoo Finance price in parallel
+- Supabase persistence: snapshots saved to `signal.gex_snapshots` (ticker as PK); served as fallback when Signa returns nothing, with live price always refreshed from Yahoo
+- `getGexMcp` now aggregates `netGexByStrike` entries by strike across all expirations, so each level reflects total dealer gamma at that strike
+- **Diverging bar chart**: strikes on Y-axis, GEX magnitude on X-axis; green = positive (dealer long gamma, dampening), red = negative (dealer short gamma, amplifying)
+- **Unusual filter** (default ON): proximity gate ±20% of current price + size gate |netGex| > 5% of max — shows only structurally significant levels
+- Badges for CALL WALL / PUT WALL / FLIP on key strikes; dashed current price line
+- "All" toggle to show every strike in range
+- Cache notice when serving stored snapshot
+
+---
+
 ## [1.0.2] — 2026-06-28
 
 ### Added — Flow event persistence (Supabase backfill)
