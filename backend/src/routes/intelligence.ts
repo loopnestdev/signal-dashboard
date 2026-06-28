@@ -5,6 +5,7 @@ import {
   getMarketScan,
   getGexMcp,
 } from '../lib/signaClient.js';
+import { getQuote } from '../lib/yahooClient.js';
 
 const router = Router();
 
@@ -26,11 +27,18 @@ router.get('/market-scan', async (req, res) => {
 });
 
 router.get('/gamma-gex', async (_req, res) => {
-  const [spy, qqq, iwm] = await Promise.all([
+  const [spy, qqq, iwm, spyQ, qqqQ, iwmQ] = await Promise.all([
     getGexMcp('SPY'),
     getGexMcp('QQQ'),
     getGexMcp('IWM'),
+    getQuote('SPY').catch(() => null),
+    getQuote('QQQ').catch(() => null),
+    getQuote('IWM').catch(() => null),
   ]);
+  // Attach live price from Yahoo since Signa GEX response omits it
+  if (spy && spyQ) spy.current_price = spyQ.price;
+  if (qqq && qqqQ) qqq.current_price = qqqQ.price;
+  if (iwm && iwmQ) iwm.current_price = iwmQ.price;
   res.json({ spy, qqq, iwm });
 });
 

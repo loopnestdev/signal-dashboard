@@ -1050,13 +1050,14 @@ export async function getGexMcp(symbol: string): Promise<GexData | null> {
   const raw = await callMcpTool<Record<string, unknown>>('get_gex', { symbol });
   if (!raw) return null;
 
+  // Signa returns netGexByStrike array with { strike, expiry, netGex } entries
   const levels: GexLevel[] = [];
-  const rawLevels = raw.levels ?? raw.strikes ?? raw.key_levels ?? raw.keyLevels;
+  const rawLevels = raw.netGexByStrike ?? raw.levels ?? raw.strikes ?? raw.key_levels ?? raw.keyLevels;
   if (Array.isArray(rawLevels)) {
     for (const lv of rawLevels) {
       const l = lv as Record<string, unknown>;
       const strike = Number(l.strike ?? l.price ?? 0);
-      const net_gex = Number(l.net_gex ?? l.netGamma ?? l.gamma ?? 0);
+      const net_gex = Number(l.netGex ?? l.net_gex ?? l.netGamma ?? l.gamma ?? 0);
       if (strike > 0) levels.push({ strike, net_gex });
     }
   }
@@ -1064,33 +1065,21 @@ export async function getGexMcp(symbol: string): Promise<GexData | null> {
   const result: GexData = {
     symbol: symbol.toUpperCase(),
     current_price: Number(raw.current_price ?? raw.currentPrice ?? raw.price ?? 0),
-    gamma_flip:    raw.gamma_flip != null ? Number(raw.gamma_flip) :
+    gamma_flip:    raw.gammaFlipLevel != null ? Number(raw.gammaFlipLevel) :
+                   raw.gamma_flip != null ? Number(raw.gamma_flip) :
                    raw.gammaFlipPoint != null ? Number(raw.gammaFlipPoint) : null,
-    call_wall:     raw.call_wall != null ? Number(raw.call_wall) : null,
-    put_wall:      raw.put_wall != null ? Number(raw.put_wall) : null,
-    above_flip:    raw.above_flip != null ? Boolean(raw.above_flip) :
+    call_wall:     raw.callWall != null ? Number(raw.callWall) :
+                   raw.call_wall != null ? Number(raw.call_wall) : null,
+    put_wall:      raw.putWall != null ? Number(raw.putWall) :
+                   raw.put_wall != null ? Number(raw.put_wall) : null,
+    above_flip:    raw.regimeAboveFlip != null ? Boolean(raw.regimeAboveFlip) :
+                   raw.above_flip != null ? Boolean(raw.above_flip) :
                    raw.aboveFlip != null ? Boolean(raw.aboveFlip) : null,
     net_gex:       raw.net_gex != null ? Number(raw.net_gex) :
-                   raw.netGamma != null ? Number(raw.netGamma) : null,
+                   raw.netGamma != null ? Number(raw.netGamma) :
+                   levels.length ? levels.reduce((s, l) => s + l.net_gex, 0) : null,
     levels,
   };
-
-  // Derive call/put wall from levels if not in response
-  if (result.call_wall == null && levels.length && result.current_price > 0) {
-    const aboveStrikes = levels.filter(l => l.strike > result.current_price && l.net_gex > 0);
-    result.call_wall = aboveStrikes.length
-      ? aboveStrikes.reduce((best, l) => l.net_gex > best.net_gex ? l : best).strike
-      : null;
-  }
-  if (result.put_wall == null && levels.length && result.current_price > 0) {
-    const belowStrikes = levels.filter(l => l.strike < result.current_price && l.net_gex < 0);
-    result.put_wall = belowStrikes.length
-      ? belowStrikes.reduce((best, l) => l.net_gex < best.net_gex ? l : best).strike
-      : null;
-  }
-  if (result.above_flip == null && result.gamma_flip != null && result.current_price > 0) {
-    result.above_flip = result.current_price > result.gamma_flip;
-  }
 
   setToCache(cacheKey, result, 900);
   return result;
