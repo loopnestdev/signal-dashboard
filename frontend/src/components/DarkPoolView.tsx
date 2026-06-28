@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { C } from '../lib/colors';
 import { fetchDarkPool, fetchUnusualFlow } from '../lib/api';
 import { FlowTimelineChart } from './FlowTimelineChart';
@@ -33,13 +34,23 @@ function nbboLabel(price: number, bid: number, ask: number): { label: string; co
 // ── Column tooltip ────────────────────────────────────────────────────────────
 
 function ColTip({ label, tip }: { label: string; tip: string }) {
-  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLSpanElement>(null);
+
+  const handleEnter = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.top - 8, left: r.left });
+    }
+  };
+
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, position: 'relative' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       {label}
       <span
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        ref={btnRef}
+        onMouseEnter={handleEnter}
+        onMouseLeave={() => setPos(null)}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 13, height: 13, borderRadius: '50%',
@@ -49,17 +60,19 @@ function ColTip({ label, tip }: { label: string; tip: string }) {
       >
         ?
       </span>
-      {open && (
+      {pos && createPortal(
         <div style={{
-          position: 'absolute', bottom: 'calc(100% + 6px)', left: 0,
+          position: 'fixed', top: pos.top, left: pos.left,
+          transform: 'translateY(-100%)',
           background: C.canvas as string, border: `1px solid ${C.border}`,
           borderRadius: 8, padding: '8px 11px', fontSize: '11px',
-          color: C.inkSec as string, lineHeight: 1.5, zIndex: 300,
+          color: C.inkSec as string, lineHeight: 1.5, zIndex: 9999,
           pointerEvents: 'none', boxShadow: C.s2 as string,
           width: 220, fontWeight: 400, letterSpacing: 0,
         }}>
           {tip}
-        </div>
+        </div>,
+        document.body,
       )}
     </span>
   );
