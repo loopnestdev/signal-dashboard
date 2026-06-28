@@ -288,6 +288,15 @@ input, textarea, select, button { font-family: inherit; font-size: inherit; }
   .topnav-hamburger { display: flex !important; }
   .sidebar-close-btn { display: flex !important; }
 
+  /* Collapse items that move into the sidebar on mobile */
+  .topnav-indices,
+  .topnav-auth,
+  .topnav-theme,
+  .topnav-spacer { display: none !important; }
+
+  /* Let search + Analyze fill the remaining topnav width */
+  .topnav-search { max-width: none !important; flex: 1; }
+
   .app-sidebar {
     position: fixed;
     top: 0;

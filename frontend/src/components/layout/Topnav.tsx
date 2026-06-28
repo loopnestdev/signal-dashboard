@@ -56,7 +56,7 @@ export function Topnav({
       </button>
 
       {/* Search */}
-      <div style={{ display: 'flex', gap: 6, flex: 1, maxWidth: 360 }}>
+      <div className="topnav-search" style={{ display: 'flex', gap: 6, flex: 1, maxWidth: 360 }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search
             size={14}
@@ -100,8 +100,8 @@ export function Topnav({
         </button>
       </div>
 
-      {/* Index pills */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflow: 'hidden' }}>
+      {/* Index pills — hidden on mobile */}
+      <div className="topnav-indices" style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflow: 'hidden' }}>
         {indices.map(item => {
           const color = changeColor(item.change);
           const sign = item.change >= 0 ? '+' : '';
@@ -126,12 +126,13 @@ export function Topnav({
         })}
       </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
+      {/* Spacer — hidden on mobile so search fills the row */}
+      <div className="topnav-spacer" style={{ flex: 1 }} />
 
-      {/* Theme toggle */}
+      {/* Theme toggle — hidden on mobile (available in sidebar) */}
       <button
         onClick={onToggleTheme}
+        className="topnav-theme"
         title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
         style={{
           background: 'none', border: `1px solid ${C.border}`,
@@ -145,14 +146,16 @@ export function Topnav({
         {dark ? <Sun size={15} /> : <Moon size={15} />}
       </button>
 
-      {/* Auth */}
-      <AuthButton
-        user={user}
-        authLoading={authLoading}
-        userStatus={userStatus}
-        onSignIn={onSignIn}
-        onSignOut={onSignOut}
-      />
+      {/* Auth — hidden on mobile (available in sidebar) */}
+      <div className="topnav-auth">
+        <AuthButton
+          user={user}
+          authLoading={authLoading}
+          userStatus={userStatus}
+          onSignIn={onSignIn}
+          onSignOut={onSignOut}
+        />
+      </div>
     </div>
   );
 }

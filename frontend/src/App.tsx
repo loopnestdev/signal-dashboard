@@ -36,7 +36,7 @@ export default function App() {
   const { user, authLoading, userStatus, isAdmin, pendingUsers, signInWithGoogle, signOut, approveUser } = useAuth();
   const {
     groups, activeGroup, activeTickers,
-    setActiveGroup, createGroup, deleteGroup,
+    setActiveGroup, createGroup, renameGroup, deleteGroup,
     add: addToWatchlist, remove: removeFromWatchlist,
     getGroupsForTicker,
   } = useWatchlist(user);
@@ -79,8 +79,11 @@ export default function App() {
         activeTicker={activeTicker}
         onSetActiveGroup={setActiveGroup}
         onCreateGroup={createGroup}
+        onRenameGroup={renameGroup}
         onDeleteGroup={deleteGroup}
         onAnalyze={loadStock}
+        dark={dark}
+        onToggleTheme={toggleTheme}
         userEmail={userProfile.email}
         userName={userProfile.name}
         userAvatar={userProfile.avatar}

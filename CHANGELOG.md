@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.7] — 2026-06-28
+
+### Fixed — Mobile layout + watchlist rename
+
+- **Mobile topnav**: Index pills (SPY/QQQ/IWM), theme toggle, auth button, and spacer are now hidden on screens <=768px via CSS classes. Search + Analyze fill the full topnav width — typed text is now visible.
+- **Sidebar theme toggle**: Dark/Light toggle added to the sidebar (above user pill), visible on all screen sizes. Moved off topnav on mobile.
+- **Sidebar auth**: Account and Sign out were already in the sidebar user pill — topnav auth now hidden on mobile so users access it from the sidebar (hamburger menu).
+- **Watchlist rename**: Pencil icon on non-Default group rows opens inline rename input. Enter or OK confirms; Escape cancels. `renameGroup` from `useWatchlist` was exported but never wired to the UI — now it is.
+
+---
+
 ## [1.0.6] — 2026-06-28
 
 ### Added — Playbook view + GEX Action Cards

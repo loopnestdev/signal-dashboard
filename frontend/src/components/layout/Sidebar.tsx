@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import {
   LayoutDashboard, TrendingUp, Activity, BarChart2, Eye, Map,
   Plus, X, ChevronRight, LogOut, LogIn, Search, BookOpen,
+  Sun, Moon, Pencil,
 } from 'lucide-react';
 import { C } from '../../lib/colors';
 import type { WatchlistGroup } from '../../hooks/useWatchlist';
@@ -28,8 +29,11 @@ interface Props {
   activeTicker: string | null;
   onSetActiveGroup: (n: string) => void;
   onCreateGroup: (n: string) => void;
+  onRenameGroup: (oldName: string, newName: string) => void;
   onDeleteGroup: (n: string) => void;
   onAnalyze: (t: string) => void;
+  dark: boolean;
+  onToggleTheme: () => void;
   userEmail?: string;
   userName?: string;
   userAvatar?: string;
@@ -42,13 +46,32 @@ interface Props {
 export function Sidebar({
   activeView, onViewChange,
   groups, activeGroup, activeTickers, activeTicker,
-  onSetActiveGroup, onCreateGroup, onDeleteGroup, onAnalyze,
+  onSetActiveGroup, onCreateGroup, onRenameGroup, onDeleteGroup, onAnalyze,
+  dark, onToggleTheme,
   userEmail, userName, userAvatar,
   onSignIn, onSignOut,
   mobileOpen, onClose,
 }: Props) {
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [renamingGroup, setRenamingGroup] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const startRename = (name: string) => {
+    setRenamingGroup(name);
+    setRenameValue(name);
+  };
+
+  const confirmRename = () => {
+    const n = renameValue.trim();
+    if (n && n !== renamingGroup && renamingGroup) onRenameGroup(renamingGroup, n);
+    setRenamingGroup(null);
+  };
+
+  const handleRenameKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') confirmRename();
+    if (e.key === 'Escape') setRenamingGroup(null);
+  };
 
   const confirmCreate = () => {
     const n = newGroupName.trim();
@@ -133,8 +156,34 @@ export function Sidebar({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {groups.map(g => {
             const active = activeGroup === g.name;
+            const isRenaming = renamingGroup === g.name;
             return (
               <div key={g.name}>
+                {isRenaming ? (
+                  <div style={{ padding: '4px 8px', display: 'flex', gap: 4 }}>
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={handleRenameKey}
+                      onBlur={confirmRename}
+                      style={{
+                        flex: 1, background: C.canvasSoft, border: `1px solid ${C.borderInput}`,
+                        borderRadius: 6, padding: '4px 8px', fontSize: '13px',
+                        color: C.ink, outline: 'none',
+                      }}
+                    />
+                    <button
+                      onMouseDown={e => { e.preventDefault(); confirmRename(); }}
+                      style={{
+                        background: C.primary, border: 'none', borderRadius: 6,
+                        padding: '4px 8px', color: C.onPrimary, fontSize: '11px', cursor: 'pointer',
+                      }}
+                    >
+                      OK
+                    </button>
+                  </div>
+                ) : (
                 <button
                   onClick={() => onSetActiveGroup(g.name)}
                   style={{
@@ -154,6 +203,15 @@ export function Sidebar({
                   </span>
                   {g.name !== 'Default' && (
                     <span
+                      onClick={e => { e.stopPropagation(); startRename(g.name); }}
+                      style={{ color: C.inkMute, cursor: 'pointer', lineHeight: 1, opacity: 0.5, display: 'flex' }}
+                      title="Rename list"
+                    >
+                      <Pencil size={11} />
+                    </span>
+                  )}
+                  {g.name !== 'Default' && (
+                    <span
                       onClick={e => { e.stopPropagation(); onDeleteGroup(g.name); }}
                       style={{ color: C.inkMute, cursor: 'pointer', lineHeight: 1, fontSize: '13px', opacity: 0.6 }}
                       title="Delete list"
@@ -162,6 +220,7 @@ export function Sidebar({
                     </span>
                   )}
                 </button>
+                )}
 
                 {/* Tickers for active group */}
                 {active && activeTickers.length > 0 && (
@@ -228,6 +287,30 @@ export function Sidebar({
             <Plus size={13} /> New list
           </button>
         )}
+      </div>
+
+      {/* Theme toggle */}
+      <div style={{
+        padding: '8px 12px',
+        borderTop: `1px solid ${C.border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ fontSize: '12px', color: C.inkMute }}>
+          {dark ? 'Dark mode' : 'Light mode'}
+        </span>
+        <button
+          onClick={onToggleTheme}
+          style={{
+            background: 'none', border: `1px solid ${C.border}`,
+            borderRadius: 9999, padding: '4px 10px',
+            color: C.inkMute, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5, fontSize: '11px',
+          }}
+          aria-label="Toggle theme"
+        >
+          {dark ? <Sun size={13} /> : <Moon size={13} />}
+          {dark ? 'Light' : 'Dark'}
+        </button>
       </div>
 
       {/* User pill */}
