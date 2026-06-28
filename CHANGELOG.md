@@ -13,7 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - New **GEX** tab in the stock panel (between Options and Moat) for any analyzed ticker
 - `GET /api/gex/:ticker` backend route — calls Signa `get_gex` + Yahoo Finance price in parallel
 - Supabase persistence: snapshots saved to `signal.gex_snapshots` (ticker as PK); served as fallback when Signa returns nothing, with live price always refreshed from Yahoo
-- `getGexMcp` now aggregates `netGexByStrike` entries by strike across all expirations, so each level reflects total dealer gamma at that strike
+- `getGexMcp` now aggregates `netGexByStrike` entries by strike across all expirations, so each level reflects total dealer gamma at that strike; per-expiry data preserved in `rawLevels[]` for the timeline chart
+- **GEX Strike Map by Expiry** (`GexTimelineChart`): same SVG design as FlowTimelineChart — X = expiry date, Y = strike, one green dot (dominant positive GEX) + one red dot (dominant negative GEX) per expiry; dots sized by |netGex| magnitude; dashed lines connect levels across expiries; call/put wall reference lines
+- **Key Level History** (`GexHistoryChart`): SVG line chart showing how Call Wall, Gamma Flip, and Put Wall drift over time from Supabase `signal.gex_history`; hover crosshair with per-snapshot tooltip; visible once 2+ snapshots exist
+- `signal.gex_history` table receives a new row on every fresh Signa response; history returned alongside snapshot data for both live and cached GEX
 - **Diverging bar chart**: strikes on Y-axis, GEX magnitude on X-axis; green = positive (dealer long gamma, dampening), red = negative (dealer short gamma, amplifying)
 - **Unusual filter** (default ON): proximity gate ±20% of current price + size gate |netGex| > 5% of max — shows only structurally significant levels
 - Badges for CALL WALL / PUT WALL / FLIP on key strikes; dashed current price line
