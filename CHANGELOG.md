@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.2] — 2026-06-28
+
+### Added — Flow event persistence (Supabase backfill)
+
+- Curated options flow events are now upserted to `signal.flow_events` in Supabase on every Signa response (dedup by `event_id`)
+- `/api/unusual-flow` fetches live Signa data **and** up to 100 historical events from the last 90 days in parallel, merging them into a single deduped response
+- When Signa has no live flow for a ticker, the chart still renders from stored history — the UI shows a "🕐 Showing N stored events" notice
+- `UnusualFlowResponse` type extended with `fromCache` and `historicalCount` fields
+- Requires `signal.flow_events` table in Supabase coredb and `SUPABASE_SERVICE_ROLE_KEY` in backend env
+
+---
+
 ## [1.0.1] — 2026-06-28
 
 ### Improved — Dark Pool view enhancements
