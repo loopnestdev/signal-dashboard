@@ -294,6 +294,8 @@ export interface UnusualFlowSummary {
 export interface UnusualFlowResponse {
   events: ScoredFlowEvent[];
   summary: UnusualFlowSummary | null;
+  fromCache?: boolean;
+  historicalCount?: number;
 }
 
 export interface StockResponse {

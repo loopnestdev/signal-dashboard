@@ -370,6 +370,17 @@ export function UnusualFlowSection({ ticker, currentPrice = 0 }: Props) {
         </div>
       ) : (
         <>
+          {data?.fromCache && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: '11px', color: C.inkMute,
+              background: C.canvasSoft, border: `1px solid ${C.border}`,
+              borderRadius: 8, padding: '6px 12px', marginBottom: 12,
+            }}>
+              <span style={{ opacity: 0.6 }}>🕐</span>
+              Showing {data.historicalCount} stored event{data.historicalCount !== 1 ? 's' : ''} — Signa has no live flow for {ticker} right now. New events will be saved automatically when they appear.
+            </div>
+          )}
           <FlowTimelineChart events={events} currentPrice={currentPrice} />
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginTop: 4 }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
