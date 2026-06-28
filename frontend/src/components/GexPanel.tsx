@@ -66,7 +66,7 @@ function GexChart({ levels, currentPrice, gammaFlip, callWall, putWall, showAll 
   const badgeW = 100;
   const svgW = 560;
   const rowH = 22;
-  const padTop = 8;
+  const padTop = 24; // extra room for axis labels above first row
   const padBot = 8;
   const svgH = rows.length * rowH + padTop + padBot;
   const barArea = svgW - labelW - badgeW;
@@ -219,7 +219,12 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
   const aboveFlip = data?.above_flip ?? (data?.gamma_flip != null && price > 0 ? price > data.gamma_flip : null);
   const regimeCol = aboveFlip === true ? C.bull : aboveFlip === false ? C.bear : C.inkMute;
   const regimeBg  = aboveFlip === true ? 'rgba(34,197,94,0.1)' : aboveFlip === false ? 'rgba(239,68,68,0.1)' : C.canvasSoft;
-  const regimeLabel = aboveFlip === true ? 'ABOVE FLIP' : aboveFlip === false ? 'BELOW FLIP' : null;
+  const regimeLabel  = aboveFlip === true ? 'ABOVE GAMMA FLIP' : aboveFlip === false ? 'BELOW GAMMA FLIP' : null;
+  const regimeNote   = aboveFlip === true
+    ? 'Price is above the gamma flip — dealers are long gamma and dampen moves (buy dips, sell rallies). Lower volatility expected.'
+    : aboveFlip === false
+    ? 'Price is below the gamma flip — dealers are short gamma and amplify moves in both directions. Higher volatility expected.'
+    : null;
 
   return (
     <div>
@@ -269,7 +274,7 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
       ) : data ? (
         <>
           {/* Summary strip */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: regimeNote ? 8 : 18, flexWrap: 'wrap', alignItems: 'center' }}>
             {regimeLabel && (
               <div style={{ background: regimeBg, border: `1px solid ${regimeCol}33`, borderRadius: 9999, padding: '4px 12px', fontSize: '11px', fontWeight: 700, color: regimeCol as string, letterSpacing: '0.06em' }}>
                 {regimeLabel}
@@ -288,6 +293,22 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Regime note */}
+          {regimeNote && (
+            <div style={{ fontSize: '11px', color: regimeCol as string, background: regimeBg, border: `1px solid ${regimeCol}22`, borderRadius: 8, padding: '6px 12px', marginBottom: 16, lineHeight: 1.5 }}>
+              {regimeNote}
+            </div>
+          )}
+
+          {/* How to read */}
+          <div style={{ padding: '8px 12px', background: C.canvasSoft, borderRadius: 8, fontSize: '11px', color: C.inkMute, lineHeight: 1.6, marginBottom: 14 }}>
+            <strong style={{ color: C.inkSec as string }}>How to read: </strong>
+            Green bars = positive GEX (dealers long gamma → dampen moves, pin price).
+            Red bars = negative GEX (dealers short gamma → amplify moves).
+            Longer bar = stronger structural effect. The{' '}
+            <span style={{ color: C.warn as string }}>gamma flip</span> divides the two regimes.
           </div>
 
           {/* Filter toggle + count */}
@@ -328,12 +349,6 @@ export function GexPanel({ ticker, currentPrice }: { ticker: string; currentPric
             </div>
           </div>
 
-          {/* Reading guide */}
-          <div style={{ marginTop: 14, padding: '10px 14px', background: C.canvasSoft, borderRadius: 8, fontSize: '11px', color: C.inkMute, lineHeight: 1.6 }}>
-            <strong style={{ color: C.inkSec as string }}>How to read: </strong>
-            Green bars = positive GEX (dealers long gamma → dampen moves, pin price). Red bars = negative GEX (dealers short gamma → amplify moves). Longer bar = stronger effect.
-            The <span style={{ color: C.warn as string }}>gamma flip</span> is the key level: above it markets are calmer, below it volatility tends to expand.
-          </div>
         </>
       ) : null}
     </div>
