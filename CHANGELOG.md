@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.1] — 2026-06-28
+
+### Improved — Dark Pool view enhancements
+
+- **Ticker filter** — text input filters table rows to a single symbol; quick-select chips for top-10 tickers when filter is empty; clear button when active
+- **Column tooltips** — every column header has a `?` badge with a hover explanation; Direction tooltip explicitly notes dark pool prints are equity block trades with no CALL/PUT or strike price
+- **Options flow chart** — when a ticker filter is active, curated options flow for that ticker is fetched and rendered below the table using `FlowTimelineChart` (same chart as the Options tab), with a "Full analysis →" button to open the Dashboard
+
+---
+
 ## [1.0.0] — 2026-06-28
 
 ### Added — Options Intelligence views (four new sidebar sections)
