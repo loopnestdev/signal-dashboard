@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
+    "preview": "npm run build && wrangler dev",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.0",
@@ -21,6 +22,7 @@
     "undici": "^7.28.0"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.42.3",
     "@tailwindcss/vite": "^4.1.6",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -32,6 +34,7 @@
     "tailwindcss": "^4.1.6",
     "typescript": "^5.5.3",
     "vite": "^8.0.16",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "wrangler": "^4.105.0"
   }
 }
