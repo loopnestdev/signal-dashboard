@@ -251,7 +251,18 @@ export function useWatchlist(user: User | null): UseWatchlist {
       return next;
     });
 
-    if (currentUser && groupId) sbUpdate(groupId, { name: trimmed });
+    if (currentUser && supabase) {
+      if (groupId) {
+        sbUpdate(groupId, { name: trimmed });
+      } else {
+        // Group INSERT may still be in flight (no id yet) — update by user_id + old name
+        supabase.from('watchlists')
+          .update({ name: trimmed, updated_at: new Date().toISOString() })
+          .eq('user_id', currentUser.id)
+          .eq('name', oldName)
+          .then(() => {});
+      }
+    }
   }, []);
 
   const deleteGroup = useCallback((name: string) => {

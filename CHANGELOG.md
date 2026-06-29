@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.8] — 2026-06-29
+
+### Fixed — Watchlist rename duplicate + GEX chart font scaling
+
+- **Watchlist rename duplicate bug**: Renaming a group while its Supabase INSERT is still in flight (no `id` yet) previously skipped the `UPDATE`, causing the old name to persist in Supabase. On next sign-in the merge logic would INSERT the new name as a separate group, creating a duplicate. Now falls back to `UPDATE WHERE user_id = ? AND name = oldName` when `groupId` is undefined.
+- **GEX Strike Map Y-axis font too large**: The SVG used `viewBox="0 0 800 280"` with `width: 100%`, which caused all font sizes to scale up with the container (e.g. `fontSize={9}` rendered as ~18px at full width). Removed `viewBox`; SVG now uses fixed `width={800}` `height={280}` wrapped in an `overflowX: auto` scroll container — same pattern as the Unusual GEX Level bar chart. Font sizes now render as true CSS pixels.
+
+---
+
 ## [1.0.7] — 2026-06-28
 
 ### Fixed — Mobile layout + watchlist rename

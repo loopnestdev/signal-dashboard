@@ -168,9 +168,11 @@ export function GexTimelineChart({
         <span>— — current price</span>
       </div>
 
+      <div style={{ overflowX: 'auto' }}>
       <svg
-        viewBox={`0 0 ${W} ${H}`}
-        style={{ width: '100%', height: 'auto', overflow: 'visible' }}
+        width={W}
+        height={H}
+        style={{ display: 'block', overflow: 'visible' }}
         onMouseLeave={() => setHovered(null)}
       >
         {/* Grid */}
@@ -255,6 +257,7 @@ export function GexTimelineChart({
           );
         })}
       </svg>
+      </div>
 
       {/* Hover tooltip */}
       {hovered && (() => {
