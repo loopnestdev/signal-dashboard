@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.0.9] — 2026-08-08
+
+### Fixed — Dependency security advisories
+
+- **`undici` pinned to a vulnerable version**: the existing `overrides` entry (`^7.28.0`, added for a prior CVE) sat exactly on the top of a newly disclosed vulnerable range (`7.0.0–7.28.0`, [GHSA-4cwx-7wf7-3272](https://github.com/advisories/GHSA-4cwx-7wf7-3272) and 4 related advisories — cross-user info disclosure, response desync, CRLF injection). Bumped to `^7.29.0` in both `frontend/package.json` and `backend/package.json`.
+- **`postcss` path traversal** ([GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849), high) — arbitrary `.map` file disclosure via `sourceMappingURL`. Transitive via `vite`/`vitest`. Added `overrides` entry `^8.5.23` in both projects.
+- **`nanoid` denial of service** ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv), high) — infinite loop on negative/zero size. Transitive via `postcss`. Added `overrides` entry `^3.3.17` in both projects.
+- **`body-parser` DoS via invalid limit** ([GHSA-v422-hmwv-36x6](https://github.com/advisories/GHSA-v422-hmwv-36x6), low) — invalid `limit` value silently disables size enforcement. Transitive via `express`; upstream `express@4.x` still pins the vulnerable `body-parser@~1.20.5`, so added `overrides` entry `^1.20.6` in `backend/package.json`.
+- `npm audit`: frontend 3 high → 0, backend 1 low + 2 high → 0.
+
+---
+
 ## [1.0.8] — 2026-06-29
 
 ### Fixed — Watchlist rename duplicate + GEX chart font scaling
