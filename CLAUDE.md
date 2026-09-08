@@ -1,4 +1,4 @@
-# CLAUDE.md — Signal Dashboard
+# CLAUDE.md - Signal Dashboard
 
 This file is for AI coding assistants. It documents the project architecture, conventions, and key implementation details so you can contribute effectively without reading every file first.
 
@@ -18,8 +18,8 @@ This file is for AI coding assistants. It documents the project architecture, co
 | Backend | Node.js 20 + Express 4 + TypeScript 5 (run via `tsx`, no compile step) |
 | Market data | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals | Signa.ai API (optional, `SIGNA_API_KEY`) |
-| AI analysis | Signa.ai → Gemini 1.5 Flash → template fallback |
-| Auth + access control | Supabase **coredb** (optional — Google OAuth + Postgres; invite-only when configured) |
+| AI analysis | Signa.ai --> Gemini 1.5 Flash --> template fallback |
+| Auth + access control | Supabase **coredb** (optional - Google OAuth + Postgres; invite-only when configured) |
 | Watchlist fallback | `localStorage` when Supabase is unconfigured |
 | Frontend hosting | Cloudflare Pages |
 | Backend hosting | Railway |
@@ -30,83 +30,83 @@ This file is for AI coding assistants. It documents the project architecture, co
 
 ```text
 signal-dashboard/
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx                   # Main layout, polling, theme, auth
-│   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   ├── Sidebar.tsx        # Left sidebar: nav items, watchlist groups, user pill
-│   │   │   │   └── Topnav.tsx         # Sticky topnav: search, Analyze, index pills, theme toggle
-│   │   │   ├── AdminPanel.tsx         # Admin: pending access requests + approve button
-│   │   │   ├── AlertBanner.tsx        # FOMC / VIX spike alerts
-│   │   │   ├── AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
-│   │   │   ├── DarkPoolView.tsx       # Dark Pool view: Radon-scored off-exchange block prints
-│   │   │   ├── FlowDirectionChart.tsx # Mini SVG arrow + full Recharts chart (Options tab)
-│   │   │   ├── FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
-│   │   │   ├── GammaView.tsx          # Gamma/GEX view: SPY/QQQ/IWM cards with flip level/walls
-│   │   │   ├── MarketScanView.tsx     # Market Scanner view: Signa 30-model ranked setups
-│   │   │   ├── PlaybookView.tsx       # Playbook view: static strategy reference (GEX, Radon, combined read)
-│   │   │   ├── MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
-│   │   │   ├── OptionsFlowView.tsx    # Options Flow view: market-wide unusual flow feed
-│   │   │   ├── OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
-│   │   │   ├── ScoringBreakdown.tsx   # (legacy — not used in layout, kept for reference)
-│   │   │   ├── SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN, FCG)
-│   │   │   ├── SignaCard.tsx          # Signa.ai signal: entry/stop/target/triggers
-│   │   │   ├── Skeleton.tsx           # Loading shimmer skeletons
-│   │   │   ├── StockPanel.tsx         # Stock header + tab bar (Signal/Technical/Options/Fundamentals/Moat)
-│   │   │   ├── StockSearch.tsx        # (legacy — superseded by Sidebar/Topnav, kept for reference)
-│   │   │   ├── TerminalAnalysis.tsx   # Structured AI market analysis
-│   │   │   ├── TickerBar.tsx          # Scrolling live ticker
-│   │   │   └── UnusualFlowSection.tsx # Unusual flow events: scored rows, backtest strip (Options tab)
-│   │   ├── hooks/
-│   │   │   ├── useAuth.ts             # Supabase session state + Google OAuth
-│   │   │   ├── useMarketData.ts       # 45s polling + secondsAgo counter
-│   │   │   ├── useMoatData.ts         # Fetch moat research from Supabase moat schema
-│   │   │   ├── useStockData.ts        # Stock/Signa data fetch on ticker change
-│   │   │   ├── useTheme.ts            # Light/dark mode toggle (localStorage); default dark
-│   │   │   └── useWatchlist.ts        # Named watchlist groups (Supabase or localStorage)
-│   │   ├── lib/
-│   │   │   ├── api.ts                 # fetch wrappers for backend routes
-│   │   │   ├── colors.ts              # CSS custom property design tokens
-│   │   │   ├── priceLevels.ts         # validatePriceLevels() — stop/target directional validation
-│   │   │   ├── stockApi.ts            # Stock-specific API client
-│   │   │   └── supabase.ts            # Typed Supabase client (null when unconfigured)
-│   │   └── types/
-│   │       ├── market.ts              # MarketResponse, SectorData, etc.
-│   │       └── stock.ts               # StockResponse, SignaData, FibLevel, OptionsInsight, FundamentalsData, etc.
-│   ├── index.html
-│   ├── vite.config.ts                 # /api proxy to :3001
-│   └── package.json
-│
-├── backend/
-│   ├── src/
-│   │   ├── index.ts                   # Express entry point
-│   │   ├── routes/
-│   │   │   ├── market.ts              # GET /api/market-data, POST /api/refresh
-│   │   │   ├── moat.ts                # GET /api/moat/:ticker — Supabase moat schema proxy
-│   │   │   ├── stock.ts               # GET /api/stock/:symbol
-│   │   │   └── unusualFlow.ts         # GET /api/unusual-flow?ticker=AAPL
-│   │   ├── services/
-│   │   │   ├── ai.ts                  # Signa → Gemini → template priority chain
-│   │   │   ├── flowScoring.ts         # Unusual flow direction scoring (Radon-adapted)
-│   │   │   ├── marketData.ts          # Parallel data fetch orchestration
-│   │   │   ├── scoring.ts             # 5 market scoring functions
-│   │   │   └── stockScoring.ts        # Stock score + Fibonacci + Moving Averages
-│   │   └── lib/
-│   │       ├── cache.ts               # NodeCache wrapper (30s TTL)
-│   │       ├── fomc.ts                # FOMC calendar + Fed stance (update annually)
-│   │       ├── signaClient.ts         # Signa.ai API client (REST + MCP Streamable HTTP)
-│   │       ├── technical.ts           # sma, ema, rsi, slope, percentileRank
-│   │       └── yahooClient.ts         # Yahoo Finance v8 Chart API client
-│   ├── .env.example
-│   └── package.json
-│
-├── package.json     # Root: concurrently dev, install:all
-├── DESIGN.md        # Stripe-inspired light design tokens (source of truth)
-├── CLAUDE.md        # This file
-├── CHANGELOG.md     # Version history
-├── PROMPT.md        # Full reconstruction specification
-└── README.md        # User-facing documentation
++-- frontend/
+|   +-- src/
+|   |   +-- App.tsx                   # Main layout, polling, theme, auth
+|   |   +-- components/
+|   |   |   +-- layout/
+|   |   |   |   +-- Sidebar.tsx        # Left sidebar: nav items, watchlist groups, user pill
+|   |   |   |   +-- Topnav.tsx         # Sticky topnav: search, Analyze, index pills, theme toggle
+|   |   |   +-- AdminPanel.tsx         # Admin: pending access requests + approve button
+|   |   |   +-- AlertBanner.tsx        # FOMC / VIX spike alerts
+|   |   |   +-- AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
+|   |   |   +-- DarkPoolView.tsx       # Dark Pool view: Radon-scored off-exchange block prints
+|   |   |   +-- FlowDirectionChart.tsx # Mini SVG arrow + full Recharts chart (Options tab)
+|   |   |   +-- FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
+|   |   |   +-- GammaView.tsx          # Gamma/GEX view: SPY/QQQ/IWM cards with flip level/walls
+|   |   |   +-- MarketScanView.tsx     # Market Scanner view: Signa 30-model ranked setups
+|   |   |   +-- PlaybookView.tsx       # Playbook view: static strategy reference (GEX, Radon, combined read)
+|   |   |   +-- MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
+|   |   |   +-- OptionsFlowView.tsx    # Options Flow view: market-wide unusual flow feed
+|   |   |   +-- OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
+|   |   |   +-- ScoringBreakdown.tsx   # (legacy - not used in layout, kept for reference)
+|   |   |   +-- SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN, FCG)
+|   |   |   +-- SignaCard.tsx          # Signa.ai signal: entry/stop/target/triggers
+|   |   |   +-- Skeleton.tsx           # Loading shimmer skeletons
+|   |   |   +-- StockPanel.tsx         # Stock header + tab bar (Signal/Technical/Options/Fundamentals/Moat)
+|   |   |   +-- StockSearch.tsx        # (legacy - superseded by Sidebar/Topnav, kept for reference)
+|   |   |   +-- TerminalAnalysis.tsx   # Structured AI market analysis
+|   |   |   +-- TickerBar.tsx          # Scrolling live ticker
+|   |   |   +-- UnusualFlowSection.tsx # Unusual flow events: scored rows, backtest strip (Options tab)
+|   |   +-- hooks/
+|   |   |   +-- useAuth.ts             # Supabase session state + Google OAuth
+|   |   |   +-- useMarketData.ts       # 45s polling + secondsAgo counter
+|   |   |   +-- useMoatData.ts         # Fetch moat research from Supabase moat schema
+|   |   |   +-- useStockData.ts        # Stock/Signa data fetch on ticker change
+|   |   |   +-- useTheme.ts            # Light/dark mode toggle (localStorage); default dark
+|   |   |   +-- useWatchlist.ts        # Named watchlist groups (Supabase or localStorage)
+|   |   +-- lib/
+|   |   |   +-- api.ts                 # fetch wrappers for backend routes
+|   |   |   +-- colors.ts              # CSS custom property design tokens
+|   |   |   +-- priceLevels.ts         # validatePriceLevels() - stop/target directional validation
+|   |   |   +-- stockApi.ts            # Stock-specific API client
+|   |   |   +-- supabase.ts            # Typed Supabase client (null when unconfigured)
+|   |   +-- types/
+|   |       +-- market.ts              # MarketResponse, SectorData, etc.
+|   |       +-- stock.ts               # StockResponse, SignaData, FibLevel, OptionsInsight, FundamentalsData, etc.
+|   +-- index.html
+|   +-- vite.config.ts                 # /api proxy to :3001
+|   +-- package.json
+|
++-- backend/
+|   +-- src/
+|   |   +-- index.ts                   # Express entry point
+|   |   +-- routes/
+|   |   |   +-- market.ts              # GET /api/market-data, POST /api/refresh
+|   |   |   +-- moat.ts                # GET /api/moat/:ticker - Supabase moat schema proxy
+|   |   |   +-- stock.ts               # GET /api/stock/:symbol
+|   |   |   +-- unusualFlow.ts         # GET /api/unusual-flow?ticker=AAPL
+|   |   +-- services/
+|   |   |   +-- ai.ts                  # Signa --> Gemini --> template priority chain
+|   |   |   +-- flowScoring.ts         # Unusual flow direction scoring (Radon-adapted)
+|   |   |   +-- marketData.ts          # Parallel data fetch orchestration
+|   |   |   +-- scoring.ts             # 5 market scoring functions
+|   |   |   +-- stockScoring.ts        # Stock score + Fibonacci + Moving Averages
+|   |   +-- lib/
+|   |       +-- cache.ts               # NodeCache wrapper (30s TTL)
+|   |       +-- fomc.ts                # FOMC calendar + Fed stance (update annually)
+|   |       +-- signaClient.ts         # Signa.ai API client (REST + MCP Streamable HTTP)
+|   |       +-- technical.ts           # sma, ema, rsi, slope, percentileRank
+|   |       +-- yahooClient.ts         # Yahoo Finance v8 Chart API client
+|   +-- .env.example
+|   +-- package.json
+|
++-- package.json     # Root: concurrently dev, install:all
++-- DESIGN.md        # Stripe-inspired light design tokens (source of truth)
++-- CLAUDE.md        # This file
++-- CHANGELOG.md     # Version history
++-- PROMPT.md        # Full reconstruction specification
++-- README.md        # User-facing documentation
 ```
 
 ---
@@ -119,7 +119,7 @@ npm run install:all
 
 # Configure backend environment
 cp backend/.env.example backend/.env
-# Edit backend/.env — only API keys are optional
+# Edit backend/.env - only API keys are optional
 
 # Start both servers
 npm run dev
@@ -127,7 +127,7 @@ npm run dev
 # Backend:  http://localhost:3001
 ```
 
-The frontend Vite dev proxy routes `/api/*` → `http://localhost:3001`, so no CORS issues locally.
+The frontend Vite dev proxy routes `/api/*` --> `http://localhost:3001`, so no CORS issues locally.
 
 ---
 
@@ -139,19 +139,19 @@ The frontend Vite dev proxy routes `/api/*` → `http://localhost:3001`, so no C
 | --- | --- | --- | --- |
 | `PORT` | No | `3001` | Backend HTTP port |
 | `FRONTEND_URL` | No | `http://localhost:5173` | CORS allowed origin |
-| `SIGNA_API_KEY` | No | — | Signa.ai API key (stock signals + terminal analysis) |
-| `GEMINI_API_KEY` | No | — | Google AI Studio key (terminal analysis fallback) |
+| `SIGNA_API_KEY` | No | - | Signa.ai API key (stock signals + terminal analysis) |
+| `GEMINI_API_KEY` | No | - | Google AI Studio key (terminal analysis fallback) |
 | `AI_PROVIDER` | No | `gemini` | `gemini` \| `none` |
 
-**`frontend/.env`** (optional — enables Google sign-in and cross-device watchlist sync)
+**`frontend/.env`** (optional - enables Google sign-in and cross-device watchlist sync)
 
-This project uses the shared **coredb** Supabase project (`lcqsatefkutiakhgexue`) — the same Supabase instance used by moat-finder and folio-app. All three apps share auth (one Google sign-in works across all) and have their own tables in the same project.
+This project uses the shared **coredb** Supabase project (`lcqsatefkutiakhgexue`) - the same Supabase instance used by moat-finder and folio-app. All three apps share auth (one Google sign-in works across all) and have their own tables in the same project.
 
 | Variable | Required | Description |
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | No | `https://lcqsatefkutiakhgexue.supabase.co` (coredb) |
-| `VITE_SUPABASE_ANON_KEY` | No | coredb anon/public key — Dashboard → Settings → API |
-| `VITE_SUPABASE_REDIRECT_URL` | **Production only** | `https://signal.ailab.build`. Must match a Supabase → Authentication → URL Configuration → Redirect URL entry. Leave blank locally — falls back to `window.location.origin`. |
+| `VITE_SUPABASE_ANON_KEY` | No | coredb anon/public key - Dashboard --> Settings --> API |
+| `VITE_SUPABASE_REDIRECT_URL` | **Production only** | `https://signal.ailab.build`. Must match a Supabase --> Authentication --> URL Configuration --> Redirect URL entry. Leave blank locally - falls back to `window.location.origin`. |
 
 When both Supabase vars are absent, `supabase` client is `null` and the app runs in localStorage-only mode with no auth UI shown.
 
@@ -167,30 +167,30 @@ All scoring, market data, Fibonacci, and moving averages work without any API ke
 import { C, scoreColor, changeColor } from '../lib/colors';
 ```
 
-All `C.*` values are CSS custom property references (`var(--c-*)`). The actual color values are defined in `frontend/src/index.css` under `:root` (light mode) and `[data-theme="dark"]` (dark mode). This means every component inherits both themes automatically — no per-component dark mode code needed.
+All `C.*` values are CSS custom property references (`var(--c-*)`). The actual color values are defined in `frontend/src/index.css` under `:root` (light mode) and `[data-theme="dark"]` (dark mode). This means every component inherits both themes automatically - no per-component dark mode code needed.
 
 Key tokens:
 
-- `C.ink` — primary text
-- `C.inkSec` — secondary text
-- `C.inkMute` — muted/label text
-- `C.canvas` — white/dark background
-- `C.canvasSoft` — panel/card background
-- `C.border` — hairline borders
-- `C.primary` — indigo accent
-- `C.bull` — green (bullish)
-- `C.bear` — red (bearish)
-- `C.warn` — amber (caution)
-- `C.s1` — card shadow
+- `C.ink` - primary text
+- `C.inkSec` - secondary text
+- `C.inkMute` - muted/label text
+- `C.canvas` - white/dark background
+- `C.canvasSoft` - panel/card background
+- `C.border` - hairline borders
+- `C.primary` - indigo accent
+- `C.bull` - green (bullish)
+- `C.bear` - red (bearish)
+- `C.warn` - amber (caution)
+- `C.s1` - card shadow
 
 Helper functions:
 
-- `scoreColor(score: number)` — returns green/amber/red based on 0–100 score
-- `changeColor(pct: number)` — returns bull/warn/bear color based on % change
+- `scoreColor(score: number)` - returns green/amber/red based on 0-100 score
+- `changeColor(pct: number)` - returns bull/warn/bear color based on % change
 
 ### Theme Toggle
 
-- `useTheme()` hook (`frontend/src/hooks/useTheme.ts`) — returns `{ dark: boolean, toggle: () => void }`
+- `useTheme()` hook (`frontend/src/hooks/useTheme.ts`) - returns `{ dark: boolean, toggle: () => void }`
 - Theme is set via `data-theme="dark"` on `<html>`; preference persists in `localStorage` key `signal-theme`
 - An inline `<script>` in `index.html` applies the saved theme before first paint (no flicker)
 - The mesh backdrop is a CSS class `mesh-bg` defined in `frontend/src/index.css`; the dark mode override is `[data-theme="dark"] .mesh-bg`
@@ -201,35 +201,35 @@ Helper functions:
 
 ### Typography
 
-- UI font: **Plus Jakarta Sans** (weights 200–800; loaded via Google Fonts)
+- UI font: **Plus Jakarta Sans** (weights 200-800; loaded via Google Fonts)
 - Mono/numeric font: **JetBrains Mono** (weights 400, 500; loaded via Google Fonts)
 - Labels/headers: `fontSize: '11px', letterSpacing: '0.08em', fontWeight: 600` (uppercase label style)
 - Sidebar nav items: `fontSize: '15px'`, `fontWeight: 600` active / `500` inactive, `borderRadius: 12`
 - Body: `fontSize: '13px', color: C.inkSec, lineHeight: 1.5`
-- Data values: use `.tnum` class — sets `font-family: "JetBrains Mono"` + `font-feature-settings: "tnum"`. Always use `.tnum` on prices, percentages, and tabular numbers. Never use `fontFeatureSettings` inline without also setting the mono font.
+- Data values: use `.tnum` class - sets `font-family: "JetBrains Mono"` + `font-feature-settings: "tnum"`. Always use `.tnum` on prices, percentages, and tabular numbers. Never use `fontFeatureSettings` inline without also setting the mono font.
 - Pill badges: `borderRadius: 9999, padding: '4px 12px'`
 
 ### Components
 
-- All inline styles (no Tailwind in components — Tailwind is used only in `index.css` for global reset/utilities)
+- All inline styles (no Tailwind in components - Tailwind is used only in `index.css` for global reset/utilities)
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
-- **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`≤768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
-- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` → stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` → `TerminalAnalysis`; `'sector-map'` → `SectorHeatmap`; `'options-flow'` → `OptionsFlowView`; `'dark-pool'` → `DarkPoolView`; `'gamma'` → `GammaView`; `'market-scan'` → `MarketScanView`; `'playbook'` → `PlaybookView` (static strategy reference, no data deps). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
-- **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column → single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code — use CSS classes instead.
+- **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`<=768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
+- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` --> stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` --> `TerminalAnalysis`; `'sector-map'` --> `SectorHeatmap`; `'options-flow'` --> `OptionsFlowView`; `'dark-pool'` --> `DarkPoolView`; `'gamma'` --> `GammaView`; `'market-scan'` --> `MarketScanView`; `'playbook'` --> `PlaybookView` (static strategy reference, no data deps). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
+- **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column --> single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code - use CSS classes instead.
 
 ### API Routes
 
-- `GET /api/market-data` — full market payload (cached 30s)
-- `POST /api/refresh` — invalidate cache
-- `GET /api/stock/:symbol` — individual stock signal (Signa.ai + Yahoo Finance)
-- `GET /api/moat/:ticker` — proxy to Supabase `moat` schema; returns 503 if `SUPABASE_URL`/`SUPABASE_ANON_KEY` not set, 404 if ticker not found. Note: `useMoatData` queries Supabase directly from the browser (not via this route), so Railway Supabase vars are optional.
-- `GET /api/unusual-flow?ticker=AAPL` — AI-curated high-conviction options events (Signa `get_curated_flow` via MCP Streamable HTTP), scored with Radon-adapted confluence algorithm. Returns `{ events: ScoredFlowEvent[], summary: FlowSummary | null }`. Requires `SIGNA_API_KEY`; returns empty events array when key is absent. 5 min cache.
-- `GET /api/options-flow` — market-wide unusual options flow (Signa `get_options_flow` MCP, no ticker required). Returns `{ flow: MarketFlowItem[] }`. 2 min cache.
-- `GET /api/dark-pool` — market-wide dark pool prints (Signa `get_dark_pool` MCP), Radon-scored by NBBO positioning. Returns `{ prints: DpPrint[] }`. 2 min cache.
-- `GET /api/gamma-gex` — GEX data for SPY, QQQ, IWM in parallel (Signa `get_gex` MCP). Returns `{ spy, qqq, iwm }`. 15 min cache. Call/put walls derived from levels if not in response.
-- `GET /api/market-scan?direction=bullish|bearish` — ranked market setups from Signa `scan_symbols` MCP. Returns `{ results: ScanItem[], count }`. 5 min cache.
-- `GET /health` — health check
+- `GET /api/market-data` - full market payload (cached 30s)
+- `POST /api/refresh` - invalidate cache
+- `GET /api/stock/:symbol` - individual stock signal (Signa.ai + Yahoo Finance)
+- `GET /api/moat/:ticker` - proxy to Supabase `moat` schema; returns 503 if `SUPABASE_URL`/`SUPABASE_ANON_KEY` not set, 404 if ticker not found. Note: `useMoatData` queries Supabase directly from the browser (not via this route), so Railway Supabase vars are optional.
+- `GET /api/unusual-flow?ticker=AAPL` - AI-curated high-conviction options events (Signa `get_curated_flow` via MCP Streamable HTTP), scored with Radon-adapted confluence algorithm. Returns `{ events: ScoredFlowEvent[], summary: FlowSummary | null }`. Requires `SIGNA_API_KEY`; returns empty events array when key is absent. 5 min cache.
+- `GET /api/options-flow` - market-wide unusual options flow (Signa `get_options_flow` MCP, no ticker required). Returns `{ flow: MarketFlowItem[] }`. 2 min cache.
+- `GET /api/dark-pool` - market-wide dark pool prints (Signa `get_dark_pool` MCP), Radon-scored by NBBO positioning. Returns `{ prints: DpPrint[] }`. 2 min cache.
+- `GET /api/gamma-gex` - GEX data for SPY, QQQ, IWM in parallel (Signa `get_gex` MCP). Returns `{ spy, qqq, iwm }`. 15 min cache. Call/put walls derived from levels if not in response.
+- `GET /api/market-scan?direction=bullish|bearish` - ranked market setups from Signa `scan_symbols` MCP. Returns `{ results: ScanItem[], count }`. 5 min cache.
+- `GET /health` - health check
 
 ### Signa MCP Streamable HTTP
 
@@ -249,31 +249,31 @@ Response is SSE (`data: {...}` lines). Parse with `text.split('\n').find(l => l.
 
 **Access model:** When `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set, the app is **invite-only**. Unauthenticated users see an auth gate. Authenticated users with `status='pending'` see an "Access Pending" screen. Only `status='approved'` users reach the full dashboard. When Supabase is not configured (`supabase === null`), the app is fully open (local dev mode).
 
-**`useAuth`** (`hooks/useAuth.ts`) — wraps Supabase session and `user_profiles` table. Exports:
+**`useAuth`** (`hooks/useAuth.ts`) - wraps Supabase session and `user_profiles` table. Exports:
 
-- `user: User | null` — raw Supabase auth user
-- `authLoading: boolean` — true while session + profile are loading
-- `profile: UserProfile | null` — `{ id, email, display_name, status, is_admin, requested_at, approved_at }`
-- `userStatus: 'pending' | 'approved' | null` — null when Supabase is unconfigured
-- `isAdmin: boolean` — true when `profile.is_admin`
-- `pendingUsers: UserProfile[]` — populated for admins; all users awaiting approval
-- `signInWithGoogle()` — triggers Supabase Google OAuth popup
-- `signOut()` — clears session and profile state
-- `approveUser(userId)` — admin only; sets status='approved' and approved_at in Supabase
+- `user: User | null` - raw Supabase auth user
+- `authLoading: boolean` - true while session + profile are loading
+- `profile: UserProfile | null` - `{ id, email, display_name, status, is_admin, requested_at, approved_at }`
+- `userStatus: 'pending' | 'approved' | null` - null when Supabase is unconfigured
+- `isAdmin: boolean` - true when `profile.is_admin`
+- `pendingUsers: UserProfile[]` - populated for admins; all users awaiting approval
+- `signInWithGoogle()` - triggers Supabase Google OAuth popup
+- `signOut()` - clears session and profile state
+- `approveUser(userId)` - admin only; sets status='approved' and approved_at in Supabase
 
-**`AdminPanel`** (`components/AdminPanel.tsx`) — rendered in `App.tsx` only when `isAdmin && pendingUsers.length > 0`. Lists pending users with name, email, request date, and an Approve button. Optimistically removes approved users from the list.
+**`AdminPanel`** (`components/AdminPanel.tsx`) - rendered in `App.tsx` only when `isAdmin && pendingUsers.length > 0`. Lists pending users with name, email, request date, and an Approve button. Optimistically removes approved users from the list.
 
-**`AuthButton`** (`components/AuthButton.tsx`) — accepts `userStatus` prop. Renders nothing when Supabase is unconfigured or loading. Shows "Sign in" button → full user row (avatar, name, "Pending" amber badge when status=pending, "Sign out") when logged in.
+**`AuthButton`** (`components/AuthButton.tsx`) - accepts `userStatus` prop. Renders nothing when Supabase is unconfigured or loading. Shows "Sign in" button --> full user row (avatar, name, "Pending" amber badge when status=pending, "Sign out") when logged in.
 
 **Auth gate in `App.tsx`:** `const isApproved = !supabaseEnabled || userStatus === 'approved' || isAdmin`. When `supabaseEnabled && !authLoading && !isApproved`, renders a centered card with sign-in CTA (unauthenticated) or pending-approval message (authenticated but pending). All stock search and market data is inside the `isApproved` branch.
 
-**`useWatchlist(user)`** (`hooks/useWatchlist.ts`): Accepts `user: User | null`. When non-null and Supabase is configured, reads/writes go to the `watchlists` Postgres table (watchlists are always tied to the authenticated user). When `user` is null, falls back to `localStorage` (key: `signal-dashboard-watchlists-v2`). First login automatically migrates existing localStorage groups into Supabase. Uses `useRef`-based `userRef` / `stateRef` pattern to eliminate stale closures. **Dual persistence:** `persistLocal()` is called unconditionally on every mutation (Supabase and localStorage modes alike) — localStorage is always an up-to-date write-through backup. **Cross-device sync:** On sign-in the effect immediately merges Supabase groups with any locally-only groups (optimistic state) before firing recovery INSERTs. This ensures all groups from any device are visible immediately without waiting for network writes. `activeGroup` is validated after each Supabase load (falls back to first group if current group no longer exists). SELECT and INSERT errors are logged via `console.warn`. Exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`, `isInWatchlist`, `getGroupsForTicker`.
+**`useWatchlist(user)`** (`hooks/useWatchlist.ts`): Accepts `user: User | null`. When non-null and Supabase is configured, reads/writes go to the `watchlists` Postgres table (watchlists are always tied to the authenticated user). When `user` is null, falls back to `localStorage` (key: `signal-dashboard-watchlists-v2`). First login automatically migrates existing localStorage groups into Supabase. Uses `useRef`-based `userRef` / `stateRef` pattern to eliminate stale closures. **Dual persistence:** `persistLocal()` is called unconditionally on every mutation (Supabase and localStorage modes alike) - localStorage is always an up-to-date write-through backup. **Cross-device sync:** On sign-in the effect immediately merges Supabase groups with any locally-only groups (optimistic state) before firing recovery INSERTs. This ensures all groups from any device are visible immediately without waiting for network writes. `activeGroup` is validated after each Supabase load (falls back to first group if current group no longer exists). SELECT and INSERT errors are logged via `console.warn`. Exports: `groups`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`, `isInWatchlist`, `getGroupsForTicker`.
 
-**Supabase schema (full DDL in README):** signal-dashboard uses the **`signal`** PostgreSQL schema within the shared coredb Supabase project (moat-finder uses `moat`, folio-app uses `folio`). Two tables — `signal.watchlists` (RLS: user owns their rows) and `signal.user_profiles` (status, is_admin; RLS via `signal.is_admin()` security-definer function). A trigger `on_auth_user_created` on `auth.users` auto-inserts a `pending` profile on first sign-in. Admin grants themselves `is_admin=true` via SQL; all subsequent approvals happen in the app UI. The `signal` schema must be added to **Supabase Dashboard → Settings → API → Exposed schemas** before the JS client can query it.
+**Supabase schema (full DDL in README):** signal-dashboard uses the **`signal`** PostgreSQL schema within the shared coredb Supabase project (moat-finder uses `moat`, folio-app uses `folio`). Two tables - `signal.watchlists` (RLS: user owns their rows) and `signal.user_profiles` (status, is_admin; RLS via `signal.is_admin()` security-definer function). A trigger `on_auth_user_created` on `auth.users` auto-inserts a `pending` profile on first sign-in. Admin grants themselves `is_admin=true` via SQL; all subsequent approvals happen in the app UI. The `signal` schema must be added to **Supabase Dashboard --> Settings --> API --> Exposed schemas** before the JS client can query it.
 
-**CRITICAL — `signal.is_admin()` must NOT query `signal.user_profiles`**: doing so causes PostgreSQL error `42P17 infinite recursion detected in policy` because the RLS policy on `user_profiles` calls `is_admin()` which re-triggers the same policy. The function reads from the JWT `app_metadata` claim instead: `coalesce((auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean, false)`. This requires the admin user's `auth.users.raw_app_meta_data` to include `{"is_admin": true}` (set via SQL) AND a fresh sign-in to get a JWT with the updated claim.
+**CRITICAL - `signal.is_admin()` must NOT query `signal.user_profiles`**: doing so causes PostgreSQL error `42P17 infinite recursion detected in policy` because the RLS policy on `user_profiles` calls `is_admin()` which re-triggers the same policy. The function reads from the JWT `app_metadata` claim instead: `coalesce((auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean, false)`. This requires the admin user's `auth.users.raw_app_meta_data` to include `{"is_admin": true}` (set via SQL) AND a fresh sign-in to get a JWT with the updated claim.
 
-**`supabase.ts`** — exports `supabase: SupabaseClient<Database, 'signal'> | null`. `Database` type uses `signal` as the top-level key (not `public`). Client is created with `{ db: { schema: 'signal' } }`. The type must include `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` (required by `SupabaseClient<T>` generics).
+**`supabase.ts`** - exports `supabase: SupabaseClient<Database, 'signal'> | null`. `Database` type uses `signal` as the top-level key (not `public`). Client is created with `{ db: { schema: 'signal' } }`. The type must include `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` (required by `SupabaseClient<T>` generics).
 
 ---
 
@@ -296,8 +296,8 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 182 tests — one-shot
-cd frontend && npm test         # 64 tests  — one-shot
+cd backend && npm test          # 182 tests - one-shot
+cd frontend && npm test         # 64 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
 cd frontend && npm run test:watch  # watch mode
@@ -305,21 +305,21 @@ cd frontend && npm run test:watch  # watch mode
 
 **Framework:** Vitest (ESM-native, TypeScript-native, no transpile step needed).
 
-**Backend config:** `backend/vitest.config.ts` — node environment.
-**Frontend config:** `vite.config.ts` `test` block — jsdom, `globals: true`, setup in `src/__tests__/setup.ts`.
+**Backend config:** `backend/vitest.config.ts` - node environment.
+**Frontend config:** `vite.config.ts` `test` block - jsdom, `globals: true`, setup in `src/__tests__/setup.ts`.
 
 ### Test file map
 
 | File | Covers |
 | --- | --- |
-| `backend/src/__tests__/lib/technical.test.ts` | All 7 functions in `technical.ts` — edge cases, boundary values, known arithmetic |
+| `backend/src/__tests__/lib/technical.test.ts` | All 7 functions in `technical.ts` - edge cases, boundary values, known arithmetic |
 | `backend/src/__tests__/services/stockScoring.test.ts` | `getStockDecision` (both BULLISH/BEARISH + LONG/SHORT vocabularies), `computeStockTechnicalScore`, `computeSectorETFScore`, `computeFibonacci`, `computeMovingAverages`, `SECTOR_TO_ETF` |
-| `backend/src/__tests__/lib/signaInsight.test.ts` | `synthesizeOptionsInsight` — null data, single source, agreement, mixed signals, key points, summary |
-| `backend/src/__tests__/services/scoring.test.ts` | `scoreVolatility`, `scoreTrend`, `computeMarketQualityScore`, `getDecision` — each weight verified |
-| `frontend/src/__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` — direction detection, entryRef fallback, LONG/SHORT level validation, **ASTS regression** |
-| `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path — add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
-| `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` | `useWatchlist` Supabase-mode path — all mutations write to localStorage (dual persistence), in-memory state correct immediately |
-| `backend/src/__tests__/services/flowScoring.test.ts` | `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, ±2 boundary, field preservation); `summarizeFlow`: direction counts, premium totals, avg conviction, market bias tie-breaking |
+| `backend/src/__tests__/lib/signaInsight.test.ts` | `synthesizeOptionsInsight` - null data, single source, agreement, mixed signals, key points, summary |
+| `backend/src/__tests__/services/scoring.test.ts` | `scoreVolatility`, `scoreTrend`, `computeMarketQualityScore`, `getDecision` - each weight verified |
+| `frontend/src/__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` - direction detection, entryRef fallback, LONG/SHORT level validation, **ASTS regression** |
+| `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path - add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
+| `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` | `useWatchlist` Supabase-mode path - all mutations write to localStorage (dual persistence), in-memory state correct immediately |
+| `backend/src/__tests__/services/flowScoring.test.ts` | `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, +/-2 boundary, field preservation); `summarizeFlow`: direction counts, premium totals, avg conviction, market bias tie-breaking |
 | `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |
 
 ### Test policy
@@ -328,41 +328,41 @@ All new exported pure functions must have unit tests before they are committed. 
 
 ### Price level validation utility
 
-`frontend/src/lib/priceLevels.ts` exports `validatePriceLevels()` — the stop/target directional validation logic extracted from `SignaCard.tsx`. `SignaCard` imports it from here. Always use this utility when displaying price levels; do not duplicate the logic inline.
+`frontend/src/lib/priceLevels.ts` exports `validatePriceLevels()` - the stop/target directional validation logic extracted from `SignaCard.tsx`. `SignaCard` imports it from here. Always use this utility when displaying price levels; do not duplicate the logic inline.
 
 ```typescript
 validatePriceLevels(direction, entry, stop, target, rr, currentPrice)
-// → { isLong, entryRef, stopValid, targetValid, rrValid }
+// --> { isLong, entryRef, stopValid, targetValid, rrValid }
 ```
 
-For LONG: stop must be below entryRef, target above. For SHORT: reversed. Valid levels get directional colour (`C.bear` for stop, `C.bull` for target); invalid-but-present levels show `C.inkSec` (neutral); zero/missing values show `—`. Validation controls **colour only**, not visibility.
+For LONG: stop must be below entryRef, target above. For SHORT: reversed. Valid levels get directional colour (`C.bear` for stop, `C.bull` for target); invalid-but-present levels show `C.inkSec` (neutral); zero/missing values show `-`. Validation controls **colour only**, not visibility.
 
 ---
 
 ## Sector / Sub-Sector Tickers (as of v0.5.5)
 
 **Main sectors** (`SECTORS` array in `marketData.ts`):
-`QQQ` Nasdaq 100 · `XLF` Financials · `XLE` Energy · `XLV` Health Care · `XLI` Industrials · `XLY` Consumer Disc. · `XLP` Consumer Staples · `XLU` Utilities · `XLB` Materials · `XLRE` Real Estate · `XLC` Comm. Services · `ITA` Aerospace & Defense · `SPY` S&P 500 · `PDBC` Commodities
+`QQQ` Nasdaq 100 - `XLF` Financials - `XLE` Energy - `XLV` Health Care - `XLI` Industrials - `XLY` Consumer Disc. - `XLP` Consumer Staples - `XLU` Utilities - `XLB` Materials - `XLRE` Real Estate - `XLC` Comm. Services - `ITA` Aerospace & Defense - `SPY` S&P 500 - `PDBC` Commodities
 
-**Display-only sectors** (in `DISPLAY_ONLY_SECTORS` Set — excluded from breadth scoring and leader/lagger ranking): `SPY`, `PDBC`
+**Display-only sectors** (in `DISPLAY_ONLY_SECTORS` Set - excluded from breadth scoring and leader/lagger ranking): `SPY`, `PDBC`
 
 **Sub-sectors** (`SUBSECTORS` array, as of v0.6.1):
-`SMH` Semiconductors (Nasdaq 100) · `IGV` Software (Nasdaq 100) · `AIPO` AI Power Stocks (Nasdaq 100) · `AIS` AI Supercycle Stocks (Nasdaq 100) · `DRAM` AI Memory (Nasdaq 100) · `EUV` AI Photonics (Nasdaq 100) · `XBI` Biotech (Health Care) · `IHI` Medical Devices (Health Care) · `URA` Uranium (Energy) · `XOP` Oil & Gas E&P (Energy) · `KRE` Regional Banks (Financials) · `ICLN` Clean Energy (Energy) · `TAN` Solar (Energy) · `FCG` Natural Gas (Energy) · `GC=F` Gold (Commodities) · `SI=F` Silver (Commodities) · `COPX` Copper (Commodities) · `CL=F` Crude Oil WTI (Commodities) · `NASA` Space (Aerospace & Defense)
+`SMH` Semiconductors (Nasdaq 100) - `IGV` Software (Nasdaq 100) - `AIPO` AI Power Stocks (Nasdaq 100) - `AIS` AI Supercycle Stocks (Nasdaq 100) - `DRAM` AI Memory (Nasdaq 100) - `EUV` AI Photonics (Nasdaq 100) - `XBI` Biotech (Health Care) - `IHI` Medical Devices (Health Care) - `URA` Uranium (Energy) - `XOP` Oil & Gas E&P (Energy) - `KRE` Regional Banks (Financials) - `ICLN` Clean Energy (Energy) - `TAN` Solar (Energy) - `FCG` Natural Gas (Energy) - `GC=F` Gold (Commodities) - `SI=F` Silver (Commodities) - `COPX` Copper (Commodities) - `CL=F` Crude Oil WTI (Commodities) - `NASA` Space (Aerospace & Defense)
 
-**Stock sector → ETF mapping** (`SECTOR_TO_ETF` in `stockScoring.ts`): Technology → QQQ (was XLK)
+**Stock sector --> ETF mapping** (`SECTOR_TO_ETF` in `stockScoring.ts`): Technology --> QQQ (was XLK)
 
 **Important:** `GC=F`, `SI=F`, and `CL=F` are COMEX/NYMEX futures symbols on Yahoo Finance. `XAUUSD=X` / `XAGUSD=X` (forex-style) return 404 from the v8 Chart API and must NOT be used. Futures symbols use `encodeURIComponent()` in `yahooClient.ts`, so the `=` and `^` characters are handled automatically.
 
 ## Scoring System
 
 ```text
-Market Quality Score = Volatility×20% + Trend×25% + Breadth×20% + Momentum×25% + Macro×10%
+Market Quality Score = Volatilityx20% + Trendx25% + Breadthx20% + Momentumx25% + Macrox10%
 ```
 
 | Score | Decision | Guidance |
 | --- | --- | --- |
-| 80–100 | BULLISH | Full position sizing |
-| 60–79 | CAUTION | Half size, A+ setups only |
+| 80-100 | BULLISH | Full position sizing |
+| 60-79 | CAUTION | Half size, A+ setups only |
 | < 60 | BEARISH / AVOID | Preserve capital |
 
 The composite score shown in `StockPanel` is computed from: stock technical score (40%) + sector ETF score (30%) + market quality score (30%).
@@ -375,10 +375,10 @@ The composite score shown in `StockPanel` is computed from: stock technical scor
 | --- | --- |
 | All price history + quotes | Yahoo Finance v8 Chart API (free, no key) |
 | Stock signals (entry/stop/target/triggers) | Signa.ai API (`SIGNA_API_KEY`) |
-| Terminal analysis | Signa.ai → Gemini 1.5 Flash → built-in template |
-| FOMC calendar, Fed stance | Hardcoded in `backend/src/lib/fomc.ts` — update annually |
+| Terminal analysis | Signa.ai --> Gemini 1.5 Flash --> built-in template |
+| FOMC calendar, Fed stance | Hardcoded in `backend/src/lib/fomc.ts` - update annually |
 
-**Important:** The `yahooClient.ts` uses direct `fetch` to the Yahoo Finance v8 Chart API. Do NOT switch to `yahoo-finance2` — its `historical` module was removed in recent versions.
+**Important:** The `yahooClient.ts` uses direct `fetch` to the Yahoo Finance v8 Chart API. Do NOT switch to `yahoo-finance2` - its `historical` module was removed in recent versions.
 
 ---
 
@@ -388,14 +388,14 @@ The Signa API `/api/v1/signal` response contains **three distinct signal sources
 
 | Field | Pipeline | Use for |
 | --- | --- | --- |
-| `engine` | Nightly 30+ model consensus | **Primary direction** — matches Signa Canvas Action Card |
+| `engine` | Nightly 30+ model consensus | **Primary direction** - matches Signa Canvas Action Card |
 | `signa` | Proprietary synthesis | Grade, conviction, action, risk rating, proprietary triggers |
 | `data` | Live single-pass technical | Price levels (entry, stop, target), RSI, EMAs, patterns, stage |
 
 `engine.direction` values: `BULLISH` / `BEARISH` / `NEUTRAL`
 `data.direction` values: `LONG` / `SHORT` / `WAIT`
 
-**Never use `data.direction` as the primary direction** — it is a live single-pass result that does not match what Signa Canvas shows. The API documentation explicitly states: "Use `engine` to match the in-app Action Card."
+**Never use `data.direction` as the primary direction** - it is a live single-pass result that does not match what Signa Canvas shows. The API documentation explicitly states: "Use `engine` to match the in-app Action Card."
 
 `getStockDecision()` in `stockScoring.ts` accepts both vocabularies: `BULLISH`/`BEARISH` (engine) and `LONG`/`SHORT` (data).
 
@@ -416,4 +416,4 @@ The Signa API `/api/v1/signal` response contains **three distinct signal sources
 
 ## Updating the FOMC Calendar
 
-Edit `backend/src/lib/fomc.ts` — update `FOMC_DATES` array annually when the Fed publishes its schedule. Also update `getFedStance()` to reflect current monetary policy direction.
+Edit `backend/src/lib/fomc.ts` - update `FOMC_DATES` array annually when the Fed publishes its schedule. Also update `getFedStance()` to reflect current monetary policy direction.

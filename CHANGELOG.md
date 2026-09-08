@@ -6,189 +6,189 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [1.0.9] — 2026-08-08
+## [1.0.9] - 2026-08-08
 
-### Fixed — Dependency security advisories
+### Fixed - Dependency security advisories
 
-- **`undici` pinned to a vulnerable version**: the existing `overrides` entry (`^7.28.0`, added for a prior CVE) sat exactly on the top of a newly disclosed vulnerable range (`7.0.0–7.28.0`, [GHSA-4cwx-7wf7-3272](https://github.com/advisories/GHSA-4cwx-7wf7-3272) and 4 related advisories — cross-user info disclosure, response desync, CRLF injection). Bumped to `^7.29.0` in both `frontend/package.json` and `backend/package.json`.
-- **`postcss` path traversal** ([GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849), high) — arbitrary `.map` file disclosure via `sourceMappingURL`. Transitive via `vite`/`vitest`. Added `overrides` entry `^8.5.23` in both projects.
-- **`nanoid` denial of service** ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv), high) — infinite loop on negative/zero size. Transitive via `postcss`. Added `overrides` entry `^3.3.17` in both projects.
-- **`body-parser` DoS via invalid limit** ([GHSA-v422-hmwv-36x6](https://github.com/advisories/GHSA-v422-hmwv-36x6), low) — invalid `limit` value silently disables size enforcement. Transitive via `express`; upstream `express@4.x` still pins the vulnerable `body-parser@~1.20.5`, so added `overrides` entry `^1.20.6` in `backend/package.json`.
-- `npm audit`: frontend 3 high → 0, backend 1 low + 2 high → 0.
+- **`undici` pinned to a vulnerable version**: the existing `overrides` entry (`^7.28.0`, added for a prior CVE) sat exactly on the top of a newly disclosed vulnerable range (`7.0.0-7.28.0`, [GHSA-4cwx-7wf7-3272](https://github.com/advisories/GHSA-4cwx-7wf7-3272) and 4 related advisories - cross-user info disclosure, response desync, CRLF injection). Bumped to `^7.29.0` in both `frontend/package.json` and `backend/package.json`.
+- **`postcss` path traversal** ([GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849), high) - arbitrary `.map` file disclosure via `sourceMappingURL`. Transitive via `vite`/`vitest`. Added `overrides` entry `^8.5.23` in both projects.
+- **`nanoid` denial of service** ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv), high) - infinite loop on negative/zero size. Transitive via `postcss`. Added `overrides` entry `^3.3.17` in both projects.
+- **`body-parser` DoS via invalid limit** ([GHSA-v422-hmwv-36x6](https://github.com/advisories/GHSA-v422-hmwv-36x6), low) - invalid `limit` value silently disables size enforcement. Transitive via `express`; upstream `express@4.x` still pins the vulnerable `body-parser@~1.20.5`, so added `overrides` entry `^1.20.6` in `backend/package.json`.
+- `npm audit`: frontend 3 high --> 0, backend 1 low + 2 high --> 0.
 
 ---
 
-## [1.0.8] — 2026-06-29
+## [1.0.8] - 2026-06-29
 
-### Fixed — Watchlist rename duplicate + GEX chart font scaling
+### Fixed - Watchlist rename duplicate + GEX chart font scaling
 
 - **Watchlist rename duplicate bug**: Renaming a group while its Supabase INSERT is still in flight (no `id` yet) previously skipped the `UPDATE`, causing the old name to persist in Supabase. On next sign-in the merge logic would INSERT the new name as a separate group, creating a duplicate. Now falls back to `UPDATE WHERE user_id = ? AND name = oldName` when `groupId` is undefined.
-- **GEX Strike Map Y-axis font too large**: The SVG used `viewBox="0 0 800 280"` with `width: 100%`, which caused all font sizes to scale up with the container (e.g. `fontSize={9}` rendered as ~18px at full width). Removed `viewBox`; SVG now uses fixed `width={800}` `height={280}` wrapped in an `overflowX: auto` scroll container — same pattern as the Unusual GEX Level bar chart. Font sizes now render as true CSS pixels.
+- **GEX Strike Map Y-axis font too large**: The SVG used `viewBox="0 0 800 280"` with `width: 100%`, which caused all font sizes to scale up with the container (e.g. `fontSize={9}` rendered as ~18px at full width). Removed `viewBox`; SVG now uses fixed `width={800}` `height={280}` wrapped in an `overflowX: auto` scroll container - same pattern as the Unusual GEX Level bar chart. Font sizes now render as true CSS pixels.
 
 ---
 
-## [1.0.7] — 2026-06-28
+## [1.0.7] - 2026-06-28
 
-### Fixed — Mobile layout + watchlist rename
+### Fixed - Mobile layout + watchlist rename
 
-- **Mobile topnav**: Index pills (SPY/QQQ/IWM), theme toggle, auth button, and spacer are now hidden on screens <=768px via CSS classes. Search + Analyze fill the full topnav width — typed text is now visible.
+- **Mobile topnav**: Index pills (SPY/QQQ/IWM), theme toggle, auth button, and spacer are now hidden on screens <=768px via CSS classes. Search + Analyze fill the full topnav width - typed text is now visible.
 - **Sidebar theme toggle**: Dark/Light toggle added to the sidebar (above user pill), visible on all screen sizes. Moved off topnav on mobile.
-- **Sidebar auth**: Account and Sign out were already in the sidebar user pill — topnav auth now hidden on mobile so users access it from the sidebar (hamburger menu).
-- **Watchlist rename**: Pencil icon on non-Default group rows opens inline rename input. Enter or OK confirms; Escape cancels. `renameGroup` from `useWatchlist` was exported but never wired to the UI — now it is.
+- **Sidebar auth**: Account and Sign out were already in the sidebar user pill - topnav auth now hidden on mobile so users access it from the sidebar (hamburger menu).
+- **Watchlist rename**: Pencil icon on non-Default group rows opens inline rename input. Enter or OK confirms; Escape cancels. `renameGroup` from `useWatchlist` was exported but never wired to the UI - now it is.
 
 ---
 
-## [1.0.6] — 2026-06-28
+## [1.0.6] - 2026-06-28
 
-### Added — Playbook view + GEX Action Cards
+### Added - Playbook view + GEX Action Cards
 
-- **Playbook sidebar view** (`PlaybookView.tsx`) — persistent strategy reference, always accessible from sidebar. Four accordion sections:
-  - *GEX 101*: positive/negative gamma, gamma flip, call/put wall, net GEX — including the key rule that negative GEX below price is an acceleration zone, not support
+- **Playbook sidebar view** (`PlaybookView.tsx`) - persistent strategy reference, always accessible from sidebar. Four accordion sections:
+  - *GEX 101*: positive/negative gamma, gamma flip, call/put wall, net GEX - including the key rule that negative GEX below price is an acceleration zone, not support
   - *Spot Trading with GEX*: 4-step framework (regime check, entry floor, exit ceiling, stop at flip), LONG and SHORT setup rules, intraday vs daily-close clarification
   - *Radon Flow Detection*: full scoring table (CALL/PUT base, sentiment, sweep multiplier, vol/OI ratio, confirms/contradicts, mega premium, gamma pin, negative GEX at strike), direction thresholds, 3-event confluence rule
   - *Combined GEX + Flow*: 6-scenario signal matrix, timing rules, position sizing guideline
 
-- **GEX Action Cards** — trade setup card auto-generated from live GEX data, shown in the GEX panel above the charts:
+- **GEX Action Cards** - trade setup card auto-generated from live GEX data, shown in the GEX panel above the charts:
   - LONG card (positive regime): Entry at nearest positive GEX floor below price, Stop just below gamma flip, Exit at Call Wall or GEX ceiling
   - SHORT card (negative regime): Entry on bounce toward gamma flip re-test, Stop just above flip, Exit (cover) at Put Wall or GEX floor
   - `safeRange()` guard prevents degenerate low >= high ranges
   - Danger note warns when negative GEX sits below current price (amplification zone, not support)
 
-- **GEX Timeline dot tooltips** — context-aware hover text per dot:
+- **GEX Timeline dot tooltips** - context-aware hover text per dot:
   - Green above price: resistance / profit-taking zone
   - Green below price: entry floor (dealers buy dips here)
   - Red above price: acceleration zone above (not resistance)
-  - Red below price: NOT support — dealers amplify declines
+  - Red below price: NOT support - dealers amplify declines
 
 ---
 
-## [1.0.5] — 2026-06-28
+## [1.0.5] - 2026-06-28
 
-### Fixed — GEX bar chart font scaling + test coverage
+### Fixed - GEX bar chart font scaling + test coverage
 
-- **SVG fixed-width rendering**: `GexChart` now uses `width={680}` (fixed px) instead of `width="100%" viewBox="0 0 560 H"`. The viewBox scaling was multiplying every font size by ~1.6× (560px viewBox in a ~900px container), making `fontSize={9}` appear as ~14px visually — much larger than the 11px CSS text in the rest of the UI. Fixed sizes are now 1:1 CSS pixels: 11px strike labels, 10px bar values, matching the surrounding UI labels.
-- **48 new unit tests** (134 → 182 total):
-  - `flowScoring.test.ts` (24 tests) — `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, ±2 boundary); `summarizeFlow`: direction counts, totals, average conviction, market bias edge cases
-  - `gexParsing.test.ts` (24 tests) — `parseGexRawResponse`: Signa camelCase vs snake_case field name fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` fallback sum, zero-strike skip, symbol normalisation
+- **SVG fixed-width rendering**: `GexChart` now uses `width={680}` (fixed px) instead of `width="100%" viewBox="0 0 560 H"`. The viewBox scaling was multiplying every font size by ~1.6x (560px viewBox in a ~900px container), making `fontSize={9}` appear as ~14px visually - much larger than the 11px CSS text in the rest of the UI. Fixed sizes are now 1:1 CSS pixels: 11px strike labels, 10px bar values, matching the surrounding UI labels.
+- **48 new unit tests** (134 --> 182 total):
+  - `flowScoring.test.ts` (24 tests) - `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, +/-2 boundary); `summarizeFlow`: direction counts, totals, average conviction, market bias edge cases
+  - `gexParsing.test.ts` (24 tests) - `parseGexRawResponse`: Signa camelCase vs snake_case field name fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` fallback sum, zero-strike skip, symbol normalisation
 - **Refactor**: extracted `parseGexRawResponse()` as a named exported pure function from `getGexMcp()` so the Signa field-name parsing is unit-testable without mocking the MCP network layer
 
 ---
 
-## [1.0.4] — 2026-06-28
+## [1.0.4] - 2026-06-28
 
-### Improved — GEX panel polish
+### Improved - GEX panel polish
 
-- **Unusual threshold raised 5% → 15%**: bar chart now shows only structurally significant levels (those large enough to carry a dollar label); tiny noise bars are hidden in Unusual mode
-- **Bar chart font**: strike labels and GEX values switched to JetBrains Mono at smaller sizes (9px strikes, 8px values) — consistent with the rest of the UI's tabular number style
+- **Unusual threshold raised 5% --> 15%**: bar chart now shows only structurally significant levels (those large enough to carry a dollar label); tiny noise bars are hidden in Unusual mode
+- **Bar chart font**: strike labels and GEX values switched to JetBrains Mono at smaller sizes (9px strikes, 8px values) - consistent with the rest of the UI's tabular number style
 - **"How to read" repositioned**: now sits directly above the diverging bar chart (was above the timeline chart), where it is contextually relevant; updated text clarifies the 15% unusual threshold
-- **Net GEX explanation note**: added a regime-style contextual note below the regime note — positive net GEX = dealers collectively long gamma (dampening), negative = net short (amplifying)
+- **Net GEX explanation note**: added a regime-style contextual note below the regime note - positive net GEX = dealers collectively long gamma (dampening), negative = net short (amplifying)
 
 ---
 
-## [1.0.3] — 2026-06-28
+## [1.0.3] - 2026-06-28
 
-### Added — Per-ticker GEX tab
+### Added - Per-ticker GEX tab
 
 - New **GEX** tab in the stock panel (between Options and Moat) for any analyzed ticker
-- `GET /api/gex/:ticker` backend route — calls Signa `get_gex` + Yahoo Finance price in parallel
+- `GET /api/gex/:ticker` backend route - calls Signa `get_gex` + Yahoo Finance price in parallel
 - Supabase persistence: snapshots saved to `signal.gex_snapshots` (ticker as PK); served as fallback when Signa returns nothing, with live price always refreshed from Yahoo
 - `getGexMcp` now aggregates `netGexByStrike` entries by strike across all expirations, so each level reflects total dealer gamma at that strike; per-expiry data preserved in `rawLevels[]` for the timeline chart
-- **GEX Strike Map by Expiry** (`GexTimelineChart`): same SVG design as FlowTimelineChart — X = expiry date, Y = strike, one green dot (dominant positive GEX) + one red dot (dominant negative GEX) per expiry; dots sized by |netGex| magnitude; dashed lines connect levels across expiries; call/put wall reference lines
+- **GEX Strike Map by Expiry** (`GexTimelineChart`): same SVG design as FlowTimelineChart - X = expiry date, Y = strike, one green dot (dominant positive GEX) + one red dot (dominant negative GEX) per expiry; dots sized by |netGex| magnitude; dashed lines connect levels across expiries; call/put wall reference lines
 - **Key Level History** (`GexHistoryChart`): SVG line chart showing how Call Wall, Gamma Flip, and Put Wall drift over time from Supabase `signal.gex_history`; hover crosshair with per-snapshot tooltip; visible once 2+ snapshots exist
 - `signal.gex_history` table receives a new row on every fresh Signa response; history returned alongside snapshot data for both live and cached GEX
 - **Diverging bar chart**: strikes on Y-axis, GEX magnitude on X-axis; green = positive (dealer long gamma, dampening), red = negative (dealer short gamma, amplifying)
-- **Unusual filter** (default ON): proximity gate ±20% of current price + size gate |netGex| > 5% of max — shows only structurally significant levels
+- **Unusual filter** (default ON): proximity gate +/-20% of current price + size gate |netGex| > 5% of max - shows only structurally significant levels
 - Badges for CALL WALL / PUT WALL / FLIP on key strikes; dashed current price line
 - "All" toggle to show every strike in range
 - Cache notice when serving stored snapshot
 
 ---
 
-## [1.0.2] — 2026-06-28
+## [1.0.2] - 2026-06-28
 
-### Added — Flow event persistence (Supabase backfill)
+### Added - Flow event persistence (Supabase backfill)
 
 - Curated options flow events are now upserted to `signal.flow_events` in Supabase on every Signa response (dedup by `event_id`)
 - `/api/unusual-flow` fetches live Signa data **and** up to 100 historical events from the last 90 days in parallel, merging them into a single deduped response
-- When Signa has no live flow for a ticker, the chart still renders from stored history — the UI shows a "🕐 Showing N stored events" notice
+- When Signa has no live flow for a ticker, the chart still renders from stored history - the UI shows a "🕐 Showing N stored events" notice
 - `UnusualFlowResponse` type extended with `fromCache` and `historicalCount` fields
 - Requires `signal.flow_events` table in Supabase coredb and `SUPABASE_SERVICE_ROLE_KEY` in backend env
 
 ---
 
-## [1.0.1] — 2026-06-28
+## [1.0.1] - 2026-06-28
 
-### Improved — Dark Pool view enhancements
+### Improved - Dark Pool view enhancements
 
-- **Ticker filter** — text input filters table rows to a single symbol; quick-select chips for top-10 tickers when filter is empty; clear button when active
-- **Column tooltips** — every column header has a `?` badge with a hover explanation; Direction tooltip explicitly notes dark pool prints are equity block trades with no CALL/PUT or strike price
-- **Options flow chart** — when a ticker filter is active, curated options flow for that ticker is fetched and rendered below the table using `FlowTimelineChart` (same chart as the Options tab), with a "Full analysis →" button to open the Dashboard
+- **Ticker filter** - text input filters table rows to a single symbol; quick-select chips for top-10 tickers when filter is empty; clear button when active
+- **Column tooltips** - every column header has a `?` badge with a hover explanation; Direction tooltip explicitly notes dark pool prints are equity block trades with no CALL/PUT or strike price
+- **Options flow chart** - when a ticker filter is active, curated options flow for that ticker is fetched and rendered below the table using `FlowTimelineChart` (same chart as the Options tab), with a "Full analysis -->" button to open the Dashboard
 
 ---
 
-## [1.0.0] — 2026-06-28
+## [1.0.0] - 2026-06-28
 
-### Added — Options Intelligence views (four new sidebar sections)
+### Added - Options Intelligence views (four new sidebar sections)
 
 **Options Flow** (`/options-flow`)
 - Market-wide unusual options flow via Unusual Whales, no ticker required
-- Table: CALL/PUT type badge, clickable ticker, strike × expiry, DTE, premium, volume, vol/OI ratio, sweep ⚡ flag, alert pattern, time ago
+- Table: CALL/PUT type badge, clickable ticker, strike x expiry, DTE, premium, volume, vol/OI ratio, sweep ⚡ flag, alert pattern, time ago
 - Filter tabs: All / CALL / PUT / Sweep only
 - Auto-refreshes every 90 seconds; color-coded green/red by type
-- Click any ticker → loads full stock analysis in Dashboard
+- Click any ticker --> loads full stock analysis in Dashboard
 
 **Dark Pool** (`/dark-pool`)
 - Real-time off-exchange institutional block prints, Radon-scored by NBBO positioning:
-  - Price at/near ask → BULLISH (+2); at/near bid → BEARISH (−2); above/below mid → ±1
+  - Price at/near ask --> BULLISH (+2); at/near bid --> BEARISH (-2); above/below mid --> +/-1
   - Premium size bonus: >$1M = +2, >$500K = +1
   - Block size bonus: >10K shares = +1
 - Summary strip: total premium, bullish/bearish print counts, largest print
-- Table sorted by highest |score| × premium; direction badge + score, NBBO position label
-- Click any ticker → loads Dashboard
+- Table sorted by highest |score| x premium; direction badge + score, NBBO position label
+- Click any ticker --> loads Dashboard
 
 **Gamma / GEX** (`/gamma`)
 - GEX cards for SPY, QQQ, IWM pulled in parallel via Signa MCP
 - Each card: current price, regime pill (ABOVE FLIP = damping, BELOW FLIP = amplifying), call wall, gamma flip level, put wall, net GEX
 - Visual horizontal scale showing current price (indigo) vs call wall (green), gamma flip (amber), put wall (red)
 - Plain-English regime explanation per card
-- Click ticker → Dashboard
+- Click ticker --> Dashboard
 
 **Market Scanner** (`/market-scan`)
 - Ranked setups from Signa.ai 30-model consensus (`scan_symbols` MCP tool)
 - Filter: All / BULLISH / BEARISH
 - Each row: rank, ticker (clickable), direction badge, signal label, grade, score bar/value, confidence %
 - Click to expand: full list of signals/reasons that fired for that ticker
-- Click ticker → Dashboard
+- Click ticker --> Dashboard
 
 **Backend**
 - New route file `backend/src/routes/intelligence.ts` with 4 endpoints:
-  - `GET /api/options-flow` — market-wide flow, 2 min cache
-  - `GET /api/dark-pool` — Radon-scored dark pool prints, 2 min cache
-  - `GET /api/gamma-gex` — GEX for SPY/QQQ/IWM, 15 min cache
-  - `GET /api/market-scan` — scanner results, 5 min cache
-- `callMcpTool<T>()` private helper added to `signaClient.ts` — reusable MCP SSE call wrapper
+  - `GET /api/options-flow` - market-wide flow, 2 min cache
+  - `GET /api/dark-pool` - Radon-scored dark pool prints, 2 min cache
+  - `GET /api/gamma-gex` - GEX for SPY/QQQ/IWM, 15 min cache
+  - `GET /api/market-scan` - scanner results, 5 min cache
+- `callMcpTool<T>()` private helper added to `signaClient.ts` - reusable MCP SSE call wrapper
 - New exported functions: `getMarketOptionsFlow`, `getMarketDarkPool` (with `scoreDpPrint`), `getMarketScan`, `getGexMcp`
 - Sidebar `View` type extended with `'market-scan'`; all three SOON items unlocked
 
 ---
 
-## [0.9.4] — 2026-06-27
+## [0.9.4] - 2026-06-27
 
-### Fixed — Flow Target Map missing dashed line connections
+### Fixed - Flow Target Map missing dashed line connections
 
 - Replaced separate CALL-chain / PUT-chain / fork-line rules with a unified matrix approach that handles all consecutive-date combinations:
-  - **1 source → N destinations**: single dot connects to all dots at the next date (fork when both directions appear)
-  - **2 sources → 1 destination**: both CALL and PUT dots each draw a line to the single next dot (merge)
-  - **2 sources → 2 destinations**: same-direction pairs (CALL→CALL, PUT→PUT) — no crossing lines
+  - **1 source --> N destinations**: single dot connects to all dots at the next date (fork when both directions appear)
+  - **2 sources --> 1 destination**: both CALL and PUT dots each draw a line to the single next dot (merge)
+  - **2 sources --> 2 destinations**: same-direction pairs (CALL-->CALL, PUT-->PUT) - no crossing lines
 - Fixes missing red dashed lines between consecutive PUT dates when the preceding date also had a CALL (the merge case was previously unhandled, leaving intermediate PUT dots disconnected)
 
 ---
 
-## [0.9.3] — 2026-06-27
+## [0.9.3] - 2026-06-27
 
-### Fixed — Flow Target Map chart logic
+### Fixed - Flow Target Map chart logic
 
-- **Date deduplication:** events are now grouped by expiry date; only the best CALL (highest `flow_score`) and best PUT (most-negative `flow_score`) survive per date — at most 2 dots per expiry
+- **Date deduplication:** events are now grouped by expiry date; only the best CALL (highest `flow_score`) and best PUT (most-negative `flow_score`) survive per date - at most 2 dots per expiry
 - **Date-to-date lines:** removed vertical lollipop sticks from the current-price line; dashed lines now connect consecutive expiry-date dots chronologically
   - Green dashed chain links all CALL dots in date order
   - Red dashed chain links all PUT dots in date order
@@ -196,42 +196,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [0.9.2] — 2026-06-27
+## [0.9.2] - 2026-06-27
 
-### Changed — Flow Target Map chart + Options tab cleanup
+### Changed - Flow Target Map chart + Options tab cleanup
 
 **Flow Target Map** (new chart at the top of the Options tab):
-- Pure SVG scatter chart: X-axis = expiry date (today → max(3 months, last event expiry + 2 weeks)), Y-axis = strike price
+- Pure SVG scatter chart: X-axis = expiry date (today --> max(3 months, last event expiry + 2 weeks)), Y-axis = strike price
 - Each event rendered as a dot positioned at its (expiry, strike) coordinate
 - Dashed lollipop stick connects the current-price reference line to each dot, making the distance to target visually clear
-- Dot size = Radon signal strength (`5 + |score| × 1.5`, max 20px) — bigger dot = stronger directional evidence
-- Dot color = option type: CALL → green, PUT → red (regardless of position relative to current price)
-- `±X.X%` label on each dot showing distance from current stock price
+- Dot size = Radon signal strength (`5 + |score| x 1.5`, max 20px) - bigger dot = stronger directional evidence
+- Dot color = option type: CALL --> green, PUT --> red (regardless of position relative to current price)
+- `+/-X.X%` label on each dot showing distance from current stock price
 - Hover tooltip: type, direction, strike, expiry, DTE, **Radon score / 10**, conviction, premium, rationale
 - Horizontal events at the same expiry date are spread out horizontally with a 20px offset to avoid overlap
 - X-axis shows monthly gridlines; Y-axis uses nice rounded price intervals
 
 **Options tab cleanup:**
-- Removed `OptionsPanel` (OPTIONS INTELLIGENCE) — no Signa options data available yet; can be re-added when the API provides it
+- Removed `OptionsPanel` (OPTIONS INTELLIGENCE) - no Signa options data available yet; can be re-added when the API provides it
 - `UnusualFlowSection` is now the sole content of the Options tab card; leading `borderTop` separator removed
 
-**Tab order:** Signal → Technical → Options → **Moat** → **Fundamentals** (Moat and Fundamentals swapped)
+**Tab order:** Signal --> Technical --> Options --> **Moat** --> **Fundamentals** (Moat and Fundamentals swapped)
 
 ---
 
-## [0.9.1] — 2026-06-27
+## [0.9.1] - 2026-06-27
 
-### Changed — Unusual Flow UX improvements
+### Changed - Unusual Flow UX improvements
 
 - **Sorting fixed:** events now sort by `flow_score` desc (our Radon-adapted direction score), with `premium_size` as tiebreaker. Previously sorted by Signa's `conviction_score`, which didn't reflect stacked directional evidence.
 - **Dynamic top-N:** shows up to 5 highest-scoring events by default. If more than 5 exist, a "Show all N flows" toggle reveals the rest and collapses back to top 5. Resets to collapsed on each ticker load or refresh.
-- **Field tooltips:** every data point now has a `?` icon that shows a plain-English explanation on hover — CALL/PUT, direction, strike, expiry, DTE, SWEEP/MEGA/GEX PIN tags, conv, score (including the −10 to +10 range and how each factor contributes), Premium, Vol/OI, IV, and "confirms signal".
+- **Field tooltips:** every data point now has a `?` icon that shows a plain-English explanation on hover - CALL/PUT, direction, strike, expiry, DTE, SWEEP/MEGA/GEX PIN tags, conv, score (including the -10 to +10 range and how each factor contributes), Premium, Vol/OI, IV, and "confirms signal".
 
 ---
 
-## [0.9.0] — 2026-06-27
+## [0.9.0] - 2026-06-27
 
-### Added — Unusual Flow Analyzer (Options tab)
+### Added - Unusual Flow Analyzer (Options tab)
 
 AI-curated high-conviction options flow is now surfaced in the **Options tab** of the selected stock, below the existing OptionsPanel. Data comes from Signa.ai's `get_curated_flow` tool (via MCP Streamable HTTP), scored with a Radon-inspired confluence algorithm.
 
@@ -239,16 +239,16 @@ AI-curated high-conviction options flow is now surfaced in the **Options tab** o
 
 | File | What it does |
 | --- | --- |
-| `backend/src/services/flowScoring.ts` (new) | Direction scoring algorithm: CALL/PUT base ±2, sentiment ±1, sweep urgency ×1.5, vol/OI new-position check, signal confirmation ±2, mega premium ±1, GEX amplification ±0.5; outputs `BULLISH` / `BEARISH` / `NEUTRAL` |
-| `backend/src/lib/signaClient.ts` (modified) | Added `getCuratedFlow(symbol, opts)` — calls Signa via **MCP Streamable HTTP** (POST JSON-RPC to `/api/mcp/sse`, parses SSE `data:` line); 5 min cache |
-| `backend/src/routes/unusualFlow.ts` (new) | `GET /api/unusual-flow?ticker=AAPL` — fetches curated events, scores each, returns `{ events: ScoredFlowEvent[], summary: FlowSummary }` |
+| `backend/src/services/flowScoring.ts` (new) | Direction scoring algorithm: CALL/PUT base +/-2, sentiment +/-1, sweep urgency x1.5, vol/OI new-position check, signal confirmation +/-2, mega premium +/-1, GEX amplification +/-0.5; outputs `BULLISH` / `BEARISH` / `NEUTRAL` |
+| `backend/src/lib/signaClient.ts` (modified) | Added `getCuratedFlow(symbol, opts)` - calls Signa via **MCP Streamable HTTP** (POST JSON-RPC to `/api/mcp/sse`, parses SSE `data:` line); 5 min cache |
+| `backend/src/routes/unusualFlow.ts` (new) | `GET /api/unusual-flow?ticker=AAPL` - fetches curated events, scores each, returns `{ events: ScoredFlowEvent[], summary: FlowSummary }` |
 
 **Frontend**
 
 | File | What it does |
 | --- | --- |
-| `frontend/src/components/UnusualFlowSection.tsx` (new) | Header with market bias pill + total premium + bull/bear count; event rows (type badge, direction, strike·expiry, DTE, SWEEP/MEGA/GEX PIN tags, conviction score, premium, vol/OI, IV, rationale); backtest strip (approx. win rate for past-expiry events) |
-| `frontend/src/components/FlowDirectionChart.tsx` (new) | Mini inline SVG arrow card (current→strike direction); click to expand Recharts `ComposedChart` with projected linear price path, strike and expiry reference lines |
+| `frontend/src/components/UnusualFlowSection.tsx` (new) | Header with market bias pill + total premium + bull/bear count; event rows (type badge, direction, strike-expiry, DTE, SWEEP/MEGA/GEX PIN tags, conviction score, premium, vol/OI, IV, rationale); backtest strip (approx. win rate for past-expiry events) |
+| `frontend/src/components/FlowDirectionChart.tsx` (new) | Mini inline SVG arrow card (current-->strike direction); click to expand Recharts `ComposedChart` with projected linear price path, strike and expiry reference lines |
 | `frontend/src/types/stock.ts` (modified) | Added `FlowDirection`, `CuratedFlowEventInner`, `ScoredFlowEvent`, `UnusualFlowSummary`, `UnusualFlowResponse` |
 | `frontend/src/lib/api.ts` (modified) | Added `fetchUnusualFlow(ticker)` |
 | `frontend/src/App.tsx` (modified) | Options tab now renders `<UnusualFlowSection ticker={activeTicker} />` below `<OptionsPanel />` |
@@ -257,18 +257,18 @@ AI-curated high-conviction options flow is now surfaced in the **Options tab** o
 
 ```
 score = 0
-CALL → +2 | PUT → -2
-BULLISH sentiment → +1 | BEARISH → -1
-is_sweep → score × 1.5
-volume_oi_ratio > 5 → ±1 (new position)
-confirms_signal → +2 | contradicts_signal → -2
-tag_mega_premium → ±1
-near_gamma_pin → ±1
-gex_at_strike < 0 → ±0.5 (dealers short gamma)
-→ BULLISH if ≥ 2 | BEARISH if ≤ -2 | NEUTRAL otherwise
+CALL --> +2 | PUT --> -2
+BULLISH sentiment --> +1 | BEARISH --> -1
+is_sweep --> score x 1.5
+volume_oi_ratio > 5 --> +/-1 (new position)
+confirms_signal --> +2 | contradicts_signal --> -2
+tag_mega_premium --> +/-1
+near_gamma_pin --> +/-1
+gex_at_strike < 0 --> +/-0.5 (dealers short gamma)
+--> BULLISH if >= 2 | BEARISH if <= -2 | NEUTRAL otherwise
 ```
 
-**Supabase DDL (optional — run once in coredb to enable outcome logging):**
+**Supabase DDL (optional - run once in coredb to enable outcome logging):**
 
 ```sql
 create table signal.flow_events (
@@ -292,9 +292,9 @@ Add `SUPABASE_SERVICE_ROLE_KEY` to `backend/.env` to enable backend upserts.
 
 ---
 
-## [0.8.2] — 2026-06-27
+## [0.8.2] - 2026-06-27
 
-### Changed — Dedicated Market Analysis and Sectors views
+### Changed - Dedicated Market Analysis and Sectors views
 
 `TerminalAnalysis` (Signa.ai market analysis) and `SectorHeatmap` (sector performance) are no longer pinned below every stock tab. They now live in their own sidebar nav items:
 
@@ -310,9 +310,9 @@ Add `SUPABASE_SERVICE_ROLE_KEY` to `backend/.env` to enable backend upserts.
 
 ---
 
-## [0.8.1] — 2026-06-27
+## [0.8.1] - 2026-06-27
 
-### Changed — Tabbed stock view + JetBrains Mono numerics
+### Changed - Tabbed stock view + JetBrains Mono numerics
 
 Stock data is now organized into five tabs instead of a single long scroll. The tab bar lives inside the stock header card and resets to Signal whenever a new ticker is loaded.
 
@@ -327,23 +327,23 @@ Stock data is now organized into five tabs instead of a single long scroll. The 
 - `StockPanel` gains `activeTab: StockTab` and `onTabChange` props; exports `StockTab` type
 - `App.tsx` manages `activeTab` state; resets to `'signal'` via `useEffect` on ticker change
 - `Options`, `Fundamentals`, `Moat` panels rendered by `App.tsx` below the stock header for their respective tabs
-- **Numeric font:** `.tnum` class now sets `font-family: "JetBrains Mono"` — prices, percentages, and all tabular data render in monospace
-- Fixed hardcoded `'Inter, system-ui'` in analysis `<pre>` element → `inherit`
+- **Numeric font:** `.tnum` class now sets `font-family: "JetBrains Mono"` - prices, percentages, and all tabular data render in monospace
+- Fixed hardcoded `'Inter, system-ui'` in analysis `<pre>` element --> `inherit`
 - Section labels (`MOVING AVERAGES`, `FIBONACCI LEVELS`, `TECHNICALS`) bumped to `font-weight: 600`
 
 ---
 
-## [0.8.0] — 2026-06-27
+## [0.8.0] - 2026-06-27
 
-### Changed — Folio-style sidebar layout + font refresh + MoatPanel
+### Changed - Folio-style sidebar layout + font refresh + MoatPanel
 
 #### Layout redesign
 
 Replaced the top-header layout with a folio-app-style flexbox shell: sticky 220px sidebar + `flex:1` main content area. Mobile: sidebar is `position: fixed` and slides in via `.mobile-open` class toggled by a hamburger button in the topnav.
 
-- **`Sidebar`** (`components/layout/Sidebar.tsx`) — left sidebar with nav items (Dashboard + SOON placeholders for Options Flow, Gamma/GEX, Dark Pool, Sector Map), watchlist group tabs + ticker list, new-group input, user pill with sign in/out
-- **`Topnav`** (`components/layout/Topnav.tsx`) — sticky topnav with hamburger (mobile), ticker search input, Analyze button, SPY/QQQ/IWM/DIA index pills, theme toggle, auth button
-- `StockSearch` component removed from layout — search moved to Topnav, watchlist management to Sidebar
+- **`Sidebar`** (`components/layout/Sidebar.tsx`) - left sidebar with nav items (Dashboard + SOON placeholders for Options Flow, Gamma/GEX, Dark Pool, Sector Map), watchlist group tabs + ticker list, new-group input, user pill with sign in/out
+- **`Topnav`** (`components/layout/Topnav.tsx`) - sticky topnav with hamburger (mobile), ticker search input, Analyze button, SPY/QQQ/IWM/DIA index pills, theme toggle, auth button
+- `StockSearch` component removed from layout - search moved to Topnav, watchlist management to Sidebar
 - Dark mode is now the default on first visit (`useTheme`, `index.html` inline script)
 - CSS layout classes in `index.css`: `.app-shell`, `.app-sidebar`, `.app-main`, `.app-topnav`, `.app-content`, `.sidebar-overlay`
 
@@ -351,38 +351,38 @@ Replaced the top-header layout with a folio-app-style flexbox shell: sticky 220p
 
 New `MoatPanel` component and `useMoatData` hook integrate moat-finder peer valuation data for the active stock:
 
-- **`useMoatData(ticker)`** — queries Supabase coredb `moat` schema directly from the browser via `Accept-Profile: moat` REST header; returns `null` when ticker not found (no research trigger)
-- **`MoatPanel`** — Recharts `BarChart` for P/S ratio peer comparison, peer comparison table (P/S, EV/EBITDA, gross margin, YoY growth), bear/base/bull scenario cards; empty state when ticker is not in moat-finder
-- **`backend/src/routes/moat.ts`** — `GET /api/moat/:ticker` backend proxy to Supabase moat schema (returns 503 if unconfigured, 404 if ticker not found)
+- **`useMoatData(ticker)`** - queries Supabase coredb `moat` schema directly from the browser via `Accept-Profile: moat` REST header; returns `null` when ticker not found (no research trigger)
+- **`MoatPanel`** - Recharts `BarChart` for P/S ratio peer comparison, peer comparison table (P/S, EV/EBITDA, gross margin, YoY growth), bear/base/bull scenario cards; empty state when ticker is not in moat-finder
+- **`backend/src/routes/moat.ts`** - `GET /api/moat/:ticker` backend proxy to Supabase moat schema (returns 503 if unconfigured, 404 if ticker not found)
 - `recharts` added as frontend dependency
 
-**Deployment requirement:** Add `moat` to Supabase Dashboard → Settings → API → Exposed schemas for `useMoatData` to work.
+**Deployment requirement:** Add `moat` to Supabase Dashboard --> Settings --> API --> Exposed schemas for `useMoatData` to work.
 
 #### Font refresh
 
-- UI font changed from **Inter** to **Plus Jakarta Sans** (weights 200–800 + italics)
+- UI font changed from **Inter** to **Plus Jakarta Sans** (weights 200-800 + italics)
 - Mono/numeric font changed from Inter to **JetBrains Mono** (weights 400, 500)
-- Sidebar nav items: 15px, `border-radius: 12px`, `font-weight: 600` active / `500` inactive — matches folio-app
+- Sidebar nav items: 15px, `border-radius: 12px`, `font-weight: 600` active / `500` inactive - matches folio-app
 - Sidebar section labels: `font-weight: 600`, wider tracking
-- Added custom 6px scrollbar (themed to `--c-border`), `h1–h6` defaults, form element font inheritance, link defaults
+- Added custom 6px scrollbar (themed to `--c-border`), `h1-h6` defaults, form element font inheritance, link defaults
 
 ---
 
-## [0.7.3] — 2026-05-28
+## [0.7.3] - 2026-05-28
 
-### Fixed — RLS infinite recursion in `signal.is_admin()`
+### Fixed - RLS infinite recursion in `signal.is_admin()`
 
-**Root cause:** `signal.is_admin()` queried `signal.user_profiles` to check admin status. The RLS SELECT policy on `signal.user_profiles` called `signal.is_admin()`, which triggered the policy again — infinite recursion (PostgreSQL error `42P17`). Every authenticated profile fetch returned HTTP 500, leaving the app in permanent "Access Pending" state.
+**Root cause:** `signal.is_admin()` queried `signal.user_profiles` to check admin status. The RLS SELECT policy on `signal.user_profiles` called `signal.is_admin()`, which triggered the policy again - infinite recursion (PostgreSQL error `42P17`). Every authenticated profile fetch returned HTTP 500, leaving the app in permanent "Access Pending" state.
 
-**Fix:** `signal.is_admin()` now reads the `is_admin` flag directly from the JWT `app_metadata` claim (`auth.jwt() -> 'app_metadata' ->> 'is_admin'`) — no table query, no recursion. Requires `raw_app_meta_data` to include `{"is_admin": true}` for admin users (set via SQL on `auth.users`), and a sign-out/sign-in to refresh the JWT with the updated claim.
+**Fix:** `signal.is_admin()` now reads the `is_admin` flag directly from the JWT `app_metadata` claim (`auth.jwt() -> 'app_metadata' ->> 'is_admin'`) - no table query, no recursion. Requires `raw_app_meta_data` to include `{"is_admin": true}` for admin users (set via SQL on `auth.users`), and a sign-out/sign-in to refresh the JWT with the updated claim.
 
 Changed files: `README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
 ---
 
-## [0.7.2] — 2026-05-28
+## [0.7.2] - 2026-05-28
 
-### Changed — Per-app PostgreSQL schema isolation in coredb
+### Changed - Per-app PostgreSQL schema isolation in coredb
 
 Each loopnestdev app now uses its own PostgreSQL schema within the shared coredb Supabase project, preventing table name collisions as more apps are onboarded:
 
@@ -394,45 +394,45 @@ Each loopnestdev app now uses its own PostgreSQL schema within the shared coredb
 
 #### Changes
 
-- **`frontend/src/lib/supabase.ts`** — `Database` type key changed from `public` to `signal`; `createClient` now passes `{ db: { schema: 'signal' } }` so all PostgREST queries target `signal.*` tables. Client type updated to `SupabaseClient<Database, 'signal'>`.
-- **README.md** — DDL rewritten: new Step 2 documents exposing the `signal` schema via Supabase Dashboard → Settings → API → Exposed schemas (required for PostgREST to route queries correctly); Step 3 DDL creates `signal` schema, grants privileges, and places all tables/functions/trigger in the `signal` schema.
-- **CLAUDE.md** — Supabase schema section updated to document `signal` schema, per-app isolation architecture, and the Exposed schemas requirement.
+- **`frontend/src/lib/supabase.ts`** - `Database` type key changed from `public` to `signal`; `createClient` now passes `{ db: { schema: 'signal' } }` so all PostgREST queries target `signal.*` tables. Client type updated to `SupabaseClient<Database, 'signal'>`.
+- **README.md** - DDL rewritten: new Step 2 documents exposing the `signal` schema via Supabase Dashboard --> Settings --> API --> Exposed schemas (required for PostgREST to route queries correctly); Step 3 DDL creates `signal` schema, grants privileges, and places all tables/functions/trigger in the `signal` schema.
+- **CLAUDE.md** - Supabase schema section updated to document `signal` schema, per-app isolation architecture, and the Exposed schemas requirement.
 
 #### SQL commands required in coredb (if not yet applied)
 
-1. Supabase Dashboard → Settings → API → Exposed schemas — add `signal`
-2. Run the full DDL from README → Deployment → Supabase → Step 3
+1. Supabase Dashboard --> Settings --> API --> Exposed schemas - add `signal`
+2. Run the full DDL from README --> Deployment --> Supabase --> Step 3
 
 Changed files: `frontend/src/lib/supabase.ts`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
 ---
 
-## [0.7.1] — 2026-05-28
+## [0.7.1] - 2026-05-28
 
-### Changed — Centralised Supabase migration to coredb
+### Changed - Centralised Supabase migration to coredb
 
 Migrated from the standalone `signal-dashboard` Supabase project to the shared **coredb** Supabase project used across all loopnestdev applications (signal-dashboard, moat-finder, folio-app).
 
-#### Root cause — watchlist never synced to Supabase
+#### Root cause - watchlist never synced to Supabase
 
-The SQL schema (`watchlists` and `user_profiles` tables) was never applied to coredb. Without these tables, every Supabase query returns a 404 and the app silently falls back to `localStorage`-only mode — watchlist mutations never persisted to the database. The old `signal-dashboard` Supabase project tables were always empty for the same reason.
+The SQL schema (`watchlists` and `user_profiles` tables) was never applied to coredb. Without these tables, every Supabase query returns a 404 and the app silently falls back to `localStorage`-only mode - watchlist mutations never persisted to the database. The old `signal-dashboard` Supabase project tables were always empty for the same reason.
 
 #### Fix
 
 - **`frontend/.env`** updated: `VITE_SUPABASE_URL` now points to coredb (`https://lcqsatefkutiakhgexue.supabase.co`); `VITE_SUPABASE_ANON_KEY` set to coredb anon key.
-- **Cloudflare Pages** must have `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_REDIRECT_URL=https://signal.ailab.build` set (trigger a new deployment after — `VITE_*` vars are baked in at build time).
-- **No data migration** — coredb tables were empty; DDL schema must be applied (see README → Deployment → Supabase).
-- **No code changes** — `supabase.ts` already reads credentials from env vars; migration is configuration only.
+- **Cloudflare Pages** must have `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_REDIRECT_URL=https://signal.ailab.build` set (trigger a new deployment after - `VITE_*` vars are baked in at build time).
+- **No data migration** - coredb tables were empty; DDL schema must be applied (see README --> Deployment --> Supabase).
+- **No code changes** - `supabase.ts` already reads credentials from env vars; migration is configuration only.
 
 Changed files: `frontend/.env`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
 ---
 
-## [0.7.0] — 2026-05-22
+## [0.7.0] - 2026-05-22
 
-### Fixed — Cross-device watchlist sync + mobile layout
+### Fixed - Cross-device watchlist sync + mobile layout
 
-#### Fixed — Watchlist not syncing between devices
+#### Fixed - Watchlist not syncing between devices
 
 **Root cause:** The sign-in effect in `useWatchlist.ts` only updated state with Supabase groups *after* a recovery INSERT completed. When Device A had Supabase data and Device B had locally-only groups, Device B waited for the INSERT to finish before displaying Device A's groups. If the INSERT failed silently, Device B never showed Device A's groups at all.
 
@@ -440,28 +440,28 @@ Changed files: `frontend/.env`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`
 
 Additional improvements:
 - `console.warn` added for SELECT, migration INSERT, and recovery INSERT errors (silent failures now surface in devtools)
-- `activeGroup` is now validated after Supabase load — if the current active group no longer exists in the merged set, falls back to the first group
+- `activeGroup` is now validated after Supabase load - if the current active group no longer exists in the merged set, falls back to the first group
 - Recovery INSERT failure no longer hides locally-created groups: they stay visible in the UI without a UUID (subsequent mutations will try again)
 
 Changed files: `frontend/src/hooks/useWatchlist.ts`
 
-#### Fixed — Sector Performance overflow on mobile
+#### Fixed - Sector Performance overflow on mobile
 
-**Root cause:** The `SectorRow` grid (`60px 1fr 1fr 72px 52px 32px`) has 216px of fixed columns. On a 390px screen with the card's 48px horizontal padding, only ~27px per `1fr` column remained — far too narrow for sector names and the heat bar.
+**Root cause:** The `SectorRow` grid (`60px 1fr 1fr 72px 52px 32px`) has 216px of fixed columns. On a 390px screen with the card's 48px horizontal padding, only ~27px per `1fr` column remained - far too narrow for sector names and the heat bar.
 
 **Fix:** Wrapped the sector rows list in an `overflowX: 'auto'` scroll container with `minWidth: 480` on the inner flex column. On screens wider than ~530px the list is unchanged; on narrow screens it scrolls horizontally.
 
 Changed files: `frontend/src/components/SectorHeatmap.tsx`
 
-#### Fixed — Fibonacci levels cut off on mobile
+#### Fixed - Fibonacci levels cut off on mobile
 
-**Root cause:** The Fibonacci section used a `gridTemplateColumns: '1fr 1fr'` outer grid. Each column was ~163px on a 390px screen. The `FibRow` inner grid (`110px 85px 1fr`) needed 195px of fixed width — it overflowed each 163px column, clipping the support/resistance label.
+**Root cause:** The Fibonacci section used a `gridTemplateColumns: '1fr 1fr'` outer grid. Each column was ~163px on a 390px screen. The `FibRow` inner grid (`110px 85px 1fr`) needed 195px of fixed width - it overflowed each 163px column, clipping the support/resistance label.
 
 **Fix:** Replaced the inline two-column style with the CSS class `fib-grid`. A `@media (max-width: 640px)` breakpoint collapses the grid to a single column on mobile, giving each FibRow the full panel width and eliminating overflow.
 
 Changed files: `frontend/src/components/StockPanel.tsx`, `frontend/src/index.css`
 
-#### Fixed — R:R cut off in SIGNA.AI price cells on mobile
+#### Fixed - R:R cut off in SIGNA.AI price cells on mobile
 
 **Root cause:** The 5-column price cells grid (`repeat(5, 1fr)`) gave each cell only ~68px on a 390px screen. The "STOP LOSS" and "BEST ENTRY" labels (10px font, ~60px wide) barely fit, and the R:R value was clipped on the narrowest devices.
 
@@ -469,7 +469,7 @@ Changed files: `frontend/src/components/StockPanel.tsx`, `frontend/src/index.css
 
 Changed files: `frontend/src/components/SignaCard.tsx`
 
-#### Fixed — Excess padding on mobile in header and main content
+#### Fixed - Excess padding on mobile in header and main content
 
 **Root cause:** The header and `<main>` used 32px horizontal padding via inline styles, consuming 64px of the ~390px screen width and leaving less space for content.
 
@@ -477,7 +477,7 @@ Changed files: `frontend/src/components/SignaCard.tsx`
 
 Changed files: `frontend/src/App.tsx`, `frontend/src/index.css`
 
-#### Fixed — Options flow notable trades may overflow on very narrow screens
+#### Fixed - Options flow notable trades may overflow on very narrow screens
 
 Added `overflowX: 'auto'` scroll container around the OPTIONS FLOW notable trades rows (`gridTemplateColumns: '50px 70px 70px 60px 1fr'`). The `1fr` column for the "⚡ unusual" label was as narrow as 60px on a 390px device.
 
@@ -485,9 +485,9 @@ Changed files: `frontend/src/components/OptionsPanel.tsx`
 
 ---
 
-## [0.6.9] — 2026-05-21
+## [0.6.9] - 2026-05-21
 
-### Fixed — Confidence score is now stock-specific (was market-level)
+### Fixed - Confidence score is now stock-specific (was market-level)
 
 #### Root cause
 
@@ -501,19 +501,19 @@ A separate, stock-specific confidence value is available in the **`/api/v1/analy
 
 This preference applies to both:
 - The `confidence` field in `enrichedSigna` (displayed in `SignaCard` as the "Confidence: X%" pill)
-- The `signaConfidence` argument passed to `getStockDecision()` (used as the ≥65% threshold for high-confidence long/short signals)
+- The `signaConfidence` argument passed to `getStockDecision()` (used as the >=65% threshold for high-confidence long/short signals)
 
 Changed files: `backend/src/routes/stock.ts`
 
-#### Fixed — Weekly confidence also updated to stock-specific value
+#### Fixed - Weekly confidence also updated to stock-specific value
 
-The weekly confidence pill (WEEKLY (1W) row in `SignaCard`) was still reading `signaWeekly.confidence` which is `engine.confidence` from the weekly Signa endpoint — the same market-level metric. The weekly Signa API (`tf=1W`) has no dedicated per-stock analysis endpoint.
+The weekly confidence pill (WEEKLY (1W) row in `SignaCard`) was still reading `signaWeekly.confidence` which is `engine.confidence` from the weekly Signa endpoint - the same market-level metric. The weekly Signa API (`tf=1W`) has no dedicated per-stock analysis endpoint.
 
 **Fix:** When a weekly signal is present, `weeklyConfidence` now uses the same `stockConfidence` (analysis endpoint `actionCard.confidence`) that the daily pill uses. This ensures both the daily and weekly confidence pills show stock-specific values.
 
 Changed files: `backend/src/routes/stock.ts`
 
-#### Fixed — CHANGELOG version ordering
+#### Fixed - CHANGELOG version ordering
 
 v0.6.8 entry was mistakenly inserted after v0.6.7 instead of before it. Correct descending order (newest first) restored.
 
@@ -521,34 +521,34 @@ Changed files: `CHANGELOG.md`
 
 ---
 
-## [0.6.8] — 2026-05-21
+## [0.6.8] - 2026-05-21
 
-### Fixed — UI polish + watchlist dual persistence
+### Fixed - UI polish + watchlist dual persistence
 
-#### Fixed — Weekly confidence pill style
+#### Fixed - Weekly confidence pill style
 
 The weekly timeframe row displayed confidence as plain secondary-coloured text (`Confidence: 38%`), inconsistent with the daily confidence pill (indigo/primary colour scheme with background + border). Both now use the same indigo pill style (`C.primary` / `C.primaryBg` / `C.primaryBorder`).
 
 Changed files: `frontend/src/components/SignaCard.tsx`
 
-#### Fixed — BULL THESIS section spacing
+#### Fixed - BULL THESIS section spacing
 
 The BULL THESIS section header was flush against the preceding SIGNAL CHECKLIST section. Added `marginTop: 20` to the thesis wrapper `<div>` for consistent vertical rhythm with all other sections.
 
 Changed files: `frontend/src/components/SignaCard.tsx`
 
-#### Fixed — Stop Loss / Target / R:R always visible when values are present
+#### Fixed - Stop Loss / Target / R:R always visible when values are present
 
-Previously, `validatePriceLevels()` controlled both **visibility** and **colour** of the price level cells. For ASTS (engine=BULLISH, but the live-pass `data` field computed a SHORT setup with inverted levels: stop $101.53 > entry $89.58, target $65.68 < entry), all three cells showed `—`.
+Previously, `validatePriceLevels()` controlled both **visibility** and **colour** of the price level cells. For ASTS (engine=BULLISH, but the live-pass `data` field computed a SHORT setup with inverted levels: stop $101.53 > entry $89.58, target $65.68 < entry), all three cells showed `-`.
 
 **New behaviour:** cells show the value whenever it is `> 0`; `validatePriceLevels()` is now used only for **colour coding**:
 - Valid directional levels: normal colour (`C.bear` for stop, `C.bull` for target, bull/warn/bear for R:R)
 - Present but directionally inverted levels: neutral `C.inkSec` (values visible, no colour signal)
-- Missing / zero values: `—` (unchanged)
+- Missing / zero values: `-` (unchanged)
 
 Changed files: `frontend/src/components/SignaCard.tsx`
 
-#### Fixed — Watchlist persistence root cause (dual persistence in Supabase mode)
+#### Fixed - Watchlist persistence root cause (dual persistence in Supabase mode)
 
 **Root cause:** All six `useWatchlist` mutations (`setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add`, `remove`) called `persistLocal()` only when `!user` (localStorage-only mode). In Supabase mode, `persistLocal()` was never called. If a Supabase INSERT failed, or the page was refreshed before the INSERT completed, the data was permanently lost.
 
@@ -558,88 +558,88 @@ Changed files: `frontend/src/components/SignaCard.tsx`
 
 Changed files: `frontend/src/hooks/useWatchlist.ts`
 
-#### Added — Supabase-mode watchlist tests + page-refresh regression
+#### Added - Supabase-mode watchlist tests + page-refresh regression
 
-- **`frontend/src/__tests__/hooks/useWatchlist.test.ts`**: new page-refresh regression test — creates SPACE group + ASTS ticker, unmounts hook, remounts fresh hook, asserts both survive (localStorage persistence).
+- **`frontend/src/__tests__/hooks/useWatchlist.test.ts`**: new page-refresh regression test - creates SPACE group + ASTS ticker, unmounts hook, remounts fresh hook, asserts both survive (localStorage persistence).
 - **`frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts`** (new file): 9 tests covering Supabase-mode behaviour with a mock Supabase client whose INSERT calls never resolve (simulates pending/failed INSERT). Verifies that all six mutations write to localStorage, and that in-memory state is correct immediately after each mutation.
 
 Changed files: `frontend/src/__tests__/hooks/useWatchlist.test.ts`, `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` (new)
 
 ---
 
-## [0.6.7] — 2026-05-21
+## [0.6.7] - 2026-05-21
 
-### Added — Vitest Test Suite (189 tests)
+### Added - Vitest Test Suite (189 tests)
 
 Comprehensive regression-prevention test suite covering all business-critical logic. Zero tests existed before this release.
 
 #### Test framework
 
 - **Vitest** installed in both `backend/` and `frontend/` (`npm run test`, `npm run test:watch`)
-- Backend: `backend/vitest.config.ts` — node environment, resolves ESM `.js` imports natively
-- Frontend: `vite.config.ts` extended with `test` block — jsdom environment, `globals: true` for `@testing-library/jest-dom`, setup via `src/__tests__/setup.ts`
+- Backend: `backend/vitest.config.ts` - node environment, resolves ESM `.js` imports natively
+- Frontend: `vite.config.ts` extended with `test` block - jsdom environment, `globals: true` for `@testing-library/jest-dom`, setup via `src/__tests__/setup.ts`
 - `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`, `jsdom` added to frontend dev dependencies
 
-#### Backend tests — 134 tests across 4 files
+#### Backend tests - 134 tests across 4 files
 
-**`backend/src/__tests__/lib/technical.test.ts`** — 42 tests
+**`backend/src/__tests__/lib/technical.test.ts`** - 42 tests
 
 All 7 utility functions in `technical.ts`:
-- `clamp` — within range, min/max boundary, negative ranges
-- `sma` — insufficient data (null), correct window selection, uniform prices
-- `ema` — insufficient data (null), recency weighting, period=1 edge case, known 3-period result
-- `rsi` — insufficient data (null), pure gain (100), pure loss (~0), alternating series (~50), 0–100 bounds, default period
-- `pctReturn` — insufficient data, zero base price, positive/negative/flat returns, exact boundary
-- `linearSlope` — empty/single array, known slopes (+1, -1, +2), flat series
-- `percentileRank` — empty array (50), all below (0), all above (100), mid-range, duplicate handling
+- `clamp` - within range, min/max boundary, negative ranges
+- `sma` - insufficient data (null), correct window selection, uniform prices
+- `ema` - insufficient data (null), recency weighting, period=1 edge case, known 3-period result
+- `rsi` - insufficient data (null), pure gain (100), pure loss (~0), alternating series (~50), 0-100 bounds, default period
+- `pctReturn` - insufficient data, zero base price, positive/negative/flat returns, exact boundary
+- `linearSlope` - empty/single array, known slopes (+1, -1, +2), flat series
+- `percentileRank` - empty array (50), all below (0), all above (100), mid-range, duplicate handling
 
-**`backend/src/__tests__/services/stockScoring.test.ts`** — 52 tests
+**`backend/src/__tests__/services/stockScoring.test.ts`** - 52 tests
 
-- `SECTOR_TO_ETF` — all alias pairs (Financial Services/Financials, Healthcare/Health Care, Consumer Cyclical/Consumer Discretionary)
-- `getStockDecision` — market score gate (NO when <55), YES_BUY uptrend, YES_SHORT downtrend+bearish, CAUTION 60–79; **both signal vocabularies**: LONG/BULLISH → identical long path; SHORT/BEARISH → identical short path; grade boundary (C falls through, B+/B pass); confidence threshold (≥65 required); regression for BULLISH+low composite → CAUTION not NO
-- `computeStockTechnicalScore` — score 0–100 bounds, high uptrend score, low downtrend score, 5 correct metric labels, N/A MAs on short history, isBearish requires all 3 conditions, score never exceeds 100
-- `computeSectorETFScore` — undefined → 50, healthy sector >70, weak sector <30, clamp floor/ceiling, above both MAs >50
-- `computeFibonacci` — null for <20 candles, null for flat prices, 9 levels, 0% = high, 100% = low, extensions above high, 50% = midpoint, uses last 252 candles only
-- `computeMovingAverages` — all null on short history, ema5 computed with 5+ prices, signaData EMAs passed through, null EMAs when signaData null
+- `SECTOR_TO_ETF` - all alias pairs (Financial Services/Financials, Healthcare/Health Care, Consumer Cyclical/Consumer Discretionary)
+- `getStockDecision` - market score gate (NO when <55), YES_BUY uptrend, YES_SHORT downtrend+bearish, CAUTION 60-79; **both signal vocabularies**: LONG/BULLISH --> identical long path; SHORT/BEARISH --> identical short path; grade boundary (C falls through, B+/B pass); confidence threshold (>=65 required); regression for BULLISH+low composite --> CAUTION not NO
+- `computeStockTechnicalScore` - score 0-100 bounds, high uptrend score, low downtrend score, 5 correct metric labels, N/A MAs on short history, isBearish requires all 3 conditions, score never exceeds 100
+- `computeSectorETFScore` - undefined --> 50, healthy sector >70, weak sector <30, clamp floor/ceiling, above both MAs >50
+- `computeFibonacci` - null for <20 candles, null for flat prices, 9 levels, 0% = high, 100% = low, extensions above high, 50% = midpoint, uses last 252 candles only
+- `computeMovingAverages` - all null on short history, ema5 computed with 5+ prices, signaData EMAs passed through, null EMAs when signaData null
 
-**`backend/src/__tests__/lib/signaInsight.test.ts`** — 24 tests
+**`backend/src/__tests__/lib/signaInsight.test.ts`** - 24 tests
 
 `synthesizeOptionsInsight` (pure function in `signaClient.ts`):
-- All-null → neutral/low/empty
-- Single sources (flow, darkpool, gamma) → high confidence from 1/1 agreement
-- All-3 bullish or all-3 bearish → high confidence
-- 2/3 agreement → medium confidence
-- Split 1-1-1 → neutral/low
+- All-null --> neutral/low/empty
+- Single sources (flow, darkpool, gamma) --> high confidence from 1/1 agreement
+- All-3 bullish or all-3 bearish --> high confidence
+- 2/3 agreement --> medium confidence
+- Split 1-1-1 --> neutral/low
 - Key point content: C/P ratio, unusual trade count, avg fill price, gamma flip annotation (above/below), no flip when null, pin risk
 - Summary: symbol + source count (singular/plural)
 - Data objects passed through unchanged
 
-**`backend/src/__tests__/services/scoring.test.ts`** — 16 tests
+**`backend/src/__tests__/services/scoring.test.ts`** - 16 tests
 
-- `scoreVolatility` — high score for VIX 10, low for VIX 40, clamped 0–100, weight=20, label, falling slope bonus, rising slope penalty, low percentile bonus, healthy/risk-off interpretations, 3 correct metrics
-- `scoreTrend` — uptrend scores high, downtrend scores low, clamped 0–100, weight=25, label, 4 correct metrics, uptrend > downtrend
-- `computeMarketQualityScore` — each of 5 weights verified individually (vol×20, trend×25, breadth×20, momentum×25, macro×10), all-100→100, all-0→0, returns integer
-- `getDecision` — YES_BUY score≥80 non-downtrend, YES_SELL score≥80 downtrend, CAUTION 60–79, NO <60
+- `scoreVolatility` - high score for VIX 10, low for VIX 40, clamped 0-100, weight=20, label, falling slope bonus, rising slope penalty, low percentile bonus, healthy/risk-off interpretations, 3 correct metrics
+- `scoreTrend` - uptrend scores high, downtrend scores low, clamped 0-100, weight=25, label, 4 correct metrics, uptrend > downtrend
+- `computeMarketQualityScore` - each of 5 weights verified individually (volx20, trendx25, breadthx20, momentumx25, macrox10), all-100-->100, all-0-->0, returns integer
+- `getDecision` - YES_BUY score>=80 non-downtrend, YES_SELL score>=80 downtrend, CAUTION 60-79, NO <60
 
-#### Frontend tests — 55 tests across 2 files
+#### Frontend tests - 55 tests across 2 files
 
-**`frontend/src/__tests__/lib/priceLevels.test.ts`** — 27 tests
+**`frontend/src/__tests__/lib/priceLevels.test.ts`** - 27 tests
 
 New utility `frontend/src/lib/priceLevels.ts` (extracted from `SignaCard.tsx`):
-- Direction detection: BULLISH/LONG/BUY → isLong=true; BEARISH/SHORT → isLong=false; case-insensitive
-- entryRef: uses entry when >0, falls back to currentPrice when ≤0
-- LONG validation: stop < entryRef → valid; stop ≥ entryRef → invalid; stop=0 → invalid; target > entryRef → valid; target ≤ entryRef → invalid
-- SHORT validation: stop > entryRef → valid; stop ≤ entryRef → invalid; target < entryRef → valid; target ≥ entryRef → invalid
+- Direction detection: BULLISH/LONG/BUY --> isLong=true; BEARISH/SHORT --> isLong=false; case-insensitive
+- entryRef: uses entry when >0, falls back to currentPrice when <=0
+- LONG validation: stop < entryRef --> valid; stop >= entryRef --> invalid; stop=0 --> invalid; target > entryRef --> valid; target <= entryRef --> invalid
+- SHORT validation: stop > entryRef --> valid; stop <= entryRef --> invalid; target < entryRef --> valid; target >= entryRef --> invalid
 - rrValid: requires all three conditions (stop, target, rr>0)
-- **ASTS regression test**: direction=BULLISH, stop $101.53 > entry $89.58, target $65.68 < entry → both invalid (the exact production bug that was fixed)
-- Correct BULLISH setup with valid levels → all valid
+- **ASTS regression test**: direction=BULLISH, stop $101.53 > entry $89.58, target $65.68 < entry --> both invalid (the exact production bug that was fixed)
+- Correct BULLISH setup with valid levels --> all valid
 
-**`frontend/src/__tests__/hooks/useWatchlist.test.ts`** — 28 tests
+**`frontend/src/__tests__/hooks/useWatchlist.test.ts`** - 28 tests
 
 `useWatchlist` hook, localStorage-only path (Supabase mocked as null):
 - Initial state: Default group, empty tickers
 - Persistence: loads saved state from localStorage on init
-- Legacy migration: flat `signal-dashboard-watchlist` array → Default group
+- Legacy migration: flat `signal-dashboard-watchlist` array --> Default group
 - `add`: appends ticker, normalises to uppercase, rejects duplicates, persists to localStorage, targets named group
 - `remove`: removes ticker, persists, no-op for unknown ticker
 - `isInWatchlist`: true/false, case-insensitive
@@ -650,7 +650,7 @@ New utility `frontend/src/lib/priceLevels.ts` (extracted from `SignaCard.tsx`):
 - `getGroupsForTicker`: returns all group names containing ticker, empty array when in none
 - `activeTickers`: reflects active group tickers correctly
 
-#### New file — `frontend/src/lib/priceLevels.ts`
+#### New file - `frontend/src/lib/priceLevels.ts`
 
 Extracted `validatePriceLevels()` from `SignaCard.tsx` into a standalone pure function. `SignaCard.tsx` now imports it instead of duplicating the logic inline. Enables unit testing of the stop/target validation that prevents inverted price levels from being displayed.
 
@@ -664,24 +664,24 @@ Changed files: `backend/package.json`, `backend/vitest.config.ts`, `backend/src/
 
 ---
 
-## [0.6.6] — 2026-05-21
+## [0.6.6] - 2026-05-21
 
-### Added — Congress signal UI always visible; watchlist ticker race condition fix
+### Added - Congress signal UI always visible; watchlist ticker race condition fix
 
-#### Added — CongressSection component
+#### Added - CongressSection component
 
 `CongressSection` is always rendered in `SignaCard`, showing one of three states:
 - **Trades present**: up to 5 `CongressTradeRow` rows, purchase/sale counts in header
 - **No trades**: italic empty-state message ("No recent congressional trades reported for this ticker.")
-- **No data** (`congress === undefined`): italic unavailable message ("No congressional trading data — available on higher-tier Signa plans.")
+- **No data** (`congress === undefined`): italic unavailable message ("No congressional trading data - available on higher-tier Signa plans.")
 
 `CongressTradeRow` displays senator name, party badge (D blue / R red), chamber label, Buy (▲) / Sell (▼) pill, amount range, and formatted trade date.
 
-#### Added — `getSignaCongress()` API client
+#### Added - `getSignaCongress()` API client
 
 `getSignaCongress(symbol)` calls `/api/v1/congress?sym={sym}`. Returns `null` gracefully on 429/403 (rate-limited or plan tier). Populates `CongressTrade[]` with `senator`, `party`, `chamber`, `transactionType`, `amount`, `transactionDate`.
 
-#### Fixed — Watchlist ticker race condition (Supabase mode)
+#### Fixed - Watchlist ticker race condition (Supabase mode)
 
 `createGroup` optimistically adds the group immediately (before the Supabase INSERT returns an `id`). Any tickers added while the `id` was still `undefined` were silently dropped because `sbUpdate` requires an `id`. Fix: when the INSERT resolves and patches the real `id` onto the group, any pending tickers accumulated during the gap are sync'd to Supabase in the same `sbUpdate` call.
 
@@ -689,27 +689,27 @@ Changed files: `frontend/src/components/SignaCard.tsx`, `frontend/src/types/stoc
 
 ---
 
-## [0.6.5] — 2026-05-21
+## [0.6.5] - 2026-05-21
 
-### Added / Fixed — Thesis fetch, inverted stop/target, confidence label
+### Added / Fixed - Thesis fetch, inverted stop/target, confidence label
 
-#### Added — `getSignaThesis()` API client
+#### Added - `getSignaThesis()` API client
 
-`getSignaThesis(symbol)` calls `/api/v1/signal?sym={sym}&include=thesis` and extracts the long-form Bull Thesis narrative. The BULL THESIS section in `SignaCard` is always rendered: shows the thesis text when available, otherwise an italic placeholder ("No thesis available — Signa generates this for select tickers on higher-tier plans.").
+`getSignaThesis(symbol)` calls `/api/v1/signal?sym={sym}&include=thesis` and extracts the long-form Bull Thesis narrative. The BULL THESIS section in `SignaCard` is always rendered: shows the thesis text when available, otherwise an italic placeholder ("No thesis available - Signa generates this for select tickers on higher-tier plans.").
 
-#### Fixed — Confidence label format
+#### Fixed - Confidence label format
 
 Weekly confidence was formatted as `"38% conf."` (legacy style). Updated to `"Confidence: 38%"` to match the daily confidence display.
 
-#### Fixed — Inverted stop/target levels hidden by directional validation
+#### Fixed - Inverted stop/target levels hidden by directional validation
 
 `validatePriceLevels()` checks directional validity before displaying price levels:
 - **LONG** setup: stop must be below entry, target above entry
 - **SHORT** setup: stop must be above entry, target below entry
 
-Invalid (inverted) levels show `—` rather than confusing reversed numbers. The ASTS case (engine=BULLISH, data computes SHORT levels) surfaced this — addressed further in v0.6.8 to always show non-zero values with colour-only validation.
+Invalid (inverted) levels show `-` rather than confusing reversed numbers. The ASTS case (engine=BULLISH, data computes SHORT levels) surfaced this - addressed further in v0.6.8 to always show non-zero values with colour-only validation.
 
-#### Added — `priceLevels.ts` utility (extracted in v0.6.7)
+#### Added - `priceLevels.ts` utility (extracted in v0.6.7)
 
 The directional validation logic was extracted to `frontend/src/lib/priceLevels.ts` as a pure `validatePriceLevels()` function to enable unit testing (27 tests added in v0.6.7).
 
@@ -717,9 +717,9 @@ Changed files: `frontend/src/components/SignaCard.tsx`, `backend/src/lib/signaCl
 
 ---
 
-## [0.6.4] — 2026-05-21
+## [0.6.4] - 2026-05-21
 
-### Fixed — Signa Signal Source: engine (nightly) replaces data (live single-pass)
+### Fixed - Signa Signal Source: engine (nightly) replaces data (live single-pass)
 
 #### Root cause
 
@@ -727,11 +727,11 @@ The Signa API returns three distinct signal sources in a single `/signal` respon
 
 | Field | Pipeline | Matches Canvas? |
 | --- | --- | --- |
-| `engine` | Nightly 30+ model consensus | **Yes — use this** |
+| `engine` | Nightly 30+ model consensus | **Yes - use this** |
 | `signa` | Proprietary synthesis (grade, conviction) | Partial |
 | `data` | Live single-pass technical analysis | No |
 
-The previous implementation mapped `data.direction` as the primary direction, which is the live single-pass result. Signa Canvas ("Action Card") uses `engine.direction` from the nightly pipeline. For ASTS, `data` returned `WAIT` while `engine` (and the Canvas) showed `BULLISH` — a complete directional mismatch.
+The previous implementation mapped `data.direction` as the primary direction, which is the live single-pass result. Signa Canvas ("Action Card") uses `engine.direction` from the nightly pipeline. For ASTS, `data` returned `WAIT` while `engine` (and the Canvas) showed `BULLISH` - a complete directional mismatch.
 
 #### Fix
 
@@ -741,11 +741,11 @@ The previous implementation mapped `data.direction` as the primary direction, wh
 
 `signaShort` detection in `stock.ts` now includes `BEARISH`.
 
-#### Added — Weekly signal (tf=1W)
+#### Added - Weekly signal (tf=1W)
 
 `getSignaWeeklySignal(symbol)` calls `/api/v1/signal?sym={sym}&tf=1W` and returns the engine's weekly direction, grade, and confidence. Displayed in `SignaCard` as a "WEEKLY (1W)" alignment row showing whether daily and weekly timeframes agree or diverge.
 
-#### Added — Analysis endpoint (actionCard + sentiment)
+#### Added - Analysis endpoint (actionCard + sentiment)
 
 `getSignaAnalysis(symbol)` calls `/api/v1/analysis?sym={sym}` and extracts:
 - `actionCard`: direction, confidence, riskScore, riskFactors, triggers, recommendedAction
@@ -753,18 +753,18 @@ The previous implementation mapped `data.direction` as the primary direction, wh
 
 Displayed in `SignaCard` as a sentiment bar showing bull/bear percentage over N days.
 
-#### Added — News endpoint
+#### Added - News endpoint
 
 `getSignaNews(symbol)` calls `/api/v1/news?sym={sym}` and returns up to 4 articles (title, source, date, sentiment, url). Displayed at the bottom of `SignaCard` as clickable article cards with sentiment arrows (▲ bullish / ▼ bearish).
 
-#### Changed — SignaCard display
+#### Changed - SignaCard display
 
-- Engine source attribution line: "↑ Nightly 30+ model pipeline — matches Signa Canvas Action Card"
+- Engine source attribution line: "^ Nightly 30+ model pipeline - matches Signa Canvas Action Card"
 - Weekly timeframe alignment row (when available): direction + grade + conf. + aligned/diverging flag
 - Sentiment bar: bull/bear % gauge with days-of-history label
 - News section: top 4 articles with source, date, sentiment, and outbound link
 
-#### Changed — `stock.ts` route
+#### Changed - `stock.ts` route
 
 All new fetches run in the existing `Promise.all` block (no sequential latency added): `getSignaWeeklySignal`, `getSignaAnalysis`, `getSignaNews`. Weekly/analysis/news fields are merged into the `signa` response object as optional fields so no breaking schema change is required.
 
@@ -772,15 +772,15 @@ Changed files: `backend/src/lib/signaClient.ts`, `backend/src/routes/stock.ts`, 
 
 ---
 
-## [0.6.3] — 2026-05-21
+## [0.6.3] - 2026-05-21
 
-### Fixed — Google OAuth redirect to localhost:3000 (code + config)
+### Fixed - Google OAuth redirect to localhost:3000 (code + config)
 
 #### Why localhost:3000 appears
 
 Supabase validates the post-OAuth `redirectTo` URL server-side against its "Redirect URLs" allow-list. The app was passing `window.location.origin` (correct at runtime), but Supabase rejected it because the production domain was absent from the allow-list, silently falling back to its default "Site URL" (`http://localhost:3000`).
 
-#### Code fix — `VITE_SUPABASE_REDIRECT_URL`
+#### Code fix - `VITE_SUPABASE_REDIRECT_URL`
 
 Added explicit `VITE_SUPABASE_REDIRECT_URL` environment variable. The app now uses this value as `redirectTo` in `signInWithOAuth`, falling back to `window.location.origin` only when the var is absent (local dev). Setting this var in Cloudflare Pages creates a direct, auditable link between what the code sends to Supabase and what must appear in Supabase's Redirect URLs list.
 
@@ -788,64 +788,64 @@ Changed files: `frontend/src/hooks/useAuth.ts`, `frontend/.env.example`
 
 #### Required configuration (two places must match)
 
-1. **Supabase Dashboard → Authentication → URL Configuration:**
+1. **Supabase Dashboard --> Authentication --> URL Configuration:**
    - **Site URL**: set to production domain (e.g. `https://signal.ailab.build`)
    - **Redirect URLs**: add `https://signal.ailab.build` and `http://localhost:5173`
 
-2. **Cloudflare Pages → Settings → Environment Variables:**
+2. **Cloudflare Pages --> Settings --> Environment Variables:**
    - Add `VITE_SUPABASE_REDIRECT_URL=https://signal.ailab.build`
    - Trigger a new deployment after adding (VITE_* vars are baked in at build time)
 
-### Reviewed — Cloudflare PR #1 (do not merge)
+### Reviewed - Cloudflare PR #1 (do not merge)
 
 Cloudflare's `cloudflare-workers-and-pages` bot opened PR #1 ("Add Cloudflare Workers configuration") via Wrangler autoconfig. **Do not merge.** The PR migrates the SPA from Cloudflare Pages (static hosting, correct) to Cloudflare Workers (serverless runtime, incompatible with the current architecture):
 
 - Breaks the `frontend/public/_headers` security file (Pages-only feature)
 - Changes `preview` script to use `wrangler dev` instead of `vite preview`
 - Adds ~1,100 lines to `package-lock.json` for `wrangler` + `@cloudflare/vite-plugin`
-- Cloudflare Pages already handles SPA routing, CDN, and HTTPS — Workers adds no value here
+- Cloudflare Pages already handles SPA routing, CDN, and HTTPS - Workers adds no value here
 - Different pricing model (Workers: 100k req/day free vs Pages: unlimited)
 
-### Docs — README, CLAUDE.md, PROMPT.md
+### Docs - README, CLAUDE.md, PROMPT.md
 
 - Added `VITE_SUPABASE_REDIRECT_URL` to env var tables in all docs
 - README Supabase Step 4a: rewrote with exact URL Configuration instructions and explanation of why the default causes localhost redirect
-- README Troubleshooting: updated localhost:3000 entry — two-step checklist (Supabase config + Cloudflare Pages env var)
+- README Troubleshooting: updated localhost:3000 entry - two-step checklist (Supabase config + Cloudflare Pages env var)
 
 ---
 
-## [0.6.2] — 2026-05-21
+## [0.6.2] - 2026-05-21
 
-### Fixed — OAuth Redirect to localhost:3000
+### Fixed - OAuth Redirect to localhost:3000
 
 Root cause: Supabase creates every new project with **Site URL** defaulting to `http://localhost:3000`. OAuth redirects are validated against the allowed-URL list; if the production domain is absent, Supabase falls back to the Site URL after the Google callback. The app code was already correct (`redirectTo: window.location.origin`).
 
-**Fix (configuration only — no code change):** In Supabase → Authentication → URL Configuration, set Site URL to the production domain and add the production domain wildcard plus `http://localhost:5173/**` to Redirect URLs.
+**Fix (configuration only - no code change):** In Supabase --> Authentication --> URL Configuration, set Site URL to the production domain and add the production domain wildcard plus `http://localhost:5173/**` to Redirect URLs.
 
-### Fixed — tsconfig.tsbuildinfo committed to git
+### Fixed - tsconfig.tsbuildinfo committed to git
 
 `frontend/tsconfig.tsbuildinfo` is a TypeScript incremental build cache generated by `tsc -b`. It changes on every build and should never be versioned.
 
 **Fix:** Added `*.tsbuildinfo` to root `.gitignore` and untracked the file from git.
 
-### Fixed — Docs discrepancies
+### Fixed - Docs discrepancies
 
-- **Vite version**: all docs referenced "Vite 5" — corrected to "Vite 8" in README.md, CLAUDE.md, and PROMPT.md.
-- **Package versions in PROMPT.md**: `tsx ^4.16.2` → `^4.22.3`; `@google/generative-ai ^0.21.0` → `^0.24.1`.
-- **README — project structure**: removed stale `ModeToggle.tsx` entry (deleted in v0.6.1); added `AdminPanel.tsx`.
-- **README — features table**: removed "Mode toggle" row (deleted in v0.6.1).
-- **README — layout diagram**: removed `MODE [Swing] [Day]` from header.
-- **README — API reference**: sub-sector count corrected from 13 to 19.
-- **README — Supabase Step 4**: expanded OAuth URL Configuration instructions with explicit Site URL and Redirect URL examples.
-- **README — deployment step headings**: converted `**Step N —**` bold pseudo-headings to proper `#### Step N —` markdown headings (Railway + Cloudflare Pages sections) to fix MD036 linter warnings.
-- **README — Troubleshooting**: added "Sign-in redirects to localhost:3000" entry with root cause and fix.
-- **PROMPT.md — scoring functions**: converted `**scoreX**` bold pseudo-headings to `#### scoreX` proper headings (MD036 fix).
+- **Vite version**: all docs referenced "Vite 5" - corrected to "Vite 8" in README.md, CLAUDE.md, and PROMPT.md.
+- **Package versions in PROMPT.md**: `tsx ^4.16.2` --> `^4.22.3`; `@google/generative-ai ^0.21.0` --> `^0.24.1`.
+- **README - project structure**: removed stale `ModeToggle.tsx` entry (deleted in v0.6.1); added `AdminPanel.tsx`.
+- **README - features table**: removed "Mode toggle" row (deleted in v0.6.1).
+- **README - layout diagram**: removed `MODE [Swing] [Day]` from header.
+- **README - API reference**: sub-sector count corrected from 13 to 19.
+- **README - Supabase Step 4**: expanded OAuth URL Configuration instructions with explicit Site URL and Redirect URL examples.
+- **README - deployment step headings**: converted `**Step N -**` bold pseudo-headings to proper `#### Step N -` markdown headings (Railway + Cloudflare Pages sections) to fix MD036 linter warnings.
+- **README - Troubleshooting**: added "Sign-in redirects to localhost:3000" entry with root cause and fix.
+- **PROMPT.md - scoring functions**: converted `**scoreX**` bold pseudo-headings to `#### scoreX` proper headings (MD036 fix).
 
 ---
 
-## [0.6.1] — 2026-05-20
+## [0.6.1] - 2026-05-20
 
-### Added — Invite-Only Access Control + Admin Approval
+### Added - Invite-Only Access Control + Admin Approval
 
 #### Auth gate
 
@@ -871,30 +871,30 @@ create table public.user_profiles (
 
 RLS uses a `security definer` helper `public.is_admin()` to avoid recursive policy checks. A `on_auth_user_created` trigger auto-inserts a pending profile on every new Google sign-in.
 
-### Added — FCG Natural Gas sub-sector
+### Added - FCG Natural Gas sub-sector
 
 - `FCG` (First Trust Natural Gas ETF) added as Natural Gas sub-sector under Energy, alongside URA, XOP, ICLN, and TAN.
 
-### Changed — Components & Auth
+### Changed - Components & Auth
 
-- **`useAuth`** — now fetches `user_profiles` after sign-in; exports `profile`, `userStatus`, `isAdmin`, `pendingUsers`, `approveUser` in addition to existing fields.
-- **`AuthButton`** — accepts `userStatus` prop; shows an amber "Pending" badge next to the user's name when `status='pending'`.
-- **`App.tsx`** — removed Mode/Swing/Day toggle (was connected to `HeroPanel` which has not been rendered since v0.3.0; the toggle had no visible effect). Added favicon.svg next to the "Signal Dashboard" title in the header. Auth gate and admin panel wired in.
-- **`supabase.ts`** — `Database` type extended with `user_profiles` table.
-- **`ModeToggle.tsx`** — deleted (dead code; `TradingMode` type kept in `market.ts` for `HeroPanel` reference).
-- **`AdminPanel.tsx`** — new component.
+- **`useAuth`** - now fetches `user_profiles` after sign-in; exports `profile`, `userStatus`, `isAdmin`, `pendingUsers`, `approveUser` in addition to existing fields.
+- **`AuthButton`** - accepts `userStatus` prop; shows an amber "Pending" badge next to the user's name when `status='pending'`.
+- **`App.tsx`** - removed Mode/Swing/Day toggle (was connected to `HeroPanel` which has not been rendered since v0.3.0; the toggle had no visible effect). Added favicon.svg next to the "Signal Dashboard" title in the header. Auth gate and admin panel wired in.
+- **`supabase.ts`** - `Database` type extended with `user_profiles` table.
+- **`ModeToggle.tsx`** - deleted (dead code; `TradingMode` type kept in `market.ts` for `HeroPanel` reference).
+- **`AdminPanel.tsx`** - new component.
 
 ### Docs & Configuration
 
-- **README** — Supabase section rewritten: now covers `user_profiles` schema, full DDL, RLS policies, trigger, and step-by-step admin bootstrap instructions.
-- **CLAUDE.md** — Auth & Watchlist section updated with full `useAuth` API, access-model rules, and new sub-sector list.
-- **PROMPT.md** — updated to reflect invite-only auth model and new sub-sectors.
+- **README** - Supabase section rewritten: now covers `user_profiles` schema, full DDL, RLS policies, trigger, and step-by-step admin bootstrap instructions.
+- **CLAUDE.md** - Auth & Watchlist section updated with full `useAuth` API, access-model rules, and new sub-sector list.
+- **PROMPT.md** - updated to reflect invite-only auth model and new sub-sectors.
 
 ---
 
-## [0.5.8] — 2026-05-20
+## [0.5.8] - 2026-05-20
 
-### Fixed — "Failed to fetch" Connection Error + CORS + Hardcoded Port
+### Fixed - "Failed to fetch" Connection Error + CORS + Hardcoded Port
 
 #### Root cause
 
@@ -902,11 +902,11 @@ With `VITE_API_URL` now pointing to Railway, the browser makes a cross-origin re
 
 #### Fixed
 
-- **`App.tsx`** — `:3001` hint in the connection error message is now gated to `import.meta.env.DEV`. In production, only the raw error is shown; the localhost hint only appears during local development.
-- **`backend/src/index.ts`** — CORS now supports multiple allowed origins. Set `FRONTEND_URL` to a comma-separated list (e.g. `https://signal.ailab.build,https://signal-dashboard.pages.dev`) to allow both a custom domain and the Cloudflare Pages URL simultaneously. Requests with no `Origin` header (server-to-server, curl) are always allowed.
-- **`backend/package.json`** — removed `yahoo-finance2` ghost dependency. It was listed as a dependency but never imported anywhere. The backend uses direct `fetch` to the Yahoo Finance v8 Chart API via `yahooClient.ts`. Removing it eliminates unnecessary attack surface and reduces cold-start time.
+- **`App.tsx`** - `:3001` hint in the connection error message is now gated to `import.meta.env.DEV`. In production, only the raw error is shown; the localhost hint only appears during local development.
+- **`backend/src/index.ts`** - CORS now supports multiple allowed origins. Set `FRONTEND_URL` to a comma-separated list (e.g. `https://signal.ailab.build,https://signal-dashboard.pages.dev`) to allow both a custom domain and the Cloudflare Pages URL simultaneously. Requests with no `Origin` header (server-to-server, curl) are always allowed.
+- **`backend/package.json`** - removed `yahoo-finance2` ghost dependency. It was listed as a dependency but never imported anywhere. The backend uses direct `fetch` to the Yahoo Finance v8 Chart API via `yahooClient.ts`. Removing it eliminates unnecessary attack surface and reduces cold-start time.
 
-#### Dependencies — minor/patch updates (0 CVEs)
+#### Dependencies - minor/patch updates (0 CVEs)
 
 | Package | From | To | Scope |
 | --- | --- | --- | --- |
@@ -914,15 +914,15 @@ With `VITE_API_URL` now pointing to Railway, the browser makes a cross-origin re
 | `@google/generative-ai` | 0.21.0 | 0.24.1 | backend |
 | `@supabase/supabase-js` | 2.105.4 | 2.106.0 | frontend |
 
-Major version bumps (express 4→5, react 18→19, typescript 5→6, dotenv 16→17) deferred — breaking changes require dedicated testing.
+Major version bumps (express 4-->5, react 18-->19, typescript 5-->6, dotenv 16-->17) deferred - breaking changes require dedicated testing.
 
 `npm audit` reports **0 vulnerabilities** across both packages.
 
 ---
 
-## [0.5.7] — 2026-05-20
+## [0.5.7] - 2026-05-20
 
-### Fixed — Production Deployment: Connection Error ("Unexpected token '<'")
+### Fixed - Production Deployment: Connection Error ("Unexpected token '<'")
 
 Root cause: `VITE_API_URL` was not set in Cloudflare Pages environment variables. Because `api.ts` and `stockApi.ts` fall back to an empty base URL (`VITE_API_URL ?? ''`), all `/api/*` fetch calls became relative URLs that hit the Cloudflare Pages static host rather than the Railway backend. Cloudflare returns an HTML 404 page for unknown routes; the frontend tried to parse that as JSON and threw `Unexpected token '<', '<!doctype'... is not valid JSON`.
 
@@ -937,24 +937,24 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 
 ### Docs & Configuration
 
-- **`frontend/.env.example`** — added `VITE_API_URL` entry with explanation; marked it as required for production.
-- **README** — Cloudflare Pages Step 3 now explicitly marks `VITE_API_URL` as required; new **Troubleshooting** section at the end of Deployment documents the connection error cause and fix.
+- **`frontend/.env.example`** - added `VITE_API_URL` entry with explanation; marked it as required for production.
+- **README** - Cloudflare Pages Step 3 now explicitly marks `VITE_API_URL` as required; new **Troubleshooting** section at the end of Deployment documents the connection error cause and fix.
 
 ---
 
-## [0.5.6] — 2026-05-20
+## [0.5.6] - 2026-05-20
 
-### Changed — Vite 8 Upgrade
+### Changed - Vite 8 Upgrade
 
-- **Vite upgraded from 5.4.x to 8.0.13** — satisfies Cloudflare Pages build requirement (minimum Vite 6). Vite 8 uses the Rolldown bundler for faster builds.
-- **`@vitejs/plugin-react` upgraded from 4.3.x to 6.0.2** — required peer dependency for Vite 8.
+- **Vite upgraded from 5.4.x to 8.0.13** - satisfies Cloudflare Pages build requirement (minimum Vite 6). Vite 8 uses the Rolldown bundler for faster builds.
+- **`@vitejs/plugin-react` upgraded from 4.3.x to 6.0.2** - required peer dependency for Vite 8.
 - All four checks pass with zero errors: backend typecheck, backend build, frontend typecheck, frontend build.
 
 ---
 
-## [0.5.5] — 2026-05-19
+## [0.5.5] - 2026-05-19
 
-### Changed — Sector & Sub-Sector Updates
+### Changed - Sector & Sub-Sector Updates
 
 #### New Main Sector
 
@@ -966,39 +966,39 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 
 #### New Sub-Sectors under Nasdaq 100 (QQQ)
 
-- **AIPO** — AI Power Stocks
-- **AIS** — AI Supercycle Stocks
-- **DRAM** — AI Memory
-- **EUV** — AI Photonics
+- **AIPO** - AI Power Stocks
+- **AIS** - AI Supercycle Stocks
+- **DRAM** - AI Memory
+- **EUV** - AI Photonics
 
 ---
 
-## [0.5.4] — 2026-05-18
+## [0.5.4] - 2026-05-18
 
-### Added — Supabase Google Auth + Cross-Device Watchlist Sync
+### Added - Supabase Google Auth + Cross-Device Watchlist Sync
 
-- **Google Sign-In** — "Sign in" pill button in the header (visible only when Supabase is configured). Clicking opens Google OAuth via Supabase's `signInWithOAuth`. On success, avatar + display name + "Sign out" button appear.
-- **Cross-device watchlist sync** — when signed in, watchlist groups are stored in a Supabase `watchlists` Postgres table instead of localStorage. All mutations (create/rename/delete group, add/remove ticker) sync to Supabase in real time.
-- **First-login migration** — when a user signs in for the first time, their existing localStorage watchlist groups are automatically inserted into Supabase so nothing is lost.
-- **localStorage-only fallback** — when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are absent, `supabase` client is `null` and the app works exactly as before (localStorage only, no auth).
-- **`useAuth` hook** (`frontend/src/hooks/useAuth.ts`) — manages Supabase session state, exposes `{ user, authLoading, signInWithGoogle, signOut }`.
-- **`AuthButton` component** (`frontend/src/components/AuthButton.tsx`) — renders nothing when Supabase is unconfigured or session is resolving; "Sign in" when logged out; avatar + name + "Sign out" when logged in.
-- **`frontend/.env.example`** — documents `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-- **Supabase `Database` type** in `frontend/src/lib/supabase.ts` — fully typed schema including `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` (required by `SupabaseClient<T>` generics).
+- **Google Sign-In** - "Sign in" pill button in the header (visible only when Supabase is configured). Clicking opens Google OAuth via Supabase's `signInWithOAuth`. On success, avatar + display name + "Sign out" button appear.
+- **Cross-device watchlist sync** - when signed in, watchlist groups are stored in a Supabase `watchlists` Postgres table instead of localStorage. All mutations (create/rename/delete group, add/remove ticker) sync to Supabase in real time.
+- **First-login migration** - when a user signs in for the first time, their existing localStorage watchlist groups are automatically inserted into Supabase so nothing is lost.
+- **localStorage-only fallback** - when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are absent, `supabase` client is `null` and the app works exactly as before (localStorage only, no auth).
+- **`useAuth` hook** (`frontend/src/hooks/useAuth.ts`) - manages Supabase session state, exposes `{ user, authLoading, signInWithGoogle, signOut }`.
+- **`AuthButton` component** (`frontend/src/components/AuthButton.tsx`) - renders nothing when Supabase is unconfigured or session is resolving; "Sign in" when logged out; avatar + name + "Sign out" when logged in.
+- **`frontend/.env.example`** - documents `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- **Supabase `Database` type** in `frontend/src/lib/supabase.ts` - fully typed schema including `Relationships`, `Views`, `Functions`, `Enums`, `CompositeTypes` (required by `SupabaseClient<T>` generics).
 
 ### Changed
 
 - `useWatchlist` now accepts `user: User | null` parameter. When `user` is non-null and Supabase is configured, all reads/writes go to Supabase. When `user` is null, localStorage is used.
-- `WatchlistGroup` interface gains optional `id?: string` (Supabase UUID — undefined in localStorage mode).
+- `WatchlistGroup` interface gains optional `id?: string` (Supabase UUID - undefined in localStorage mode).
 - `useWatchlist` uses `useRef`-based `userRef` / `stateRef` pattern for stale-closure-free callbacks.
 - Optimistic creates: group appears immediately in UI; Supabase-assigned UUID is patched in asynchronously.
 - `App.tsx` wires `useAuth()` and passes `user` to `useWatchlist(user)`.
 
 ---
 
-## [0.5.3] — 2026-05-18
+## [0.5.3] - 2026-05-18
 
-### Changed — README Overhaul
+### Changed - README Overhaul
 
 - Documented GitHub deployment environments table (Production = Cloudflare Pages, `{project}/production` = Railway)
 - Clarified `AI_PROVIDER` and `GEMINI_API_KEY` are optional; added missing `SIGNA_API_KEY` to Railway env vars table
@@ -1006,59 +1006,59 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 
 ---
 
-## [0.5.2] — 2026-05-18
+## [0.5.2] - 2026-05-18
 
-### Added — Dark Mode
+### Added - Dark Mode
 
-- **Light / Dark mode toggle** — pill button in the header (◐ Dark / ◑ Light) switches between Stripe-inspired light and dark themes. Preference is persisted to `localStorage` key `signal-theme`.
-- **Zero-flicker theme init** — inline `<script>` in `index.html` reads `localStorage` and sets `data-theme` on `<html>` before the first paint, so dark mode users never see a light flash on page load.
-- **CSS custom properties** — all design tokens in `index.css` are now defined as CSS custom properties (`--c-ink`, `--c-canvas`, etc.) with `:root` (light mode) and `[data-theme="dark"]` overrides. `colors.ts` references these variables, so every component inherits both themes automatically without any per-component changes.
-- **Dark mesh backdrop** — `[data-theme="dark"] .mesh-bg` uses deep indigo/teal radial gradients on a dark navy canvas, matching the Stripe aesthetic.
-- **`useTheme` hook** (`frontend/src/hooks/useTheme.ts`) — exposes `{ dark, toggle }`.
+- **Light / Dark mode toggle** - pill button in the header (◐ Dark / ◑ Light) switches between Stripe-inspired light and dark themes. Preference is persisted to `localStorage` key `signal-theme`.
+- **Zero-flicker theme init** - inline `<script>` in `index.html` reads `localStorage` and sets `data-theme` on `<html>` before the first paint, so dark mode users never see a light flash on page load.
+- **CSS custom properties** - all design tokens in `index.css` are now defined as CSS custom properties (`--c-ink`, `--c-canvas`, etc.) with `:root` (light mode) and `[data-theme="dark"]` overrides. `colors.ts` references these variables, so every component inherits both themes automatically without any per-component changes.
+- **Dark mesh backdrop** - `[data-theme="dark"] .mesh-bg` uses deep indigo/teal radial gradients on a dark navy canvas, matching the Stripe aesthetic.
+- **`useTheme` hook** (`frontend/src/hooks/useTheme.ts`) - exposes `{ dark, toggle }`.
 
 ---
 
-## [0.5.1] — 2026-05-18
+## [0.5.1] - 2026-05-18
 
-### Changed — Sector Performance
+### Changed - Sector Performance
 
 #### Replaced ETFs
 
-- **XLK → QQQ** (Invesco Nasdaq-100 ETF) as the Technology/Nasdaq sector entry. `SECTOR_TO_ETF['Technology']` updated accordingly for stock sector scoring.
-- **SOXX → SMH** (VanEck Semiconductor ETF) for the Semiconductors sub-sector; SMH is more liquid and widely tracked.
+- **XLK --> QQQ** (Invesco Nasdaq-100 ETF) as the Technology/Nasdaq sector entry. `SECTOR_TO_ETF['Technology']` updated accordingly for stock sector scoring.
+- **SOXX --> SMH** (VanEck Semiconductor ETF) for the Semiconductors sub-sector; SMH is more liquid and widely tracked.
 
 #### New Main Sectors
 
-- **SPY** (S&P 500) added as a display row in Sector Performance — appears alongside sectors for quick benchmark comparison. Excluded from breadth scoring and leader/lagger ranking (it's the index, not a sector).
+- **SPY** (S&P 500) added as a display row in Sector Performance - appears alongside sectors for quick benchmark comparison. Excluded from breadth scoring and leader/lagger ranking (it's the index, not a sector).
 - **PDBC** (Invesco Optimum Yield Diversified Commodity Strategy) added as a new "Commodities" sector parent.
 - **NASA** (Procure Space ETF) added as a new "Space" sector.
 
 #### New Commodity Sub-Sectors (parent: Commodities / PDBC)
 
-- **XAUUSD=X** — Gold spot price
-- **XAGUSD=X** — Silver spot price
-- **COPX** (Global X Copper Miners ETF) — Copper
-- **CL=F** — Crude Oil WTI futures
+- **XAUUSD=X** - Gold spot price
+- **XAGUSD=X** - Silver spot price
+- **COPX** (Global X Copper Miners ETF) - Copper
+- **CL=F** - Crude Oil WTI futures
 
 #### Architecture
 
-- `DISPLAY_ONLY_SECTORS` constant (`Set<string>`) added to `marketData.ts` — excludes SPY, PDBC, NASA from breadth score and top3/bottom3 leader ranking so they don't distort market quality scoring.
+- `DISPLAY_ONLY_SECTORS` constant (`Set<string>`) added to `marketData.ts` - excludes SPY, PDBC, NASA from breadth score and top3/bottom3 leader ranking so they don't distort market quality scoring.
 - Ticker bar in `market.ts` deduplicates SPY and QQQ (already pinned as index entries) from the sector loop via `PINNED_SYMBOLS` filter.
 - SMH sub-sector parent changed from 'Technology' to 'Nasdaq 100' (matching the renamed sector).
 
 ---
 
-## [0.5.0] — 2026-05-18
+## [0.5.0] - 2026-05-18
 
 ### Added
 
 #### Named Watchlist Groups
 
 - Watchlist refactored from a flat ticker array to named groups (e.g. "Swing Trades", "Watchlist A")
-- Watchlist header shows named group tabs — click to switch, `×` to delete
+- Watchlist header shows named group tabs - click to switch, `x` to delete
 - "+ New list" button creates a named group inline (Enter to confirm, Escape to cancel)
 - "Save to Watchlist" button in stock panel opens a group picker dropdown, showing which groups the ticker is already in (★)
-- Clicking a group toggles the ticker in/out of that group — no separate save/unsave button needed
+- Clicking a group toggles the ticker in/out of that group - no separate save/unsave button needed
 - Migrates legacy flat watchlist data from `localStorage` to the new format automatically
 
 #### Options Intelligence Panel (`OptionsPanel.tsx`)
@@ -1073,53 +1073,53 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 
 #### Fundamentals Panel (`FundamentalsPanel.tsx`)
 
-- New section fetched from Signa.ai `GET /fundamentals?sym={symbol}` — always rendered (shows empty state if data unavailable or no key)
+- New section fetched from Signa.ai `GET /fundamentals?sym={symbol}` - always rendered (shows empty state if data unavailable or no key)
 - Five sections: Valuation (P/E, Forward P/E, PEG, P/B, P/S, EV/EBITDA), Growth (revenue/earnings YoY, EPS), Profitability (margins, ROE, ROA, FCF yield), Financial Health (debt/equity, current ratio, dividend), Ownership & Analyst (price target, insider %, institutional %, short float)
 - Color-coded values: green for strong metrics, amber for caution, red for weak
 
-#### Sector — Solar Sub-Sector
+#### Sector - Solar Sub-Sector
 
 - TAN (Invesco Solar ETF) added as Solar sub-sector under Energy
 - Fetched from Yahoo Finance alongside all other sub-sector ETFs
 
-### Fixed — Sector & Signal
+### Fixed - Sector & Signal
 
 #### Sector Performance Row Alignment
 
 - All sector rows now start at the same horizontal position regardless of whether they have sub-sectors
-- Fixed by replacing the conditional expand button with a fixed-width 22px placeholder — button appears inside it only when sub-sectors exist
+- Fixed by replacing the conditional expand button with a fixed-width 22px placeholder - button appears inside it only when sub-sectors exist
 
 #### Stock Status Respects Signa Signal
 
 - `getStockDecision()` now accepts Signa `direction`, `confidence`, and `grade` as optional parameters
-- When Signa signals LONG with confidence ≥ 65% and a strong grade (A+/A/B+/B): decision is at least CAUTION, YES_BUY if composite score ≥ 60 — bypasses the `marketScore < 55` gate that previously forced NO/AVOID
-- When Signa signals SHORT with confidence ≥ 65%: decision is always YES_SHORT regardless of composite score
-- MU showing AVOID despite Signa saying BUY B+ is now fixed — Signa's high-confidence signal takes precedence
+- When Signa signals LONG with confidence >= 65% and a strong grade (A+/A/B+/B): decision is at least CAUTION, YES_BUY if composite score >= 60 - bypasses the `marketScore < 55` gate that previously forced NO/AVOID
+- When Signa signals SHORT with confidence >= 65%: decision is always YES_SHORT regardless of composite score
+- MU showing AVOID despite Signa saying BUY B+ is now fixed - Signa's high-confidence signal takes precedence
 
 ### Removed
 
-- **Composite Score** ring and sub-score (Stock / Sector / Market) section removed from stock panel — signal noise, replaced by Signa data which is the primary authority
-- **Scoring Breakdown** panel removed from market overview — the weighted category bars were confusing without clear guidance
+- **Composite Score** ring and sub-score (Stock / Sector / Market) section removed from stock panel - signal noise, replaced by Signa data which is the primary authority
+- **Scoring Breakdown** panel removed from market overview - the weighted category bars were confusing without clear guidance
 
 ### Changed
 
 - `App.tsx`: removed `ScoringBreakdown` import and usage; bottom row is now full-width `TerminalAnalysis` only
 - `StockPanel.tsx`: removed `CompositeRing`, `SubScore` components; watchlist button is now a group-picker dropdown
-- `useWatchlist.ts`: complete rewrite — now exports `WatchlistGroup[]`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add(ticker, groupName?)`, `remove(ticker, groupName?)`, `isInWatchlist(ticker, groupName?)`, `getGroupsForTicker(ticker)`
+- `useWatchlist.ts`: complete rewrite - now exports `WatchlistGroup[]`, `activeGroup`, `activeTickers`, `setActiveGroup`, `createGroup`, `renameGroup`, `deleteGroup`, `add(ticker, groupName?)`, `remove(ticker, groupName?)`, `isInWatchlist(ticker, groupName?)`, `getGroupsForTicker(ticker)`
 - `signaClient.ts`: added `getOptionsFlow()`, `getDarkpool()`, `getGammaExposure()`, `getFundamentals()`, `synthesizeOptionsInsight()` with full TypeScript types and 5-minute/1-hour cache TTLs
 - `stock.ts` route: now fetches options, darkpool, gamma, fundamentals in parallel; response includes `optionsInsight` and `fundamentals`
 - `frontend/src/types/stock.ts`: added `OptionsFlowItem`, `OptionsFlowData`, `DarkpoolTrade`, `DarkpoolData`, `GammaLevel`, `GammaData`, `OptionsInsight`, `FundamentalsData`; `StockResponse` extended with `optionsInsight` and `fundamentals`
 
 ---
 
-## [0.4.0] — 2026-05-18
+## [0.4.0] - 2026-05-18
 
 ### Added
 
 #### Stripe-Inspired Light Mode Design
 
-- Complete UI redesign to Stripe-inspired light mode — white canvas (`#ffffff`), deep navy text (`#0d253d`), indigo primary (`#533afd`)
-- Shared design token file `frontend/src/lib/colors.ts` — single `C` object + `scoreColor()` and `changeColor()` helpers; all components import from here
+- Complete UI redesign to Stripe-inspired light mode - white canvas (`#ffffff`), deep navy text (`#0d253d`), indigo primary (`#533afd`)
+- Shared design token file `frontend/src/lib/colors.ts` - single `C` object + `scoreColor()` and `changeColor()` helpers; all components import from here
 - Mesh backdrop: CSS radial gradients approximating Stripe's atmospheric gradient in the page header (`mesh-bg` class in `index.css`)
 - Inter font (weights 300/400/500) replacing JetBrains Mono; `font-feature-settings: "ss01"` globally; `"tnum"` for numeric values
 - Semantic pill badges throughout: `borderRadius: 9999` with tinted backgrounds and hairline borders for all status indicators
@@ -1128,9 +1128,9 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 #### SIGNA.AI Signal Section
 
 - Signa.ai signal displayed at the top of the stock panel as the primary indicator
-- Direction pill (`● LONG` / `● SHORT`) is the most prominent element — green for bullish, red for bearish
+- Direction pill (`● LONG` / `● SHORT`) is the most prominent element - green for bullish, red for bearish
 - All status fields shown as pill badges in one flex row: Direction, Grade, Stage, Confidence %, Risk Rating
-- No more secondary text-only display — all Signa status is badge-first
+- No more secondary text-only display - all Signa status is badge-first
 
 #### Composite Score Ring
 
@@ -1138,48 +1138,48 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 - Ring shows only the numeric composite score (no label text like "YES" or "CAUTION")
 - Decision badge below ring maps to BULLISH / BEARISH / CAUTION / AVOID
 - Sub-scores (Stock / Sector / Market) displayed as small numbers beneath the ring
-- Score color: green ≥70, amber 50–69, red <50
+- Score color: green >=70, amber 50-69, red <50
 
-#### Moving Averages — Centered Heat Bars
+#### Moving Averages - Centered Heat Bars
 
-- MA display redesigned to centered heat bars — same visual pattern as Sector Heatmap
+- MA display redesigned to centered heat bars - same visual pattern as Sector Heatmap
 - Price above MA: green bar extends rightward from center
 - Price below MA: red bar extends leftward from center
-- Only 4 MAs shown: EMA5, EMA21, EMA55, SMA200 — Signa EMAs and SMA20 removed
+- Only 4 MAs shown: EMA5, EMA21, EMA55, SMA200 - Signa EMAs and SMA20 removed
 - % deviation from price shown alongside each MA
 
 #### Structured Terminal Analysis
 
 - Signa terminal output is now parsed and rendered as structured HTML instead of raw text
 - `parseAnalysis()` detects and classifies lines into: `title`, `meta`, `consensus`, `signal`, `warning`, `environment`, `section-header`, `plain`
-- `→` consensus items rendered with indigo arrow; `▶` signals rendered in green bordered cards; `⚠` risks in amber box; `ENVIRONMENT:` in indigo background block
+- `-->` consensus items rendered with indigo arrow; `▶` signals rendered in green bordered cards; `[WARN]` risks in amber box; `ENVIRONMENT:` in indigo background block
 - `isSignaFormat()` detects Signa output vs Gemini/template; plain text uses clean paragraph renderer
 - Header badge shows "SIGNA.AI" or "AI ANALYSIS" depending on source
 
-#### Sector Heatmap — Accordion Sub-Sectors
+#### Sector Heatmap - Accordion Sub-Sectors
 
 - Main sectors shown only by default; sub-sectors hidden
 - Sectors with sub-sectors show a `▸`/`▾` toggle button; clicking expands sub-sectors indented below (folder/file UX)
-- Sub-sectors rendered with `└` indicator and `isSubsector` row styling
+- Sub-sectors rendered with `+` indicator and `isSubsector` row styling
 - `expanded: Set<string>` state tracks open sectors; independent per-session
 
 #### Watchlist UX
 
 - "☆ Save to Watchlist" / "★ Saved" buttons are now prominent pill buttons in the stock panel header
 - Watchlist section in sidebar labeled "WATCHLIST" with clear instruction text when empty: "Analyze a stock, then click 'Save to Watchlist' to pin it here"
-- Watchlist chips styled as pill badges with `×` remove button
-- Watchlist uses `localStorage` — persistent per browser, no backend/database required
+- Watchlist chips styled as pill badges with `x` remove button
+- Watchlist uses `localStorage` - persistent per browser, no backend/database required
 
 #### Documentation
 
-- `CLAUDE.md` created — AI assistant onboarding: project overview, stack, directory structure, design system, conventions, build commands, scoring system, data sources
-- `README.md` — updated feature table, design system section, project structure, environment variables
+- `CLAUDE.md` created - AI assistant onboarding: project overview, stack, directory structure, design system, conventions, build commands, scoring system, data sources
+- `README.md` - updated feature table, design system section, project structure, environment variables
 
 ### Changed
 
 - App title renamed from "Should I Be Trading?" to "Signal Dashboard" (index.html, App.tsx, all visible headings)
-- Decision terminology updated: YES/NO → BULLISH/BEARISH; CAUTION → CAUTION; added AVOID
-- Score weight breakdown bars removed from composite score display — composite number only
+- Decision terminology updated: YES/NO --> BULLISH/BEARISH; CAUTION --> CAUTION; added AVOID
+- Score weight breakdown bars removed from composite score display - composite number only
 - All components ported from dark mode to light mode using `C` tokens from `colors.ts`
 - `TerminalAnalysis` code-window chrome replaced with clean card with header badge
 - `ScoringBreakdown` total score display updated to use 30px number with `scoreColor()`
@@ -1187,22 +1187,22 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 
 ---
 
-## [0.3.0] — 2026-05-17
+## [0.3.0] - 2026-05-17
 
 ### Added
 
-#### Decision Signal — Big & Bold
+#### Decision Signal - Big & Bold
 
-- Stock decision badge (BUY / SHORT / CAUTION / NO) is now a full-width banner at 48px with glow shadow — immediately visible on load
-- Decision text now uses the full label: "YES — BUY", "YES — SHORT", "CAUTION", "NO"
+- Stock decision badge (BUY / SHORT / CAUTION / NO) is now a full-width banner at 48px with glow shadow - immediately visible on load
+- Decision text now uses the full label: "YES - BUY", "YES - SHORT", "CAUTION", "NO"
 - Score rings moved inline with the decision banner (right side)
 
 #### Fibonacci Retracement Levels
 
-- `computeFibonacci(history): FibLevel[] | null` in `stockScoring.ts` — computes 9 levels from 52-week high/low
+- `computeFibonacci(history): FibLevel[] | null` in `stockScoring.ts` - computes 9 levels from 52-week high/low
 - Levels: 161.8% ext, 127.2% ext, 0% (High), 23.6%, 38.2%, 50.0%, 61.8%, 78.6%, 100% (Low)
-- `FibonacciPanel` component in `StockPanel.tsx` — two-column layout (retracement | extensions + current price)
-- Current level highlighted in yellow with "← NEAR" label when price is within 1.5% of a Fibonacci level
+- `FibonacciPanel` component in `StockPanel.tsx` - two-column layout (retracement | extensions + current price)
+- Current level highlighted in yellow with "<-- NEAR" label when price is within 1.5% of a Fibonacci level
 - Levels above current price labeled "resistance", below labeled "support"
 
 #### Moving Averages Panel
@@ -1210,57 +1210,57 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 - `computeMovingAverages(history, signaData?): MovingAverages` in `stockScoring.ts`
 - Yahoo Finance computed: EMA5, EMA21, EMA55, SMA20, SMA200 (from 1y history via `ema()` and `sma()` functions)
 - Signa.ai sourced: EMA20, EMA50, EMA200 (from signal response `data.ema20/50/200`)
-- `MovingAveragesPanel` component in `StockPanel.tsx` — two-column grid (Yahoo Finance | Signa.ai) with % deviation from current price and a mini-bar indicator
+- `MovingAveragesPanel` component in `StockPanel.tsx` - two-column grid (Yahoo Finance | Signa.ai) with % deviation from current price and a mini-bar indicator
 
 #### Sub-Sector Performance Heatmap
 
 - 8 sub-sector ETFs added: SOXX (Semiconductors), IGV (Software), XBI (Biotech), IHI (Medical Devices), URA (Uranium), XOP (Oil & Gas E&P), KRE (Regional Banks), ICLN (Clean Energy)
 - All fetched from Yahoo Finance (free, no API key) in the same `Promise.all` as the 11 main sectors
 - `SectorHeatmap` now renders a "SUB-SECTOR PERFORMANCE" section below the main sector section
-- Sub-sectors include `parentSector` field for context (e.g., SOXX → Technology, XBI → Health Care)
+- Sub-sectors include `parentSector` field for context (e.g., SOXX --> Technology, XBI --> Health Care)
 - `SUBSECTORS`, `SUBSECTOR_NAMES`, `SUBSECTOR_PARENT` exported from `marketData.ts`
 
 #### Terminal Analysis via Signa.ai
 
 - `generateAnalysis()` in `ai.ts` now calls `getSignaSignal('SPY')` first
 - If Signa.ai key is available, uses `formatSignaMarketAnalysis()` to produce a rich terminal summary from SPY's 30-model consensus (`engine.reasons[]`), active signals, grade, conviction, and risk factors
-- Falls back to Gemini 1.5 Flash, then template text — same fallback chain as before
+- Falls back to Gemini 1.5 Flash, then template text - same fallback chain as before
 
-#### Signa.ai — EMA Fields
+#### Signa.ai - EMA Fields
 
 - `SignaData` interface extended with `ema20`, `ema50`, `ema200` (mapped from `data.ema20/50/200` in the API response)
 - These are surfaced in the MovingAverages panel as the "Signa.ai" column
 
 ### Changed
 
-- Removed `HeroPanel` ("Should I Be Trading?" decision panel) from the main layout — Signa.ai stock signal is the primary status indicator
+- Removed `HeroPanel` ("Should I Be Trading?" decision panel) from the main layout - Signa.ai stock signal is the primary status indicator
 - Removed `HeroPanelSkeleton` import from `App.tsx`
-- `backend/src/routes/stock.ts` — response now includes `fibonacci: FibLevel[] | null` and `movingAverages: MovingAverages | null`
-- `backend/src/routes/market.ts` — response now includes `subsectors: SectorData[]` (sorted by 5d return)
-- `frontend/src/types/stock.ts` — added `FibLevel`, `MovingAverages` interfaces; extended `SignaData` with EMA fields; extended `StockResponse` with `fibonacci` and `movingAverages`
-- `frontend/src/types/market.ts` — added `parentSector?: string` to `SectorData`; added `subsectors: SectorData[]` to `MarketResponse`
+- `backend/src/routes/stock.ts` - response now includes `fibonacci: FibLevel[] | null` and `movingAverages: MovingAverages | null`
+- `backend/src/routes/market.ts` - response now includes `subsectors: SectorData[]` (sorted by 5d return)
+- `frontend/src/types/stock.ts` - added `FibLevel`, `MovingAverages` interfaces; extended `SignaData` with EMA fields; extended `StockResponse` with `fibonacci` and `movingAverages`
+- `frontend/src/types/market.ts` - added `parentSector?: string` to `SectorData`; added `subsectors: SectorData[]` to `MarketResponse`
 
 ---
 
-## [0.2.0] — 2026-05-17
+## [0.2.0] - 2026-05-17
 
 ### Added
 
 #### Individual Stock Analysis
 
 - Search box at the top of the page to look up any ticker symbol
-- Watchlist — save tickers as persistent pills (localStorage, per-browser)
-- `StockPanel` — decision badge, 4 score rings (Composite / Stock / Sector / Market), score-weight bars, technicals grid, analysis text
-- Stock composite score: stock technicals × 40% + sector ETF health × 30% + market quality × 30%; Signa overallScore blended at 20% weight when available
+- Watchlist - save tickers as persistent pills (localStorage, per-browser)
+- `StockPanel` - decision badge, 4 score rings (Composite / Stock / Sector / Market), score-weight bars, technicals grid, analysis text
+- Stock composite score: stock technicals x 40% + sector ETF health x 30% + market quality x 30%; Signa overallScore blended at 20% weight when available
 - Stock decisions: YES BUY / YES SHORT / CAUTION / NO; market quality < 55 forces NO
 - `GET /api/stock/:ticker` backend endpoint with 1y Yahoo Finance history + Signa signal
 
 #### Signa.ai Integration (`backend/src/lib/signaClient.ts`)
 
-- `getSignaSignal(symbol)` — calls `GET /api/v1/signal?sym={symbol}&tf=1day` with 15-minute cache
+- `getSignaSignal(symbol)` - calls `GET /api/v1/signal?sym={symbol}&tf=1day` with 15-minute cache
 - Price levels displayed: Current Price, Best Entry, Stop Loss, Target Price, Risk:Reward ratio
-- Signal checklist — all fired triggers from Signa's 29-driver action card (technical + proprietary)
-- Early Warnings — shown when `riskScore ≥ 5`: risk factors and bearish chart patterns with confidence
+- Signal checklist - all fired triggers from Signa's 29-driver action card (technical + proprietary)
+- Early Warnings - shown when `riskScore >= 5`: risk factors and bearish chart patterns with confidence
 - Signa grade (A/B/C), direction (LONG/SHORT/WAIT), conviction %, stage + description, risk rating, tier
 - `SignaCard` frontend component rendering the full Signa analysis block
 - Graceful fallback: if `SIGNA_API_KEY` is absent or API returns error, stock analysis continues without Signa data
@@ -1268,65 +1268,65 @@ Without `VITE_API_URL` the frontend cannot reach the backend. Without `FRONTEND_
 
 #### UX
 
-- Stock search section moved to top of page — immediately visible on load
+- Stock search section moved to top of page - immediately visible on load
 - Visual divider separates stock analysis from market overview
 - Sector heatmap bars now share a common center zero-line: positive bars extend right (green), negative bars extend left (red)
-- Footer attribution updated: "Data via Yahoo Finance · Signals via Signa.ai"
+- Footer attribution updated: "Data via Yahoo Finance - Signals via Signa.ai"
 
 ### Changed
 
-- Removed 5 individual metric panel cards (Volatility / Trend / Breadth / Momentum / Macro) — Scoring Breakdown card is sufficient
-- `backend/package.json` — added `typecheck` script
-- `frontend/package.json` — added `typecheck` script
+- Removed 5 individual metric panel cards (Volatility / Trend / Breadth / Momentum / Macro) - Scoring Breakdown card is sufficient
+- `backend/package.json` - added `typecheck` script
+- `frontend/package.json` - added `typecheck` script
 - `SIGNA_API_KEY` environment variable documented in `.env.example`
 
 ---
 
-## [0.1.0] — 2026-05-17
+## [0.1.0] - 2026-05-17
 
-Initial public release of **Should I Be Trading?** — a Bloomberg Terminal-style swing trading environment dashboard.
+Initial public release of **Should I Be Trading?** - a Bloomberg Terminal-style swing trading environment dashboard.
 
 ### Added
 
 #### Core Decision Engine
 
-- Market Quality Score (0–100) computed from five weighted categories:
-  - **Volatility** (20%) — VIX level, 5-day slope, 1-year percentile rank
-  - **Trend** (25%) — SPY vs 20/50/200-day MAs, QQQ vs 50-day MA, SPY RSI(14), regime classification
-  - **Breadth** (20%) — sector ETF MA participation rate, IWM vs SPY breadth proxy
-  - **Momentum** (25%) — sector outperformance count, leadership quality (growth vs defensive rotation)
-  - **Macro** (10%) — 10-year Treasury level/trend, UUP dollar proxy, Fed stance, FOMC proximity
-- Execution Window Score (0–100) — separate signal evaluating whether setups are following through
-- Decision logic: **YES BUY** (≥80, uptrend), **YES SELL** (≥80, downtrend), **CAUTION** (60–79), **NO** (<60)
+- Market Quality Score (0-100) computed from five weighted categories:
+  - **Volatility** (20%) - VIX level, 5-day slope, 1-year percentile rank
+  - **Trend** (25%) - SPY vs 20/50/200-day MAs, QQQ vs 50-day MA, SPY RSI(14), regime classification
+  - **Breadth** (20%) - sector ETF MA participation rate, IWM vs SPY breadth proxy
+  - **Momentum** (25%) - sector outperformance count, leadership quality (growth vs defensive rotation)
+  - **Macro** (10%) - 10-year Treasury level/trend, UUP dollar proxy, Fed stance, FOMC proximity
+- Execution Window Score (0-100) - separate signal evaluating whether setups are following through
+- Decision logic: **YES BUY** (>=80, uptrend), **YES SELL** (>=80, downtrend), **CAUTION** (60-79), **NO** (<60)
 - Swing Trading and Day Trading modes with per-mode threshold display
 
 #### Backend (`backend/`)
 
 - Express 4 server with TypeScript, running via `tsx` (no compile step in production)
-- `yahooClient.ts` — direct Yahoo Finance v8 Chart API client; fetches 2-year VIX history and 1-year history for SPY, QQQ, IWM, ^TNX, UUP, and all 11 sector ETFs in a single parallel `Promise.all`
-- `technical.ts` — SMA, RSI(14), linear slope, percentile rank, and percent-return utility functions
-- `fomc.ts` — hardcoded 2025–2027 FOMC meeting calendar; `getUpcomingFOMC()` flags events within 72 hours
-- `cache.ts` — NodeCache wrapper with 30-second TTL to reduce Yahoo Finance API load
-- `scoring.ts` — five independent scoring functions, each returning score + weight + label + per-metric interpretation + direction arrow
-- `ai.ts` — Gemini 1.5 Flash integration for plain-English terminal analysis; template-based fallback when no API key is configured
-- `GET /api/market-data` — full market data + scores + analysis + ticker + alerts, served from cache when available
-- `POST /api/refresh` — cache invalidation endpoint for manual force-refresh
-- `GET /health` — health check endpoint
+- `yahooClient.ts` - direct Yahoo Finance v8 Chart API client; fetches 2-year VIX history and 1-year history for SPY, QQQ, IWM, ^TNX, UUP, and all 11 sector ETFs in a single parallel `Promise.all`
+- `technical.ts` - SMA, RSI(14), linear slope, percentile rank, and percent-return utility functions
+- `fomc.ts` - hardcoded 2025-2027 FOMC meeting calendar; `getUpcomingFOMC()` flags events within 72 hours
+- `cache.ts` - NodeCache wrapper with 30-second TTL to reduce Yahoo Finance API load
+- `scoring.ts` - five independent scoring functions, each returning score + weight + label + per-metric interpretation + direction arrow
+- `ai.ts` - Gemini 1.5 Flash integration for plain-English terminal analysis; template-based fallback when no API key is configured
+- `GET /api/market-data` - full market data + scores + analysis + ticker + alerts, served from cache when available
+- `POST /api/refresh` - cache invalidation endpoint for manual force-refresh
+- `GET /health` - health check endpoint
 - CORS configured via `FRONTEND_URL` environment variable
 
 #### Frontend (`frontend/`)
 
 - React 18 SPA with Vite 5 and Tailwind CSS v4
-- `useMarketData` hook — 45-second polling interval with live "Xs ago" counter
-- `TickerBar` — sticky scrolling ticker bar (SPY, QQQ, IWM, VIX, TNX, 11 sectors) with LIVE/UPDATING status dot and manual refresh button
-- `HeroPanel` — decision badge with color-coded glow, dual SVG score rings (Market Quality + Execution Window), regime pill, mode pill
-- `MetricPanel` — per-category panel with score, weight, interpretation badge, score bar, and 3–4 sub-metrics with direction arrows and contextual notes
-- `SectorHeatmap` — all 11 sector ETFs sorted by performance with heat bars, 1d/5d/20d timeframe toggle, 50-day MA flag, leader/lagger highlights
-- `ScoringBreakdown` — per-category weighted contribution bars with total score and threshold reference card
-- `TerminalAnalysis` — Bloomberg-style code window chrome (traffic lights, monospace prompt) rendering AI or template analysis text
-- `AlertBanner` — FOMC event and VIX spike warnings with severity-coded styling (info / warning / danger)
-- `ModeToggle` — Swing / Day mode pill toggle
-- `Skeleton` — pulsing shimmer skeletons for hero, metric panels, and sector heatmap loading states
+- `useMarketData` hook - 45-second polling interval with live "Xs ago" counter
+- `TickerBar` - sticky scrolling ticker bar (SPY, QQQ, IWM, VIX, TNX, 11 sectors) with LIVE/UPDATING status dot and manual refresh button
+- `HeroPanel` - decision badge with color-coded glow, dual SVG score rings (Market Quality + Execution Window), regime pill, mode pill
+- `MetricPanel` - per-category panel with score, weight, interpretation badge, score bar, and 3-4 sub-metrics with direction arrows and contextual notes
+- `SectorHeatmap` - all 11 sector ETFs sorted by performance with heat bars, 1d/5d/20d timeframe toggle, 50-day MA flag, leader/lagger highlights
+- `ScoringBreakdown` - per-category weighted contribution bars with total score and threshold reference card
+- `TerminalAnalysis` - Bloomberg-style code window chrome (traffic lights, monospace prompt) rendering AI or template analysis text
+- `AlertBanner` - FOMC event and VIX spike warnings with severity-coded styling (info / warning / danger)
+- `ModeToggle` - Swing / Day mode pill toggle
+- `Skeleton` - pulsing shimmer skeletons for hero, metric panels, and sector heatmap loading states
 - Error state with specific backend connection message and Retry button
 
 #### Design System
@@ -1342,7 +1342,7 @@ Initial public release of **Should I Be Trading?** — a Bloomberg Terminal-styl
 
 - Root `package.json` with `npm run dev` running both servers concurrently via `concurrently`
 - `npm run install:all` bootstraps all three `package.json` files in one command
-- Vite dev proxy routes `/api/*` to `:3001` — no local CORS issues
+- Vite dev proxy routes `/api/*` to `:3001` - no local CORS issues
 - `.env.example` documenting all backend environment variables
 - `.gitignore` covering `node_modules/`, `dist/`, all `.env*` files, OS artefacts, and IDE files
 - Deployment-ready for Cloudflare Pages (frontend) + Railway (backend)
@@ -1353,13 +1353,13 @@ Initial public release of **Should I Be Trading?** — a Bloomberg Terminal-styl
 
 The following items were documented as known gaps or future work:
 
-- **True market breadth** — % of NYSE/Nasdaq stocks above MAs, McClellan Oscillator, and Advance/Decline line (requires paid data feed such as Polygon.io or Tiingo)
-- **Logged-in admin panel** — Supabase Google OAuth + admin-configurable AI provider, scoring weights, and FOMC calendar via UI
-- **Day Trading mode differentiation** — tighter scoring thresholds and faster VIX/execution-window weighting when Day mode is active
-- **Historical score chart** — chart of Market Quality Score over the past 30/90 days stored in Supabase
-- **Push notifications** — alert when score crosses a threshold (email or browser push)
-- **Additional macro inputs** — CPI and Jobs Report calendar flags, DXY futures, Fed Funds futures-implied expectations
-- **Interactive score editor** — allow users to adjust category weights via UI sliders
-- **Pressed/active states** — visual feedback for all interactive elements beyond the hero badge
+- **True market breadth** - % of NYSE/Nasdaq stocks above MAs, McClellan Oscillator, and Advance/Decline line (requires paid data feed such as Polygon.io or Tiingo)
+- **Logged-in admin panel** - Supabase Google OAuth + admin-configurable AI provider, scoring weights, and FOMC calendar via UI
+- **Day Trading mode differentiation** - tighter scoring thresholds and faster VIX/execution-window weighting when Day mode is active
+- **Historical score chart** - chart of Market Quality Score over the past 30/90 days stored in Supabase
+- **Push notifications** - alert when score crosses a threshold (email or browser push)
+- **Additional macro inputs** - CPI and Jobs Report calendar flags, DXY futures, Fed Funds futures-implied expectations
+- **Interactive score editor** - allow users to adjust category weights via UI sliders
+- **Pressed/active states** - visual feedback for all interactive elements beyond the hero badge
 
 [0.1.0]: https://github.com/loopnestdev/signal-dashboard/releases/tag/v0.1.0
