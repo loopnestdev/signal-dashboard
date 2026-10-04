@@ -1,4 +1,4 @@
-import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse } from '../types/market';
+import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus } from '../types/market';
 import type { UnusualFlowResponse } from '../types/stock';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
@@ -48,4 +48,10 @@ export async function fetchMarketScan(direction?: 'bullish' | 'bearish'): Promis
   const res = await fetch(`${BASE}/api/market-scan${params}`);
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
   return res.json() as Promise<MarketScanResponse>;
+}
+
+export async function fetchCollectorStatus(): Promise<CollectorStatus> {
+  const res = await fetch(`${BASE}/api/collector/status`);
+  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+  return res.json() as Promise<CollectorStatus>;
 }

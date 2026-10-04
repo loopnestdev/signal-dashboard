@@ -4,7 +4,32 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev:frontend"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:backend"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "frontend-noauth",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_API_URL=",
+        "VITE_SUPABASE_URL=",
+        "VITE_SUPABASE_ANON_KEY=",
+        "npm",
+        "run",
+        "dev:frontend"
+      ],
       "port": 5173
     }
   ]

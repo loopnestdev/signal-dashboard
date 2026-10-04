@@ -178,3 +178,30 @@ export interface MarketResponse {
   ticker: TickerItem[];
   alerts: Alert[];
 }
+
+export interface CollectorRun {
+  job: string;
+  trade_date: string;
+  started_at: string;
+  status: 'ok' | 'partial' | 'error' | 'skipped';
+  api_calls: number;
+  rows_written: number;
+  message: string | null;
+}
+
+export interface CollectorStatus {
+  enabled: boolean;
+  symbols: string[];
+  usage: {
+    utcDay: string;
+    signaToday: number;
+    limit: number;
+    reserve: number;
+    collectorEstimatePerDay: number;
+    history: Array<{ day: string; calls: number }>;
+  };
+  jobs: Array<{ job: string; slotsEt: string[]; lastRun: CollectorRun | null }>;
+  datasets: Array<{ table: string; label: string; rows: number | null }>;
+  daily: Array<{ trade_date: string; rows: number; calls: number; errors: number }>;
+  recentErrors: CollectorRun[];
+}

@@ -11,7 +11,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "collect": "tsx src/collector/cli.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

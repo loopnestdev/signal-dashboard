@@ -280,6 +280,13 @@ input, textarea, select, button { font-family: inherit; font-size: inherit; }
   gap: 16px;
 }
 
+/* Data Collection 2-column card grid - stacks on mobile */
+.collector-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 /* Desktop: hide hamburger */
 .topnav-hamburger { display: none !important; }
 .sidebar-close-btn { display: none !important; }
@@ -316,7 +323,8 @@ input, textarea, select, button { font-family: inherit; font-size: inherit; }
   .app-content {
     padding: 16px 16px 48px;
   }
-  .fib-grid {
+  .fib-grid,
+  .collector-grid {
     grid-template-columns: 1fr;
   }
 }

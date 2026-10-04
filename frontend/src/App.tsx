@@ -21,6 +21,7 @@ import { DarkPoolView } from './components/DarkPoolView';
 import { GammaView } from './components/GammaView';
 import { MarketScanView } from './components/MarketScanView';
 import { PlaybookView } from './components/PlaybookView';
+import { DataCollectionView } from './components/DataCollectionView';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
 import type { View } from './components/layout/Sidebar';
@@ -346,6 +347,9 @@ export default function App() {
 
               {/* Playbook view */}
               {activeView === 'playbook' && <PlaybookView />}
+
+              {/* Data Collection view */}
+              {activeView === 'data-collection' && <DataCollectionView />}
 
               {/* Footer */}
               <div style={{
