@@ -392,7 +392,7 @@ create trigger on_auth_user_created
 
 #### Step 3a - Create data collection tables
 
-Run [`supabase/migrations/20261004_data_collector.sql`](supabase/migrations/20261004_data_collector.sql) in the SQL Editor. It creates the history tables used for backtesting (dark pool prints + daily rollups, options flow alerts, curated flow, GEX snapshots, Signa signal snapshots, option quotes), the `tracked_symbols` universe (seeded with SPY, QQQ, IWM, SMH and liquid watchlist names), and the `collector_runs` / `api_usage` bookkeeping tables. The script is idempotent.
+Run [`supabase/migrations/20261004_data_collector.sql`](supabase/migrations/20261004_data_collector.sql) in the SQL Editor. It creates the history tables used for backtesting (dark pool prints + daily rollups, options flow alerts, curated flow, GEX snapshots, Signa signal snapshots, option quotes), the `tracked_symbols` universe (seeded with the permanent core: SPY, QQQ, IWM, SMH, MU, AMZN, SPCX, AAPL, NVDA, META, GOOGL, AVGO, MSFT, TSLA), and the `collector_runs` / `api_usage` bookkeeping tables. The script is idempotent.
 
 To change the universe later, edit `signal.tracked_symbols` (set `active = false` to pause a symbol).
 

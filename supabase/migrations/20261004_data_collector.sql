@@ -21,11 +21,8 @@ create table if not exists signal.tracked_symbols (
 
 insert into signal.tracked_symbols (symbol, kind) values
   ('SPY','etf'), ('QQQ','etf'), ('IWM','etf'), ('SMH','etf'),
-  ('AMZN','stock'), ('MU','stock'), ('MRVL','stock'), ('CRDO','stock'),
-  ('ALAB','stock'), ('SNDK','stock'), ('VRT','stock'), ('NBIS','stock'),
-  ('IREN','stock'), ('OKLO','stock'), ('SMR','stock'), ('RKLB','stock'),
-  ('ASTS','stock'), ('LITE','stock'), ('AAOI','stock'), ('BE','stock'),
-  ('LEU','stock'), ('TEM','stock'), ('EOSE','stock'), ('NVTS','stock')
+  ('MU','stock'), ('AMZN','stock'), ('SPCX','stock'), ('AAPL','stock'), ('NVDA','stock'),
+  ('META','stock'), ('GOOGL','stock'), ('AVGO','stock'), ('MSFT','stock'), ('TSLA','stock')
 on conflict (symbol) do nothing;
 
 -- ── Dark pool (Radon milestone 2) ────────────────────────────────────────────

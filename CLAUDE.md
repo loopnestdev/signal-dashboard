@@ -253,9 +253,9 @@ Helper functions:
 
 Records history that Signa cannot serve retroactively, so Radon-style strategies can be backtested later. Signa only returns live/latest data for flow, dark pool and GEX; **a missed slot cannot be back-filled.**
 
-- **Universe:** `signal.tracked_symbols` (active rows). Seeded with SPY, QQQ, IWM, SMH + liquid-options watchlist names; thin small caps and OTC names are excluded on purpose.
+- **Universe:** `signal.tracked_symbols` (active rows). Permanent core: SPY, QQQ, IWM, SMH, MU, AMZN, SPCX, AAPL, NVDA, META, GOOGL, AVGO, MSFT, TSLA. Not tied to the user's watchlist; non-core names will come from the scanner (release 1.1).
 - **Schedule (ET, NYSE trading days, `schedule.ts`):** signals 09:00; dark pool hourly 10:05-16:05; flow alerts hourly 10:35-15:35 + close+10 (active names hit Signa's 50-alert cap); curated flow 10:30, 12:30, 14:30, close+10; Yahoo option chain close-15; GEX close+20; dark pool rollup close+40. Close-relative slots follow early closes.
-- **Budget:** about `symbols x 16 + 4` Signa calls per trading day (24 symbols = 388). Every Signa request goes through `signaFetch()` (`lib/apiUsage.ts`), which counts it and flushes to `signal.api_usage` every 5 min. `runJob()` skips a Signa job when `used + planned > SIGNA_DAILY_LIMIT - SIGNA_RESERVE_CALLS`.
+- **Budget:** about `symbols x 16 + 4` Signa calls per trading day (14-symbol core = 228). Every Signa request goes through `signaFetch()` (`lib/apiUsage.ts`), which counts it and flushes to `signal.api_usage` every 5 min. `runJob()` skips a Signa job when `used + planned > SIGNA_DAILY_LIMIT - SIGNA_RESERVE_CALLS`.
 - **Dark pool:** Signa returns at most 50 latest prints per call, so hourly pulls are a *sample*, not the full tape Radon uses with direct UW access. Side classification matches Radon `analyze_darkpool` (price >= NBBO mid = buy). Raw prints are kept 60 days; `signal.rollup_dp_daily()` keeps permanent daily aggregates in `dp_daily`.
 - **Signa dark pool coverage is thin:** a 50-print pull spans only minutes of tape for liquid names (often after-hours); treat `dp_daily` as a noisy estimate.
 - **GEX:** call `get_gex` without strike filters - Signa computes flip/walls inside the filtered range, so filtered calls return wrong levels. Stored strikes are summed across expiries and limited to +/-30% of spot.

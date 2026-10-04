@@ -11,8 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added - Data collector (trading roadmap, release 1)
 
 - **Scheduled market-history recorder** (`backend/src/collector/`): on NYSE trading days it records the data Signa can only serve live, so Radon-style strategies can be backtested later. Dark pool prints hourly, UW options flow alerts hourly, curated flow 4x/day, GEX levels and Signa Action Cards once a day, plus Yahoo option quotes (30/60 DTE, +/-15% strikes) near the close. Off by default; enable with `COLLECTOR_ENABLED=true` on one deployment.
-- **Supabase tables** (`supabase/migrations/20261004_data_collector.sql`): `tracked_symbols` (universe: SPY, QQQ, IWM, SMH + 20 liquid watchlist names), `dp_prints` (60-day raw) + `dp_daily` (permanent rollup, Radon NBBO-mid buy/sell split), `flow_alerts`, `curated_flow`, `gex_daily`, `signal_snapshots`, `option_quotes`, `collector_runs`, `api_usage`.
-- **Signa quota tracking**: every Signa REST/MCP request is counted (`signaFetch()`) and stored per UTC day. The collector skips jobs before eating into a reserve for dashboard browsing (`SIGNA_DAILY_LIMIT`, `SIGNA_RESERVE_CALLS`). Planned use is about 388 calls per trading day for 24 symbols.
+- **Supabase tables** (`supabase/migrations/20261004_data_collector.sql`): `tracked_symbols` (permanent core: SPY, QQQ, IWM, SMH + 10 large caps), `dp_prints` (60-day raw) + `dp_daily` (permanent rollup, Radon NBBO-mid buy/sell split), `flow_alerts`, `curated_flow`, `gex_daily`, `signal_snapshots`, `option_quotes`, `collector_runs`, `api_usage`.
+- **Signa quota tracking**: every Signa REST/MCP request is counted (`signaFetch()`) and stored per UTC day. The collector skips jobs before eating into a reserve for dashboard browsing (`SIGNA_DAILY_LIMIT`, `SIGNA_RESERVE_CALLS`). Planned use is about 228 calls per trading day for the 14-symbol core.
 - **Data Collection view** (sidebar): recording status, Signa calls today vs quota, job schedule (ET) with last run, rows collected per day, stored row counts, recent failures.
 - `GET /api/collector/status` endpoint and `npm run collect -- <job>` manual runner.
 
