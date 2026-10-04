@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.3] - 2026-10-04
+
+### Changed - Record Signa's full daily scan
+
+- The 09:15 ET Signa `scan_symbols` pull now stores the top 100 bullish and top 100 bearish setups (was 50 each), Signa's maximum, at the same 2 calls per day. The wider ranked list is the input for a planned shares-only "Signa top picks" backtest, which can be priced from free daily price history.
+
+---
+
 ## [1.2.2] - 2026-10-04
 
 ### Added - Explanatory tooltips

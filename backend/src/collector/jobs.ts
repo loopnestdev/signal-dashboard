@@ -94,7 +94,7 @@ async function runSignaJob(job: JobName, tradeDate: string, symbols: string[]): 
       let rows = 0;
       let failed = 0;
       for (const direction of ['bullish', 'bearish']) {
-        const payload = await callMcpTool('scan_symbols', { direction, limit: 50 });
+        const payload = await callMcpTool('scan_symbols', { direction, limit: 100 });
         if (payload === null) { failed++; continue; }
         rows += await upsertRows('signa_scans', parseSignaScan(payload, tradeDate), 'merge', 'symbol,trade_date,direction');
       }
