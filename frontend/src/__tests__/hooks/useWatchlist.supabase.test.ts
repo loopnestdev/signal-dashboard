@@ -8,6 +8,17 @@ import { useWatchlist } from '../../hooks/useWatchlist';
 
 const neverResolves = new Promise<never>(() => {});
 
+// Filter builder for update/delete: thenable, and .eq() chains so multi-column filters
+// (renameGroup's user_id + name fallback) work like the real PostgREST builder.
+interface FilterBuilder {
+  eq: () => FilterBuilder;
+  then: (cb: (v: { error: null }) => void) => void;
+}
+const filterBuilder = (): FilterBuilder => ({
+  eq: () => filterBuilder(),
+  then: (cb) => cb({ error: null }),
+});
+
 vi.mock('../../lib/supabase', () => ({
   supabase: {
     from: (_table: string) => ({
@@ -29,12 +40,8 @@ vi.mock('../../lib/supabase', () => ({
           }),
         }),
       }),
-      update: (_data: unknown) => ({
-        eq: () => ({ then: (cb: (v: { error: null }) => void) => cb({ error: null }) }),
-      }),
-      delete: () => ({
-        eq: () => ({ then: (cb: (v: { error: null }) => void) => cb({ error: null }) }),
-      }),
+      update: (_data: unknown) => filterBuilder(),
+      delete: () => filterBuilder(),
     }),
   },
 }));
