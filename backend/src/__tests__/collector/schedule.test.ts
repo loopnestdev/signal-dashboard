@@ -29,12 +29,15 @@ describe('marketCalendar', () => {
 });
 
 describe('jobSlots', () => {
-  it('runs dark pool hourly through the regular session', () => {
-    expect(jobSlots('darkpool', '2026-10-05')).toEqual([hm(10, 5), hm(11, 5), hm(12, 5), hm(13, 5), hm(14, 5), hm(15, 5), hm(16, 5)]);
+  it('runs dark pool every 30 minutes through the regular session', () => {
+    expect(jobSlots('darkpool', '2026-10-05')).toEqual([
+      hm(10, 5), hm(10, 35), hm(11, 5), hm(11, 35), hm(12, 5), hm(12, 35), hm(13, 5),
+      hm(13, 35), hm(14, 5), hm(14, 35), hm(15, 5), hm(15, 35), hm(16, 5),
+    ]);
   });
 
   it('shifts close-relative jobs and drops after-close session slots on early-close days', () => {
-    expect(jobSlots('darkpool', '2026-11-27')).toEqual([hm(10, 5), hm(11, 5), hm(12, 5), hm(13, 5)]);
+    expect(jobSlots('darkpool', '2026-11-27')).toEqual([hm(10, 5), hm(10, 35), hm(11, 5), hm(11, 35), hm(12, 5), hm(12, 35), hm(13, 5)]);
     expect(jobSlots('gex', '2026-11-27')).toEqual([hm(13, 20)]);
     expect(jobSlots('option-chain', '2026-11-27')).toEqual([hm(12, 45)]);
     expect(jobSlots('flow-alerts', '2026-11-27')).toEqual([hm(10, 35), hm(11, 35), hm(12, 35), hm(13, 10)]);
@@ -68,9 +71,9 @@ describe('dueJobs', () => {
 
 describe('estimatedSignaCallsPerDay', () => {
   it('counts per-symbol jobs x slots plus market-wide jobs and scanner lookups', () => {
-    // per symbol: signals 1 + darkpool 7 + flow-alerts 7 + gex 1 = 16
+    // per symbol: signals 1 + darkpool 13 + flow-alerts 7 + gex 1 = 22
     // market-wide: curated-flow 4 + raw-flow 7 + signa-scan 2 = 13; scanner: 3 runs x lookups
-    expect(estimatedSignaCallsPerDay(24)).toBe(24 * 16 + 13 + 30);
+    expect(estimatedSignaCallsPerDay(24)).toBe(24 * 22 + 13 + 30);
     expect(estimatedSignaCallsPerDay(0, 0)).toBe(13);
   });
 
