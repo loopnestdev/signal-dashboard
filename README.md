@@ -72,6 +72,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Structured terminal analysis | Signa output parsed into sections; plain text for Gemini/template fallback |
 | Alert banner | FOMC event (within 72h), VIX spike (>30) warnings |
 | Auto-refresh | Every 45 seconds with manual refresh and "updated Xs ago" counter |
+| Data collection | Scheduled recorder (US trading days, ET) storing dark pool prints, UW options flow alerts, curated flow, GEX levels, Signa signals and option quotes to Supabase for later backtesting; Data Collection view shows job health and Signa API usage vs the daily quota |
 
 ---
 
@@ -232,6 +233,11 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy - no CORS config n
 | `SIGNA_API_KEY` | No | - | Signa.ai API key - enables stock signals, options intelligence, fundamentals, and AI market analysis |
 | `GEMINI_API_KEY` | No | - | Google AI Studio key - used as AI analysis fallback when `SIGNA_API_KEY` is absent |
 | `AI_PROVIDER` | No | `gemini` | Set to `none` to skip Gemini entirely and always use template analysis |
+| `SUPABASE_URL` | For data collection | - | coredb project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | For data collection | - | Service role key - the backend writes collector tables (RLS has no client policies). Never expose it to the frontend |
+| `COLLECTOR_ENABLED` | No | `false` | `true` starts the scheduled data collector. Enable on **one** deployment only (Railway); a second collector doubles Signa API usage |
+| `SIGNA_DAILY_LIMIT` | No | `1000` | Your Signa plan's daily call quota (REST + MCP share it) |
+| `SIGNA_RESERVE_CALLS` | No | `200` | Calls kept free for dashboard browsing; collector jobs are skipped once usage reaches `limit - reserve` |
 
 **Priority chain for AI market analysis:** Signa.ai --> Gemini 1.5 Flash --> built-in template
 
@@ -384,6 +390,12 @@ create trigger on_auth_user_created
   for each row execute procedure signal.handle_new_user();
 ```
 
+#### Step 3a - Create data collection tables
+
+Run [`supabase/migrations/20261004_data_collector.sql`](supabase/migrations/20261004_data_collector.sql) in the SQL Editor. It creates the history tables used for backtesting (dark pool prints + daily rollups, options flow alerts, curated flow, GEX snapshots, Signa signal snapshots, option quotes), the `tracked_symbols` universe (seeded with the permanent core: SPY, QQQ, IWM, SMH, MU, AMZN, SPCX, AAPL, NVDA, META, GOOGL, AVGO, MSFT, TSLA), and the `collector_runs` / `api_usage` bookkeeping tables. The script is idempotent.
+
+To change the universe later, edit `signal.tracked_symbols` (set `active = false` to pause a symbol).
+
 #### Step 4 - Grant yourself admin access
 
 After your first sign-in, run both statements in the SQL Editor (replace with your email).
@@ -462,6 +474,9 @@ In Railway --> your service --> **Variables**, add:
 | `FRONTEND_URL` | `https://your-app.pages.dev` (your Cloudflare Pages URL - fill in after the next section) |
 | `SIGNA_API_KEY` | Your Signa.ai API key (get it from [app.getsigna.ai](https://app.getsigna.ai)) |
 | `GEMINI_API_KEY` | Your key from [aistudio.google.com](https://aistudio.google.com) *(optional - only needed if you don't have a Signa key)* |
+| `SUPABASE_URL` | `https://lcqsatefkutiakhgexue.supabase.co` *(data collection)* |
+| `SUPABASE_SERVICE_ROLE_KEY` | coredb service role key *(data collection)* |
+| `COLLECTOR_ENABLED` | `true` *(only on this one deployment)* |
 
 > `AI_PROVIDER` and `PORT` have sensible defaults - only add them if you want to override.
 
@@ -655,6 +670,10 @@ Invalidates the cache. Next `GET /api/market-data` fetches fresh data.
 ### `GET /api/stock/:symbol`
 
 Returns stock analysis for a symbol. Includes technical score, sector ETF score, composite score, Signa.ai signal, Fibonacci levels, moving averages, options intelligence, and fundamentals.
+
+### `GET /api/collector/status`
+
+Data collector health for the Data Collection view: whether recording is enabled on this server, tracked symbols, Signa calls used today vs `SIGNA_DAILY_LIMIT`, each job's ET schedule and last run, stored row counts per table, rows collected per trading day, and recent failed/partial runs. Cached 60 seconds. Returns 503 when `SUPABASE_SERVICE_ROLE_KEY` is unset or the migration has not been run.
 
 ### `GET /health`
 

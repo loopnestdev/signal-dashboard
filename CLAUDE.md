@@ -40,6 +40,7 @@ signal-dashboard/
 |   |   |   +-- AdminPanel.tsx         # Admin: pending access requests + approve button
 |   |   |   +-- AlertBanner.tsx        # FOMC / VIX spike alerts
 |   |   |   +-- AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
+|   |   |   +-- DataCollectionView.tsx # Data Collection view: collector jobs, API usage, stored history
 |   |   |   +-- DarkPoolView.tsx       # Dark Pool view: Radon-scored off-exchange block prints
 |   |   |   +-- FlowDirectionChart.tsx # Mini SVG arrow + full Recharts chart (Options tab)
 |   |   |   +-- FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
@@ -86,6 +87,14 @@ signal-dashboard/
 |   |   |   +-- moat.ts                # GET /api/moat/:ticker - Supabase moat schema proxy
 |   |   |   +-- stock.ts               # GET /api/stock/:symbol
 |   |   |   +-- unusualFlow.ts         # GET /api/unusual-flow?ticker=AAPL
+|   |   |   +-- collector.ts           # GET /api/collector/status
+|   |   +-- collector/
+|   |   |   +-- index.ts               # startCollector(): 30s ET-clock tick, runs due jobs sequentially
+|   |   |   +-- schedule.ts            # Job slots (ET), dueJobs(), Signa call estimate
+|   |   |   +-- jobs.ts                # runJob(): budget guard, per-symbol Signa MCP pulls, collector_runs log
+|   |   |   +-- parsers.ts             # Pure payload --> row transforms (dark pool, flow, curated, GEX, signal, option chain)
+|   |   |   +-- yahooOptions.ts        # Yahoo v7 option chain (cookie + crumb)
+|   |   |   +-- cli.ts                 # npm run collect -- <job> [date]
 |   |   +-- services/
 |   |   |   +-- ai.ts                  # Signa --> Gemini --> template priority chain
 |   |   |   +-- flowScoring.ts         # Unusual flow direction scoring (Radon-adapted)
@@ -93,7 +102,10 @@ signal-dashboard/
 |   |   |   +-- scoring.ts             # 5 market scoring functions
 |   |   |   +-- stockScoring.ts        # Stock score + Fibonacci + Moving Averages
 |   |   +-- lib/
+|   |       +-- apiUsage.ts            # signaFetch() call counter --> signal.api_usage
 |   |       +-- cache.ts               # NodeCache wrapper (30s TTL)
+|   |       +-- marketCalendar.ts      # ET clock, NYSE holidays + early closes (update annually)
+|   |       +-- supabaseRest.ts        # Service-role PostgREST client for the signal schema
 |   |       +-- fomc.ts                # FOMC calendar + Fed stance (update annually)
 |   |       +-- signaClient.ts         # Signa.ai API client (REST + MCP Streamable HTTP)
 |   |       +-- technical.ts           # sma, ema, rsi, slope, percentileRank
@@ -101,6 +113,7 @@ signal-dashboard/
 |   +-- .env.example
 |   +-- package.json
 |
++-- supabase/migrations/            # SQL to run in the Supabase SQL editor (collector tables)
 +-- package.json     # Root: concurrently dev, install:all
 +-- DESIGN.md        # Stripe-inspired light design tokens (source of truth)
 +-- CLAUDE.md        # This file
@@ -142,6 +155,10 @@ The frontend Vite dev proxy routes `/api/*` --> `http://localhost:3001`, so no C
 | `SIGNA_API_KEY` | No | - | Signa.ai API key (stock signals + terminal analysis) |
 | `GEMINI_API_KEY` | No | - | Google AI Studio key (terminal analysis fallback) |
 | `AI_PROVIDER` | No | `gemini` | `gemini` \| `none` |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | For collector | - | Backend writes the collector tables with the service role key |
+| `COLLECTOR_ENABLED` | No | `false` | `true` on exactly one deployment (Railway) |
+| `SIGNA_DAILY_LIMIT` | No | `1000` | Signa quota; REST + MCP share it |
+| `SIGNA_RESERVE_CALLS` | No | `200` | Collector skips jobs once usage reaches `limit - reserve` |
 
 **`frontend/.env`** (optional - enables Google sign-in and cross-device watchlist sync)
 
@@ -215,7 +232,7 @@ Helper functions:
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
 - **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`<=768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
-- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` --> stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` --> `TerminalAnalysis`; `'sector-map'` --> `SectorHeatmap`; `'options-flow'` --> `OptionsFlowView`; `'dark-pool'` --> `DarkPoolView`; `'gamma'` --> `GammaView`; `'market-scan'` --> `MarketScanView`; `'playbook'` --> `PlaybookView` (static strategy reference, no data deps). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
+- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` --> stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` --> `TerminalAnalysis`; `'sector-map'` --> `SectorHeatmap`; `'options-flow'` --> `OptionsFlowView`; `'dark-pool'` --> `DarkPoolView`; `'gamma'` --> `GammaView`; `'market-scan'` --> `MarketScanView`; `'playbook'` --> `PlaybookView` (static strategy reference, no data deps); `'data-collection'` --> `DataCollectionView` (collector health). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
 - **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column --> single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code - use CSS classes instead.
 
 ### API Routes
@@ -229,7 +246,22 @@ Helper functions:
 - `GET /api/dark-pool` - market-wide dark pool prints (Signa `get_dark_pool` MCP), Radon-scored by NBBO positioning. Returns `{ prints: DpPrint[] }`. 2 min cache.
 - `GET /api/gamma-gex` - GEX data for SPY, QQQ, IWM in parallel (Signa `get_gex` MCP). Returns `{ spy, qqq, iwm }`. 15 min cache. Call/put walls derived from levels if not in response.
 - `GET /api/market-scan?direction=bullish|bearish` - ranked market setups from Signa `scan_symbols` MCP. Returns `{ results: ScanItem[], count }`. 5 min cache.
+- `GET /api/collector/status` - collector health: enabled flag, symbols, Signa usage today vs limit, job schedule + last run, table row counts, daily rows. 60s cache. 503 when service role key or migration is missing.
 - `GET /health` - health check
+
+### Data Collector (Release 1 of the trading roadmap)
+
+Records history that Signa cannot serve retroactively, so Radon-style strategies can be backtested later. Signa only returns live/latest data for flow, dark pool and GEX; **a missed slot cannot be back-filled.**
+
+- **Universe:** `signal.tracked_symbols` (active rows). Permanent core: SPY, QQQ, IWM, SMH, MU, AMZN, SPCX, AAPL, NVDA, META, GOOGL, AVGO, MSFT, TSLA. Not tied to the user's watchlist; non-core names will come from the scanner (release 1.1).
+- **Schedule (ET, NYSE trading days, `schedule.ts`):** signals 09:00; dark pool hourly 10:05-16:05; flow alerts hourly 10:35-15:35 + close+10 (active names hit Signa's 50-alert cap); curated flow 10:30, 12:30, 14:30, close+10; Yahoo option chain close-15; GEX close+20; dark pool rollup close+40. Close-relative slots follow early closes.
+- **Budget:** about `symbols x 16 + 4` Signa calls per trading day (14-symbol core = 228). Every Signa request goes through `signaFetch()` (`lib/apiUsage.ts`), which counts it and flushes to `signal.api_usage` every 5 min. `runJob()` skips a Signa job when `used + planned > SIGNA_DAILY_LIMIT - SIGNA_RESERVE_CALLS`.
+- **Dark pool:** Signa returns at most 50 latest prints per call, so hourly pulls are a *sample*, not the full tape Radon uses with direct UW access. Side classification matches Radon `analyze_darkpool` (price >= NBBO mid = buy). Raw prints are kept 60 days; `signal.rollup_dp_daily()` keeps permanent daily aggregates in `dp_daily`.
+- **Signa dark pool coverage is thin:** a 50-print pull spans only minutes of tape for liquid names (often after-hours); treat `dp_daily` as a noisy estimate.
+- **GEX:** call `get_gex` without strike filters - Signa computes flip/walls inside the filtered range, so filtered calls return wrong levels. Stored strikes are summed across expiries and limited to +/-30% of spot.
+- **Option quotes:** Yahoo v7 chain (cookie + crumb), two expiries nearest 30 and 60 DTE (21-75 DTE window), strikes within +/-15% of spot. Needed later to price paper trades; uses no Signa calls.
+- **Enable:** `COLLECTOR_ENABLED=true` + `SUPABASE_SERVICE_ROLE_KEY` + `SIGNA_API_KEY`. Leave it off locally so two collectors don't double the quota. Manual run: `cd backend && npm run collect -- <job> [YYYY-MM-DD]`.
+- **Holidays:** `NYSE_HOLIDAYS` / `NYSE_EARLY_CLOSES` in `lib/marketCalendar.ts` - update annually with `fomc.ts`.
 
 ### Signa MCP Streamable HTTP
 
@@ -296,7 +328,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 182 tests - one-shot
+cd backend && npm test          # 222 tests - one-shot
 cd frontend && npm test         # 64 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -320,6 +352,9 @@ cd frontend && npm run test:watch  # watch mode
 | `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path - add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
 | `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` | `useWatchlist` Supabase-mode path - all mutations write to localStorage (dual persistence), in-memory state correct immediately |
 | `backend/src/__tests__/services/flowScoring.test.ts` | `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, +/-2 boundary, field preservation); `summarizeFlow`: direction counts, premium totals, avg conviction, market bias tie-breaking |
+| `backend/src/__tests__/collector/parsers.test.ts` | Collector row transforms: dark pool side classification (Radon mid rule), ET trade dates, dedupe, flow-alert stable ids, curated universe filter, GEX strike aggregation + band, signal field extraction, swing expiry selection, option chain band filter |
+| `backend/src/__tests__/collector/schedule.test.ts` | ET clock across DST, NYSE holidays/early closes, job slots, `dueJobs` grace window, Signa daily call estimate |
+| `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |
 | `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |
 
 ### Test policy

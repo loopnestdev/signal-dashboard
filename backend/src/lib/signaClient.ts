@@ -1,4 +1,5 @@
 import { getFromCache, setToCache } from './cache.js';
+import { signaFetch } from './apiUsage.js';
 
 const SIGNA_BASE = 'https://app.getsigna.ai/api/v1';
 const CACHE_TTL_SIGNAL = 900; // 15 min — nightly pipeline data
@@ -162,7 +163,7 @@ export async function getSignaSignal(symbol: string): Promise<SignaData | null> 
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/signal?sym=${encodeURIComponent(symbol)}&tf=1day`,
       { headers: headers() },
     );
@@ -247,7 +248,7 @@ export async function getSignaWeeklySignal(symbol: string): Promise<SignaWeeklyR
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/signal?sym=${encodeURIComponent(symbol)}&tf=1W`,
       { headers: headers() },
     );
@@ -302,7 +303,7 @@ export async function getSignaAnalysis(symbol: string): Promise<SignaAnalysis | 
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/analysis?sym=${encodeURIComponent(symbol)}`,
       { headers: headers() },
     );
@@ -369,7 +370,7 @@ export async function getSignaNews(symbol: string): Promise<SignaNewsArticle[] |
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/news?sym=${encodeURIComponent(symbol)}`,
       { headers: headers() },
     );
@@ -414,7 +415,7 @@ export async function getSignaThesis(symbol: string): Promise<string | null> {
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/signal?sym=${encodeURIComponent(symbol)}&include=thesis`,
       { headers: headers() },
     );
@@ -487,7 +488,7 @@ export async function getSignaCongress(symbol: string): Promise<CongressData | n
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/congress?sym=${encodeURIComponent(symbol)}`,
       { headers: headers() },
     );
@@ -567,7 +568,7 @@ export async function getOptionsFlow(symbol: string): Promise<OptionsFlowData | 
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/options?sym=${encodeURIComponent(symbol)}`,
       { headers: headers() },
     );
@@ -612,7 +613,7 @@ export async function getDarkpool(symbol: string): Promise<DarkpoolData | null> 
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/darkpool?sym=${encodeURIComponent(symbol)}`,
       { headers: headers() },
     );
@@ -656,7 +657,7 @@ export async function getGammaExposure(symbol: string): Promise<GammaData | null
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/gamma?sym=${encodeURIComponent(symbol)}`,
       { headers: headers() },
     );
@@ -711,7 +712,7 @@ export async function getFundamentals(symbol: string): Promise<FundamentalsData 
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await signaFetch(
       `${SIGNA_BASE}/fundamentals?sym=${encodeURIComponent(symbol)}`,
       { headers: headers() },
     );
@@ -756,7 +757,7 @@ export async function getCuratedFlow(
   if (cached) return cached;
 
   try {
-    const res = await fetch(SIGNA_MCP_URL, {
+    const res = await signaFetch(SIGNA_MCP_URL, {
       method: 'POST',
       headers: {
         ...headers(),
@@ -804,10 +805,10 @@ export async function getCuratedFlow(
 
 // ── Market-wide MCP tool helper ───────────────────────────────────────────────
 
-async function callMcpTool<T>(toolName: string, args: Record<string, unknown> = {}): Promise<T | null> {
+export async function callMcpTool<T>(toolName: string, args: Record<string, unknown> = {}): Promise<T | null> {
   if (!process.env.SIGNA_API_KEY) return null;
   try {
-    const res = await fetch(SIGNA_MCP_URL, {
+    const res = await signaFetch(SIGNA_MCP_URL, {
       method: 'POST',
       headers: {
         ...headers(),
@@ -818,6 +819,7 @@ async function callMcpTool<T>(toolName: string, args: Record<string, unknown> = 
         jsonrpc: '2.0', id: 1, method: 'tools/call',
         params: { name: toolName, arguments: args },
       }),
+      signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) { console.warn(`[signa-mcp] ${toolName}: HTTP ${res.status}`); return null; }
     const text = await res.text();
