@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.0] - 2026-10-04
+
+### Added - Flow Scanner (trading roadmap, release 1.1)
+
+- **Radon discovery scorer** (`backend/src/collector/scanner.ts`): port of Radon `discover.py`. Large options prints (>= $500k, >= 7 DTE) are aggregated per ticker, validated against 3 sessions of dark pool buy/sell volume, and scored 0-100 (dark pool strength 30, sustained days 20, options/dark pool confluence 20, vol/OI 15, sweeps 15). Runs 11:45, 14:45 and 16:30 ET.
+- **Automatic universe**: tradeable candidates scoring 45+ are promoted into `tracked_symbols` for 14 days (renewed when they qualify again, capped at 12 by score), so hourly dark pool, flow and daily GEX collection starts for them. The permanent core is never modified.
+- **New feeds**: market-wide large prints (`get_raw_flow`, hourly, stored in `raw_flow`) and Signa's 30-model scan (`scan_symbols` bullish + bearish, 09:15 ET, stored in `signa_scans` as a cross-check).
+- **Flow Scanner view** (sidebar) and `GET /api/scanner`: scored candidates with breakdown, filter reasons, promoted names with expiry, Signa scan lists.
+- `supabase/migrations/20261005_flow_scanner.sql`; tunables `SCANNER_PROMOTE_SCORE`, `SCANNER_MAX_PROMOTED`, `SCANNER_DP_LOOKUPS` (+ filter thresholds documented in CLAUDE.md).
+
+---
+
 ## [1.1.0] - 2026-10-04
 
 ### Added - Data collector (trading roadmap, release 1)

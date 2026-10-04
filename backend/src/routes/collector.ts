@@ -6,6 +6,7 @@ import { countRows, isSupabaseAdminConfigured, selectRows } from '../lib/supabas
 import { isCollectorEnabled } from '../collector/index.js';
 import { activeSymbols } from '../collector/jobs.js';
 import { JOB_NAMES, estimatedSignaCallsPerDay, jobSlots } from '../collector/schedule.js';
+import { scannerConfig } from '../collector/scanner.js';
 
 const router = Router();
 
@@ -17,6 +18,8 @@ const DATASETS = [
   { table: 'gex_daily', label: 'GEX snapshots' },
   { table: 'signal_snapshots', label: 'Signa signal snapshots' },
   { table: 'option_quotes', label: 'Option quotes' },
+  { table: 'raw_flow', label: 'Large prints (market-wide)' },
+  { table: 'scanner_candidates', label: 'Scanner candidates' },
 ];
 
 interface RunRow {
@@ -73,7 +76,7 @@ router.get('/collector/status', async (_req, res) => {
         signaToday,
         limit: Number(process.env.SIGNA_DAILY_LIMIT ?? 1000),
         reserve: Number(process.env.SIGNA_RESERVE_CALLS ?? 200),
-        collectorEstimatePerDay: estimatedSignaCallsPerDay(symbols.length),
+        collectorEstimatePerDay: estimatedSignaCallsPerDay(symbols.length, scannerConfig().dpLookupsPerRun),
         history: usage.filter(u => u.source === 'signa').map(u => ({ day: u.day, calls: u.calls })).reverse(),
       },
       jobs,
