@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.2] - 2026-10-04
+
+### Added - Explanatory tooltips
+
+- `InfoTip` component: a small "?" badge that explains a column or card on hover (desktop) or tap (touch). Rendered in a portal so table scroll areas don't clip it; repositions to stay on screen and closes on scroll.
+- **Flow Scanner**: every column header (score parts, options bias, dark pool, confluence, prints, sweeps, vol/OI, premium, price, Signa, status) and the candidates, promoted and Signa scan cards.
+- **Data Collection**: every jobs-table header, each job, each stored dataset, and every card title (API usage, rows per day, schedule, stored history, tracked symbols, recent problems). Added labels for the scanner jobs (large prints, Signa scan, flow scanner).
+
+---
+
 ## [1.2.1] - 2026-10-04
 
 ### Changed - Dark pool sampling every 30 minutes

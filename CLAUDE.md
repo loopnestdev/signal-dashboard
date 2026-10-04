@@ -45,6 +45,7 @@ signal-dashboard/
 |   |   |   +-- DarkPoolView.tsx       # Dark Pool view: Radon-scored off-exchange block prints
 |   |   |   +-- FlowDirectionChart.tsx # Mini SVG arrow + full Recharts chart (Options tab)
 |   |   |   +-- FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
+|   |   |   +-- InfoTip.tsx            # "?" tooltip badge (hover + tap, portal-rendered) for headers and card titles
 |   |   |   +-- GammaView.tsx          # Gamma/GEX view: SPY/QQQ/IWM cards with flip level/walls
 |   |   |   +-- MarketScanView.tsx     # Market Scanner view: Signa 30-model ranked setups
 |   |   |   +-- PlaybookView.tsx       # Playbook view: static strategy reference (GEX, Radon, combined read)

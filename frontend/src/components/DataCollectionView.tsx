@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { C } from '../lib/colors';
 import { fetchCollectorStatus } from '../lib/api';
 import type { CollectorRun, CollectorStatus } from '../types/market';
+import { InfoTip } from './InfoTip';
 
 const JOB_LABELS: Record<string, string> = {
   signals: 'Signa signals',
@@ -11,6 +12,43 @@ const JOB_LABELS: Record<string, string> = {
   'option-chain': 'Option quotes (Yahoo)',
   gex: 'GEX levels',
   rollup: 'Dark pool daily rollup',
+  'raw-flow': 'Large prints (market-wide)',
+  'signa-scan': 'Signa scan',
+  scanner: 'Flow scanner',
+};
+
+const JOB_TIPS: Record<string, string> = {
+  signals: 'Signa Action Card for every tracked ticker: overnight 30-model direction, score, grade, entry/stop/target. Taken before the open.',
+  darkpool: 'Latest 50 off-exchange prints per tracked ticker, every 30 minutes. Each print is classed as buying or selling by where it traded vs the bid-ask midpoint.',
+  'flow-alerts': 'Unusual Whales options flow alerts (repeated hits, unusual volume) per tracked ticker, hourly.',
+  'curated-flow': "Signa's AI-scored institutional options trades, market-wide, kept for tracked tickers.",
+  'option-chain': 'Option bid/ask, implied volatility and open interest from Yahoo for contracts about 30 and 60 days out. Needed later to price paper trades and backtests. Uses no Signa calls.',
+  gex: 'Dealer gamma levels per tracked ticker after the close: gamma flip, call wall, put wall, and net gamma by strike.',
+  rollup: "Summarises each ticker's dark pool prints into one buy/sell row per day (kept permanently) and deletes raw prints older than 60 days.",
+  'raw-flow': 'Market-wide options prints of $250K+, hourly. The Flow Scanner discovers new tickers from this feed.',
+  'signa-scan': "Signa's ranked bullish and bearish technical scan, recorded once a day as a cross-check for the scanner.",
+  scanner: 'Scores every ticker in the large-print feed with the Radon formula and promotes the best into data collection.',
+};
+
+const COLUMN_TIPS = {
+  job: 'What is being recorded. Hover the ? next to each job for details.',
+  runs: 'Scheduled times in New York time (US Eastern), only on US trading days. Sydney/Melbourne is 14-16 hours ahead depending on daylight saving.',
+  last: 'When the job last ran, in your local time.',
+  status: 'OK = all tickers succeeded. PARTIAL = some tickers failed (see Recent problems). ERROR = nothing was saved. SKIPPED = paused to protect the Signa daily quota.',
+  rows: 'Rows saved by the last run. Already-stored items are skipped, so repeats show fewer rows.',
+  calls: 'API calls the last run used (Signa, or Yahoo for option quotes).',
+};
+
+const DATASET_TIPS: Record<string, string> = {
+  dp_prints: 'Every individual dark pool print collected. Kept 60 days, then only the daily summary remains.',
+  dp_daily: 'One row per ticker per day: dark pool buy volume, sell volume and buy ratio. Kept permanently; this is what the scanner and backtest use.',
+  flow_alerts: 'Unusual Whales options flow alerts for tracked tickers.',
+  curated_flow: "Signa's AI-scored institutional options trades.",
+  gex_daily: 'Daily dealer gamma levels per ticker.',
+  signal_snapshots: 'Daily Signa Action Card per ticker (direction, score, levels), so a backtest knows what Signa said that morning.',
+  option_quotes: 'Daily option prices and implied volatility, for pricing paper trades and backtests.',
+  raw_flow: 'Market-wide large options prints ($250K+), the scanner\'s discovery feed.',
+  scanner_candidates: 'Every ticker the scanner scored each day, with its score breakdown, so promotion thresholds can be backtested.',
 };
 
 const STATUS_COLOR: Record<CollectorRun['status'], string> = {
@@ -22,10 +60,10 @@ const STATUS_COLOR: Record<CollectorRun['status'], string> = {
 
 const label = { fontSize: '11px', letterSpacing: '0.08em', fontWeight: 600, color: C.inkMute, textTransform: 'uppercase' as const };
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({ title, tip, children }: { title: string; tip?: string; children: ReactNode }) {
   return (
     <div style={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 14, padding: '18px 20px', boxShadow: C.s1 }}>
-      <div style={{ ...label, marginBottom: 12 }}>{title}</div>
+      <div style={{ ...label, marginBottom: 12 }}>{title}{tip && <InfoTip tip={tip} />}</div>
       {children}
     </div>
   );
@@ -52,7 +90,10 @@ function UsageCard({ usage }: { usage: CollectorStatus['usage'] }) {
   const pct = Math.min(100, (usage.signaToday / usage.limit) * 100);
   const color = usage.signaToday >= usage.limit - usage.reserve ? C.bear : pct >= 60 ? C.warn : C.bull;
   return (
-    <Card title={`Signa API calls - ${usage.utcDay} (UTC)`}>
+    <Card
+      title={`Signa API calls - ${usage.utcDay} (UTC)`}
+      tip="Every Signa call today from both the collector and your own browsing, counted against your plan's daily quota. The day resets at midnight UTC (10-11am in Sydney/Melbourne). Green under 60%, amber above, red once the collector has paused."
+    >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <span className="tnum" style={{ fontSize: '26px', fontWeight: 600, color: C.ink }}>{fmtInt(usage.signaToday)}</span>
         <span className="tnum" style={{ fontSize: '13px', color: C.inkMute }}>/ {fmtInt(usage.limit)}</span>
@@ -157,24 +198,37 @@ export function DataCollectionView() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="collector-grid">
             <UsageCard usage={status.usage} />
-            <Card title="Rows collected per trading day">
+            <Card
+              title="Rows collected per trading day"
+              tip="Total rows saved by all jobs per US trading day. An amber bar means at least one job errored that day. Hover a bar for the exact numbers."
+            >
               <DailyChart daily={status.daily} />
             </Card>
           </div>
 
-          <Card title="Scheduled jobs (US Eastern time, trading days)">
+          <Card
+            title="Scheduled jobs (US Eastern time, trading days)"
+            tip="Each job runs automatically on the Railway server. A missed run cannot be filled in later because Signa only serves live data, so check here for errors."
+          >
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                 <thead>
                   <tr>
-                    <th style={head}>Job</th><th style={head}>Runs at (ET)</th><th style={head}>Last run</th>
-                    <th style={head}>Status</th><th style={{ ...head, textAlign: 'right' }}>Rows</th><th style={{ ...head, textAlign: 'right' }}>Calls</th>
+                    <th style={head}>Job<InfoTip tip={COLUMN_TIPS.job} /></th>
+                    <th style={head}>Runs at (ET)<InfoTip tip={COLUMN_TIPS.runs} /></th>
+                    <th style={head}>Last run<InfoTip tip={COLUMN_TIPS.last} /></th>
+                    <th style={head}>Status<InfoTip tip={COLUMN_TIPS.status} /></th>
+                    <th style={{ ...head, textAlign: 'right' }}>Rows<InfoTip tip={COLUMN_TIPS.rows} /></th>
+                    <th style={{ ...head, textAlign: 'right' }}>Calls<InfoTip tip={COLUMN_TIPS.calls} /></th>
                   </tr>
                 </thead>
                 <tbody>
                   {status.jobs.map(j => (
                     <tr key={j.job}>
-                      <td style={{ ...cell, color: C.ink, fontWeight: 500 }}>{JOB_LABELS[j.job] ?? j.job}</td>
+                      <td style={{ ...cell, color: C.ink, fontWeight: 500 }}>
+                        {JOB_LABELS[j.job] ?? j.job}
+                        {JOB_TIPS[j.job] && <InfoTip tip={JOB_TIPS[j.job]} />}
+                      </td>
                       <td className="tnum" style={{ ...cell, fontSize: '12px' }}>{j.slotsEt.join(' ')}</td>
                       <td style={cell}>{j.lastRun ? fmtTime(j.lastRun.started_at) : '-'}</td>
                       <td style={cell}>{j.lastRun ? <StatusPill status={j.lastRun.status} /> : <span style={{ color: C.inkMute }}>never</span>}</td>
@@ -188,15 +242,21 @@ export function DataCollectionView() {
           </Card>
 
           <div className="collector-grid">
-            <Card title="Stored history">
+            <Card
+              title="Stored history"
+              tip="Approximate row count in each database table. This is the history the replay backtest will run on."
+            >
               {status.datasets.map(d => (
                 <div key={d.table} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.border}`, fontSize: '13px' }}>
-                  <span style={{ color: C.inkSec }}>{d.label}</span>
+                  <span style={{ color: C.inkSec }}>{d.label}{DATASET_TIPS[d.table] && <InfoTip tip={DATASET_TIPS[d.table]} />}</span>
                   <span className="tnum" style={{ color: C.ink, fontWeight: 500 }}>{fmtInt(d.rows)}</span>
                 </div>
               ))}
             </Card>
-            <Card title={`Tracked symbols (${status.symbols.length})`}>
+            <Card
+              title={`Tracked symbols (${status.symbols.length})`}
+              tip="Every ticker currently getting detailed collection: the permanent core plus whatever the Flow Scanner has promoted."
+            >
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {status.symbols.map(s => (
                   <span key={s} className="tnum" style={{ fontSize: '12px', padding: '4px 10px', borderRadius: 9999, background: C.canvasSoft, border: `1px solid ${C.border}`, color: C.inkSec }}>
@@ -211,7 +271,7 @@ export function DataCollectionView() {
           </div>
 
           {status.recentErrors.length > 0 && (
-            <Card title="Recent problems">
+            <Card title="Recent problems" tip="Failed or partly failed runs from the last 3 weeks, newest first, with the error message.">
               {status.recentErrors.map(r => (
                 <div key={`${r.job}-${r.started_at}`} style={{ display: 'flex', gap: 10, alignItems: 'baseline', padding: '6px 0', borderBottom: `1px solid ${C.border}`, fontSize: '12px', flexWrap: 'wrap' }}>
                   <StatusPill status={r.status} />
