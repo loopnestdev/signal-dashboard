@@ -52,13 +52,13 @@ describe('dueJobs', () => {
   });
 
   it('includes concurrent slots from different jobs', () => {
-    expect(dueJobs('2026-10-05', hm(16, 10), new Set()).map(d => d.job).sort()).toEqual(['curated-flow', 'darkpool', 'flow-alerts']);
+    expect(dueJobs('2026-10-05', hm(16, 10), new Set()).map(d => d.job).sort()).toEqual(['curated-flow', 'darkpool', 'flow-alerts', 'raw-flow']);
   });
 
   it('skips already-run keys and expired slots', () => {
     const [gex] = dueJobs('2026-10-05', hm(16, 20), new Set());
     expect(dueJobs('2026-10-05', hm(16, 21), new Set([gex.key]))).toEqual([]);
-    expect(dueJobs('2026-10-05', hm(16, 20) + SLOT_GRACE_MINUTES, new Set())).toEqual([]);
+    expect(dueJobs('2026-10-05', hm(16, 20) + SLOT_GRACE_MINUTES, new Set()).map(d => d.job)).not.toContain('gex');
   });
 
   it('does nothing on non-trading days', () => {
@@ -67,9 +67,16 @@ describe('dueJobs', () => {
 });
 
 describe('estimatedSignaCallsPerDay', () => {
-  it('counts per-symbol jobs x slots plus market-wide curated flow', () => {
-    // per symbol: signals 1 + darkpool 7 + flow-alerts 7 + gex 1 = 16; curated-flow: 4 market-wide calls
-    expect(estimatedSignaCallsPerDay(24)).toBe(24 * 16 + 4);
-    expect(estimatedSignaCallsPerDay(0)).toBe(4);
+  it('counts per-symbol jobs x slots plus market-wide jobs and scanner lookups', () => {
+    // per symbol: signals 1 + darkpool 7 + flow-alerts 7 + gex 1 = 16
+    // market-wide: curated-flow 4 + raw-flow 7 + signa-scan 2 = 13; scanner: 3 runs x lookups
+    expect(estimatedSignaCallsPerDay(24)).toBe(24 * 16 + 13 + 30);
+    expect(estimatedSignaCallsPerDay(0, 0)).toBe(13);
+  });
+
+  it('schedules the scanner after a raw-flow pull in each window', () => {
+    expect(jobSlots('raw-flow', '2026-10-05')).toEqual([hm(10, 15), hm(11, 15), hm(12, 15), hm(13, 15), hm(14, 15), hm(15, 15), hm(16, 5)]);
+    expect(jobSlots('scanner', '2026-10-05')).toEqual([hm(11, 45), hm(14, 45), hm(16, 30)]);
+    expect(jobSlots('signa-scan', '2026-10-05')).toEqual([hm(9, 15)]);
   });
 });

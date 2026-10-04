@@ -205,3 +205,51 @@ export interface CollectorStatus {
   daily: Array<{ trade_date: string; rows: number; calls: number; errors: number }>;
   recentErrors: CollectorRun[];
 }
+
+export interface ScannerCandidate {
+  symbol: string;
+  trade_date: string;
+  run_at: string;
+  score: number;
+  breakdown: { dp_strength: number; dp_sustained: number; confluence: number; vol_oi: number; sweeps: number };
+  options_bias: 'BULLISH' | 'BEARISH' | 'MIXED';
+  dp_direction: 'ACCUMULATION' | 'DISTRIBUTION' | 'NEUTRAL' | 'NO_DATA';
+  dp_strength: number;
+  dp_buy_ratio: number | null;
+  dp_sustained_days: number;
+  confluence: boolean;
+  alerts: number;
+  calls: number;
+  puts: number;
+  sweeps: number;
+  avg_vol_oi: number;
+  total_premium: number;
+  underlying_price: number | null;
+  max_open_interest: number | null;
+  signa_direction: string | null;
+  passed_filters: boolean;
+  rejected_reason: string | null;
+  promoted: boolean;
+}
+
+export interface ScannerResponse {
+  tradeDate: string | null;
+  runAt: string | null;
+  config: {
+    promoteScore: number;
+    maxPromoted: number;
+    minPremium: number;
+    minTotalPremium: number;
+    minPrice: number;
+    minOpenInterest: number;
+    minDte: number;
+    promotionDays: number;
+  };
+  candidates: ScannerCandidate[];
+  core: string[];
+  promoted: Array<{ symbol: string; expires_at: string | null; last_score: number | null; promoted_at: string | null }>;
+  signa: {
+    bullish: Array<{ symbol: string; signal: string | null; score: number | null; grade: string | null }>;
+    bearish: Array<{ symbol: string; signal: string | null; score: number | null; grade: string | null }>;
+  };
+}

@@ -72,6 +72,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Structured terminal analysis | Signa output parsed into sections; plain text for Gemini/template fallback |
 | Alert banner | FOMC event (within 72h), VIX spike (>30) warnings |
 | Auto-refresh | Every 45 seconds with manual refresh and "updated Xs ago" counter |
+| Flow Scanner | Port of Radon's discovery scorer: large options prints + dark pool --> 0-100 score; tradeable names scoring 45+ are added to data collection automatically for 14 days (capped at 12), alongside a permanent core of index ETFs and large caps |
 | Data collection | Scheduled recorder (US trading days, ET) storing dark pool prints, UW options flow alerts, curated flow, GEX levels, Signa signals and option quotes to Supabase for later backtesting; Data Collection view shows job health and Signa API usage vs the daily quota |
 
 ---
@@ -238,6 +239,9 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy - no CORS config n
 | `COLLECTOR_ENABLED` | No | `false` | `true` starts the scheduled data collector. Enable on **one** deployment only (Railway); a second collector doubles Signa API usage |
 | `SIGNA_DAILY_LIMIT` | No | `1000` | Your Signa plan's daily call quota (REST + MCP share it) |
 | `SIGNA_RESERVE_CALLS` | No | `200` | Calls kept free for dashboard browsing; collector jobs are skipped once usage reaches `limit - reserve` |
+| `SCANNER_PROMOTE_SCORE` | No | `45` | Flow Scanner score (0-100) needed to add a symbol to data collection (not a trade signal) |
+| `SCANNER_MAX_PROMOTED` | No | `12` | Cap on scanner-added symbols (each costs ~16 Signa calls per trading day) |
+| `SCANNER_DP_LOOKUPS` | No | `10` | Live dark pool pulls per scanner run for untracked candidates |
 
 **Priority chain for AI market analysis:** Signa.ai --> Gemini 1.5 Flash --> built-in template
 
@@ -394,7 +398,9 @@ create trigger on_auth_user_created
 
 Run [`supabase/migrations/20261004_data_collector.sql`](supabase/migrations/20261004_data_collector.sql) in the SQL Editor. It creates the history tables used for backtesting (dark pool prints + daily rollups, options flow alerts, curated flow, GEX snapshots, Signa signal snapshots, option quotes), the `tracked_symbols` universe (seeded with the permanent core: SPY, QQQ, IWM, SMH, MU, AMZN, SPCX, AAPL, NVDA, META, GOOGL, AVGO, MSFT, TSLA), and the `collector_runs` / `api_usage` bookkeeping tables. The script is idempotent.
 
-To change the universe later, edit `signal.tracked_symbols` (set `active = false` to pause a symbol).
+Then run [`supabase/migrations/20261005_flow_scanner.sql`](supabase/migrations/20261005_flow_scanner.sql) for the Flow Scanner (`raw_flow`, `signa_scans`, `scanner_candidates`, and `source` / `expires_at` columns on `tracked_symbols`). Choose **Run and enable RLS** if Supabase asks.
+
+To change the permanent core later, edit `signal.tracked_symbols` rows with `source = 'core'` (set `active = false` to pause a symbol). Rows with `source = 'scanner'` are managed by the scanner.
 
 #### Step 4 - Grant yourself admin access
 
@@ -674,6 +680,10 @@ Returns stock analysis for a symbol. Includes technical score, sector ETF score,
 ### `GET /api/collector/status`
 
 Data collector health for the Data Collection view: whether recording is enabled on this server, tracked symbols, Signa calls used today vs `SIGNA_DAILY_LIMIT`, each job's ET schedule and last run, stored row counts per table, rows collected per trading day, and recent failed/partial runs. Cached 60 seconds. Returns 503 when `SUPABASE_SERVICE_ROLE_KEY` is unset or the migration has not been run.
+
+### `GET /api/scanner`
+
+Flow Scanner results for the latest scanned session (or `?date=YYYY-MM-DD`): every scored symbol with its Radon score breakdown, options bias, dark pool direction/ratio/sustained days, confluence, sweeps, vol/OI, premium, filter result and promotion status; the active core and scanner-promoted symbols with expiry; Signa's bullish/bearish scan lists; and the scanner thresholds. Cached 60 seconds.
 
 ### `GET /health`
 

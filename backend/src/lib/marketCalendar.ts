@@ -49,3 +49,15 @@ export function closeMinuteFor(date: string): number {
 export function etDateOf(iso: string | number | Date): string {
   return toEtClock(new Date(iso)).date;
 }
+
+// The n most recent trading sessions up to and including `date`, newest first.
+export function recentTradingDays(date: string, n: number): string[] {
+  const out: string[] = [];
+  const d = new Date(`${date}T12:00:00Z`);
+  while (out.length < n) {
+    const iso = d.toISOString().slice(0, 10);
+    if (isTradingDay(iso)) out.push(iso);
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+  return out;
+}

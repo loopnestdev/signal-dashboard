@@ -7,12 +7,19 @@ export type JobName =
   | 'curated-flow'   // market-wide curated flow, filtered to the universe
   | 'option-chain'   // Yahoo option quotes near the close (no Signa calls)
   | 'gex'            // per-symbol GEX after the close
-  | 'rollup';        // dp_daily rollup + raw print pruning (no API calls)
+  | 'rollup'         // dp_daily rollup + raw print pruning (no API calls)
+  | 'raw-flow'       // market-wide large prints (scanner discovery feed)
+  | 'signa-scan'     // Signa 30-model scan, bullish + bearish (technical cross-check)
+  | 'scanner';       // Radon discover scoring + promote/expire scanner symbols
 
-export const JOB_NAMES: JobName[] = ['signals', 'darkpool', 'flow-alerts', 'curated-flow', 'option-chain', 'gex', 'rollup'];
+export const JOB_NAMES: JobName[] = [
+  'signals', 'signa-scan', 'raw-flow', 'darkpool', 'flow-alerts', 'curated-flow',
+  'scanner', 'option-chain', 'gex', 'rollup',
+];
 
-// Signa calls per run: per-symbol jobs scale with the universe, market-wide jobs cost one call.
-export const SIGNA_CALLS_PER_RUN: Record<JobName, 'per-symbol' | number> = {
+// Signa calls per run: per-symbol jobs scale with the universe, market-wide jobs cost a fixed count,
+// and the scanner spends up to SCANNER_DP_LOOKUPS dark pool calls on untracked candidates.
+export const SIGNA_CALLS_PER_RUN: Record<JobName, 'per-symbol' | 'scanner' | number> = {
   signals: 'per-symbol',
   darkpool: 'per-symbol',
   'flow-alerts': 'per-symbol',
@@ -20,6 +27,9 @@ export const SIGNA_CALLS_PER_RUN: Record<JobName, 'per-symbol' | number> = {
   'option-chain': 0,
   gex: 'per-symbol',
   rollup: 0,
+  'raw-flow': 1,
+  'signa-scan': 2,
+  scanner: 'scanner',
 };
 
 const hm = (h: number, m: number) => h * 60 + m;
@@ -36,6 +46,11 @@ export function jobSlots(job: JobName, date: string): number[] {
     case 'option-chain': return [close - 15];
     case 'gex':          return [close + 20];
     case 'rollup':       return [close + 40];
+    case 'signa-scan':   return [hm(9, 15)];
+    // 200 prints >= $250k span ~5 hours (~40/hour, bursts of 60), so hourly deduped pulls stay under the cap.
+    case 'raw-flow':     return [...inSession([hm(10, 15), hm(11, 15), hm(12, 15), hm(13, 15), hm(14, 15), hm(15, 15)]), close + 5];
+    // Each scan follows a raw-flow pull and a dark pool pull, so it scores fresh data.
+    case 'scanner':      return [...inSession([hm(11, 45), hm(14, 45)]), close + 30];
   }
 }
 
@@ -62,10 +77,10 @@ export function dueJobs(date: string, minute: number, alreadyRan: Set<string>): 
   return due;
 }
 
-export function estimatedSignaCallsPerDay(symbolCount: number, date = '2026-10-05'): number {
+export function estimatedSignaCallsPerDay(symbolCount: number, scannerLookups = 10, date = '2026-10-05'): number {
   return JOB_NAMES.reduce((sum, job) => {
     const per = SIGNA_CALLS_PER_RUN[job];
-    const callsPerRun = per === 'per-symbol' ? symbolCount : per;
+    const callsPerRun = per === 'per-symbol' ? symbolCount : per === 'scanner' ? scannerLookups : per;
     return sum + callsPerRun * jobSlots(job, date).length;
   }, 0);
 }

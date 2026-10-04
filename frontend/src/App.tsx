@@ -22,6 +22,7 @@ import { GammaView } from './components/GammaView';
 import { MarketScanView } from './components/MarketScanView';
 import { PlaybookView } from './components/PlaybookView';
 import { DataCollectionView } from './components/DataCollectionView';
+import { FlowScannerView } from './components/FlowScannerView';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
 import type { View } from './components/layout/Sidebar';
@@ -343,6 +344,11 @@ export default function App() {
               {/* Market Scanner view */}
               {activeView === 'market-scan' && (
                 <MarketScanView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
+              )}
+
+              {/* Flow Scanner view */}
+              {activeView === 'flow-scanner' && (
+                <FlowScannerView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
               )}
 
               {/* Playbook view */}

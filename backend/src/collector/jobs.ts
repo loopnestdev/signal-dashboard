@@ -1,10 +1,15 @@
 import { callMcpTool } from '../lib/signaClient.js';
 import { callsToday } from '../lib/apiUsage.js';
-import { insertRow, rpc, selectRows, upsertRows } from '../lib/supabaseRest.js';
+import { recentTradingDays } from '../lib/marketCalendar.js';
+import { insertRow, rpc, selectRows, updateRows, upsertRows } from '../lib/supabaseRest.js';
 import {
   parseCuratedFlow, parseDpPrints, parseFlowAlerts, parseGexSnapshot,
-  parseOptionChain, parseSignalSnapshot, pickSwingExpiries,
+  parseOptionChain, parseRawFlow, parseSignalSnapshot, parseSignaScan, pickSwingExpiries,
 } from './parsers.js';
+import {
+  aggregateFlow, analyzeDpMulti, buildCandidate, INDEX_SYMBOLS, planPromotions, rejectReason, scannerConfig,
+  type DpDayVolume, type FlowPrint, type ScannerSlot,
+} from './scanner.js';
 import { SIGNA_CALLS_PER_RUN, type JobName } from './schedule.js';
 import { expirationDates, fetchOptionChain, openYahooSession } from './yahooOptions.js';
 
@@ -79,6 +84,23 @@ async function runSignaJob(job: JobName, tradeDate: string, symbols: string[]): 
         const row = parseGexSnapshot(p, s, tradeDate);
         return row ? upsertRows('gex_daily', [row], 'merge', 'symbol,trade_date') : 0;
       });
+    case 'raw-flow': {
+      // Store everything >= $250k; the scanner applies its own (higher) premium floor.
+      const payload = await callMcpTool('get_raw_flow', { min_premium: 250_000, limit: 200 });
+      if (payload === null) return { status: 'error', apiCalls: 1, rowsWritten: 0, message: 'no response' };
+      return { status: 'ok', apiCalls: 1, rowsWritten: await upsertRows('raw_flow', parseRawFlow(payload), 'merge') };
+    }
+    case 'signa-scan': {
+      let rows = 0;
+      let failed = 0;
+      for (const direction of ['bullish', 'bearish']) {
+        const payload = await callMcpTool('scan_symbols', { direction, limit: 50 });
+        if (payload === null) { failed++; continue; }
+        rows += await upsertRows('signa_scans', parseSignaScan(payload, tradeDate), 'merge', 'symbol,trade_date,direction');
+      }
+      const status = failed === 0 ? 'ok' : failed === 2 ? 'error' : 'partial';
+      return { status, apiCalls: 2, rowsWritten: rows };
+    }
     case 'curated-flow': {
       const payload = await callMcpTool('get_curated_flow', { limit: 100, min_score: 40 });
       if (payload === null) return { status: 'error', apiCalls: 1, rowsWritten: 0, message: 'no response' };
@@ -115,6 +137,117 @@ async function runOptionChain(tradeDate: string, symbols: string[]): Promise<Job
   return { status, apiCalls: calls, rowsWritten: rows, message: failed.length ? `failed: ${failed.join(', ')}` : undefined };
 }
 
+interface TrackedRow {
+  symbol: string;
+  source: 'core' | 'scanner' | 'manual';
+  expires_at: string | null;
+  last_score: number | null;
+  promoted_at: string | null;
+}
+
+const inList = (symbols: string[]) => `(${symbols.map(s => `"${s}"`).join(',')})`;
+
+// runScanner:
+//   - Scores every symbol in today's large-print feed with Radon's discover formula
+//   - Untracked candidates get one live dark pool pull (up to dpLookups) so they can be scored at all
+//   - Qualifying candidates are promoted into tracked_symbols (source 'scanner') so the per-symbol jobs start collecting them
+//   - Expired or over-cap scanner symbols are deactivated; core symbols are never touched
+async function runScanner(tradeDate: string, trackedActive: string[], dpLookups: number): Promise<JobResult> {
+  const cfg = scannerConfig();
+  const tracked = await selectRows<TrackedRow>('tracked_symbols', 'select=symbol,source,expires_at,last_score,promoted_at&active=eq.true');
+  const core = new Set(tracked.filter(t => t.source !== 'scanner').map(t => t.symbol));
+
+  const prints = await selectRows<FlowPrint & { trade_date: string }>(
+    'raw_flow',
+    `select=symbol,option_type,premium,dte,vol_oi_ratio,is_sweep,open_interest,underlying_price,executed_at,trade_date&trade_date=eq.${tradeDate}&limit=5000`,
+  );
+  const flows = aggregateFlow(prints, cfg);
+  if (flows.size === 0) {
+    return { status: 'ok', apiCalls: 0, rowsWritten: 0, message: 'no large prints today yet' };
+  }
+
+  // Live dark pool for the biggest untracked names that could pass the cheap filters.
+  const trackedSet = new Set(trackedActive);
+  const lookups = [...flows.values()]
+    .filter(f => !trackedSet.has(f.symbol) && !INDEX_SYMBOLS.has(f.symbol))
+    .filter(f => f.alerts >= cfg.minAlerts && f.totalPremium >= cfg.minTotalPremium && (f.underlyingPrice ?? 0) >= cfg.minPrice)
+    .sort((a, b) => b.totalPremium - a.totalPremium)
+    .slice(0, dpLookups)
+    .map(f => f.symbol);
+  let apiCalls = 0;
+  for (const symbol of lookups) {
+    const payload = await callMcpTool('get_dark_pool', { ticker: symbol, limit: 50 });
+    apiCalls++;
+    if (payload !== null) await upsertRows('dp_prints', parseDpPrints(payload), 'ignore');
+    await sleep(PER_SYMBOL_DELAY_MS);
+  }
+  await rpc('rollup_dp_daily', { p_date: tradeDate });
+
+  const days = recentTradingDays(tradeDate, 3);
+  const symbols = [...flows.keys()];
+  const dpRows = await selectRows<DpDayVolume & { symbol: string }>(
+    'dp_daily',
+    `select=symbol,trade_date,buy_volume,sell_volume,num_prints&symbol=in.${inList(symbols)}&trade_date=in.${inList(days)}&limit=5000`,
+  );
+  const signa = await selectRows<{ symbol: string; direction: string }>(
+    'signa_scans', `select=symbol,direction&trade_date=eq.${tradeDate}&symbol=in.${inList(symbols)}`,
+  );
+  const signaDir = new Map(signa.map(r => [r.symbol, r.direction]));
+
+  const candidates = [...flows.values()].map(f => {
+    const c = buildCandidate(f, analyzeDpMulti(dpRows.filter(r => r.symbol === f.symbol), days));
+    return { candidate: c, reason: rejectReason(c, cfg) };
+  });
+
+  const qualifying = candidates
+    .filter(x => x.reason === null && x.candidate.score >= cfg.promoteScore)
+    .map(x => x.candidate);
+  const current: ScannerSlot[] = tracked
+    .filter(t => t.source === 'scanner')
+    .map(t => ({ symbol: t.symbol, score: Number(t.last_score ?? 0), expiresAt: t.expires_at ?? tradeDate }));
+  const plan = planPromotions(qualifying, current, core, tradeDate, cfg);
+  const kept = new Set(plan.keep.map(k => k.symbol));
+  const wasActive = new Set(current.map(c => c.symbol));
+  const promotedAt = new Map(tracked.map(t => [t.symbol, t.promoted_at]));
+
+  const now = new Date().toISOString();
+  if (plan.keep.length) {
+    await upsertRows('tracked_symbols', plan.keep.map(k => ({
+      symbol: k.symbol,
+      kind: 'stock',
+      active: true,
+      source: 'scanner',
+      expires_at: k.expiresAt,
+      last_score: k.score,
+      notes: 'promoted by flow scanner',
+      promoted_at: (wasActive.has(k.symbol) ? promotedAt.get(k.symbol) : null) ?? now,
+    })), 'merge', 'symbol');
+  }
+  if (plan.demote.length) {
+    await updateRows('tracked_symbols', `symbol=in.${inList(plan.demote)}&source=eq.scanner`, { active: false });
+  }
+
+  const rows = candidates.map(({ candidate: c, reason }) => ({
+    ...c,
+    trade_date: tradeDate,
+    run_at: now,
+    signa_direction: signaDir.get(c.symbol) ?? null,
+    passed_filters: reason === null,
+    rejected_reason: reason,
+    promoted: kept.has(c.symbol) || core.has(c.symbol),
+  }));
+  const written = await upsertRows('scanner_candidates', rows, 'merge', 'symbol,trade_date');
+
+  const added = plan.keep.filter(k => !wasActive.has(k.symbol)).map(k => k.symbol);
+  const parts = [
+    `${candidates.length} scored, ${qualifying.length} qualified`,
+    added.length ? `promoted ${added.join(', ')}` : '',
+    plan.demote.length ? `expired ${plan.demote.join(', ')}` : '',
+    dpLookups === 0 && lookups.length === 0 ? '' : `${lookups.length} dark pool lookups`,
+  ].filter(Boolean);
+  return { status: 'ok', apiCalls, rowsWritten: written, message: parts.join('; ') };
+}
+
 async function runRollup(tradeDate: string): Promise<JobResult> {
   const rolled = await rpc<number>('rollup_dp_daily', { p_date: tradeDate });
   const pruned = await rpc<number>('prune_dp_prints', { p_keep_days: 60 });
@@ -127,8 +260,11 @@ export async function runJob(job: JobName, tradeDate: string): Promise<JobResult
   try {
     const symbols = await activeSymbols();
     const per = SIGNA_CALLS_PER_RUN[job];
-    const planned = per === 'per-symbol' ? symbols.length : per;
-    if (planned > 0) {
+    const planned = per === 'per-symbol' ? symbols.length : per === 'scanner' ? scannerConfig().dpLookupsPerRun : per;
+    if (job === 'scanner') {
+      const budget = await budgetAllows(planned);
+      result = await runScanner(tradeDate, symbols, budget.ok ? planned : 0);
+    } else if (planned > 0) {
       const budget = await budgetAllows(planned);
       result = budget.ok
         ? await runSignaJob(job, tradeDate, symbols)

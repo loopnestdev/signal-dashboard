@@ -349,3 +349,104 @@ export function parseOptionChain(payload: unknown, symbol: string, tradeDate: st
   }
   return rows;
 }
+
+// ── Market-wide raw flow (scanner discovery feed) ────────────────────────────
+
+export interface RawFlowRow {
+  id: string;
+  symbol: string;
+  option_type: 'CALL' | 'PUT';
+  strike: number;
+  expiry: string;
+  dte: number | null;
+  premium: number;
+  volume: number | null;
+  open_interest: number | null;
+  vol_oi_ratio: number | null;
+  is_sweep: boolean;
+  is_block: boolean;
+  iv: number | null;
+  underlying_price: number | null;
+  signal_type: string | null;
+  sentiment: string | null;
+  unusual_score: number | null;
+  executed_at: string;
+  trade_date: string;
+}
+
+export function parseRawFlow(payload: unknown): RawFlowRow[] {
+  const events = (payload as Raw | null)?.events;
+  if (!Array.isArray(events)) return [];
+  const rows: RawFlowRow[] = [];
+  for (const ev of events as Raw[]) {
+    const id = str(ev.id);
+    const symbol = str(ev.symbol)?.toUpperCase();
+    const type = str(ev.option_type)?.toUpperCase();
+    const strike = num(ev.strike);
+    const expiry = str(ev.expiry);
+    const executedAt = str(ev.executed_at);
+    if (!id || !symbol || (type !== 'CALL' && type !== 'PUT') || strike === null || !expiry || !executedAt) continue;
+    if (Number.isNaN(Date.parse(executedAt))) continue;
+    rows.push({
+      id,
+      symbol,
+      option_type: type,
+      strike,
+      expiry,
+      dte: num(ev.dte),
+      premium: num(ev.premium_size ?? ev.premium) ?? 0,
+      volume: num(ev.volume),
+      open_interest: num(ev.open_interest),
+      vol_oi_ratio: num(ev.volume_oi_ratio ?? ev.vol_oi_ratio),
+      is_sweep: Boolean(ev.is_sweep),
+      is_block: Boolean(ev.is_block),
+      iv: num(ev.iv),
+      underlying_price: num(ev.underlying_price),
+      signal_type: str(ev.signal_type),
+      sentiment: str(ev.sentiment),
+      unusual_score: num(ev.unusual_score),
+      executed_at: executedAt,
+      trade_date: etDateOf(executedAt),
+    });
+  }
+  return dedupeById(rows);
+}
+
+// ── Signa scan_symbols ───────────────────────────────────────────────────────
+
+export interface SignaScanRow {
+  symbol: string;
+  trade_date: string;
+  direction: string;
+  signal: string | null;
+  score: number | null;
+  grade: string | null;
+  confidence: number | null;
+  model_count: number | null;
+  reasons: string[];
+  captured_at: string;
+}
+
+export function parseSignaScan(payload: unknown, tradeDate: string, now = new Date()): SignaScanRow[] {
+  const results = (payload as Raw | null)?.results;
+  if (!Array.isArray(results)) return [];
+  const rows = new Map<string, SignaScanRow>();
+  for (const r of results as Raw[]) {
+    const symbol = str(r.ticker ?? r.symbol)?.toUpperCase();
+    const direction = str(r.direction)?.toUpperCase();
+    if (!symbol || !direction) continue;
+    rows.set(`${symbol}|${direction}`, {
+      symbol,
+      trade_date: tradeDate,
+      direction,
+      signal: str(r.signal),
+      score: num(r.score),
+      grade: str(r.grade),
+      confidence: num(r.confidence),
+      model_count: num(r.model_count),
+      reasons: Array.isArray(r.reasons) ? r.reasons.map(String) : [],
+      captured_at: now.toISOString(),
+    });
+  }
+  return [...rows.values()];
+}

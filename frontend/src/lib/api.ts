@@ -1,4 +1,4 @@
-import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus } from '../types/market';
+import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse } from '../types/market';
 import type { UnusualFlowResponse } from '../types/stock';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
@@ -54,4 +54,11 @@ export async function fetchCollectorStatus(): Promise<CollectorStatus> {
   const res = await fetch(`${BASE}/api/collector/status`);
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
   return res.json() as Promise<CollectorStatus>;
+}
+
+export async function fetchScanner(date?: string): Promise<ScannerResponse> {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  const res = await fetch(`${BASE}/api/scanner${qs}`);
+  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+  return res.json() as Promise<ScannerResponse>;
 }
