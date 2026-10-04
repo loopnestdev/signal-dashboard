@@ -2,7 +2,7 @@ import { OPEN_MINUTE, closeMinuteFor, isTradingDay } from '../lib/marketCalendar
 
 export type JobName =
   | 'signals'        // Signa Action Card (nightly engine) - before the open
-  | 'darkpool'       // per-symbol dark pool prints - hourly in session
+  | 'darkpool'       // per-symbol dark pool prints - every 30 min in session
   | 'flow-alerts'    // per-symbol UW flow alerts - hourly, since active names hit the 50-alert cap
   | 'curated-flow'   // market-wide curated flow, filtered to the universe
   | 'option-chain'   // Yahoo option quotes near the close (no Signa calls)
@@ -40,7 +40,9 @@ export function jobSlots(job: JobName, date: string): number[] {
   const inSession = (slots: number[]) => slots.filter(s => s > OPEN_MINUTE && s <= close + 5);
   switch (job) {
     case 'signals':      return [hm(9, 0)];
-    case 'darkpool':     return inSession([hm(10, 5), hm(11, 5), hm(12, 5), hm(13, 5), hm(14, 5), hm(15, 5), hm(16, 5)]);
+    // Each pull is only the latest 50 prints (minutes of tape), so the daily buy ratio is built from snapshots;
+    // 13 snapshots instead of 7 cut its sampling noise by about a quarter.
+    case 'darkpool':     return inSession(Array.from({ length: 13 }, (_, i) => hm(10, 5) + i * 30));
     case 'flow-alerts':  return [...inSession([hm(10, 35), hm(11, 35), hm(12, 35), hm(13, 35), hm(14, 35), hm(15, 35)]), close + 10];
     case 'curated-flow': return [...inSession([hm(10, 30), hm(12, 30), hm(14, 30)]), close + 10];
     case 'option-chain': return [close - 15];

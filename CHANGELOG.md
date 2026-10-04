@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.1] - 2026-10-04
+
+### Changed - Dark pool sampling every 30 minutes
+
+- Per-symbol dark pool pulls move from hourly to every 30 minutes (10:05-16:05 ET, 13 snapshots per session). Signa returns only the latest 50 prints per call, so the daily buy/sell ratio behind the scanner's dark pool factors (50 of 100 points) is built from snapshots; doubling them cuts its sampling noise by about a quarter.
+- Planned Signa usage at the full 26-symbol universe: ~615 calls per trading day (was ~459), still under the collector's 800-call ceiling.
+
+---
+
 ## [1.2.0] - 2026-10-04
 
 ### Added - Flow Scanner (trading roadmap, release 1.1)

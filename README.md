@@ -240,7 +240,7 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy - no CORS config n
 | `SIGNA_DAILY_LIMIT` | No | `1000` | Your Signa plan's daily call quota (REST + MCP share it) |
 | `SIGNA_RESERVE_CALLS` | No | `200` | Calls kept free for dashboard browsing; collector jobs are skipped once usage reaches `limit - reserve` |
 | `SCANNER_PROMOTE_SCORE` | No | `45` | Flow Scanner score (0-100) needed to add a symbol to data collection (not a trade signal) |
-| `SCANNER_MAX_PROMOTED` | No | `12` | Cap on scanner-added symbols (each costs ~16 Signa calls per trading day) |
+| `SCANNER_MAX_PROMOTED` | No | `12` | Cap on scanner-added symbols (each costs ~22 Signa calls per trading day) |
 | `SCANNER_DP_LOOKUPS` | No | `10` | Live dark pool pulls per scanner run for untracked candidates |
 
 **Priority chain for AI market analysis:** Signa.ai --> Gemini 1.5 Flash --> built-in template
