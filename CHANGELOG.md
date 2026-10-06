@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.5] - 2026-10-06
+
+### Security - Keep API keys out of the backend image
+
+- `backend/railway.json` switches the Railway builder from Nixpacks to Railpack. Nixpacks injected every service variable (`GEMINI_API_KEY`, `SIGNA_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) as Dockerfile `ARG`/`ENV`, which stores them in image layers and triggers Docker's `SecretsUsedInArgOrEnv` build warnings. Railpack supplies them as BuildKit secret mounts, available during the build but never saved to the image or logs. Runtime environment variables are unchanged.
+
+---
+
 ## [1.2.4] - 2026-10-06
 
 ### Fixed - Option quotes were never collected

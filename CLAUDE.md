@@ -22,7 +22,7 @@ This file is for AI coding assistants. It documents the project architecture, co
 | Auth + access control | Supabase **coredb** (optional - Google OAuth + Postgres; invite-only when configured) |
 | Watchlist fallback | `localStorage` when Supabase is unconfigured |
 | Frontend hosting | Cloudflare Pages |
-| Backend hosting | Railway |
+| Backend hosting | Railway (Railpack builder via `backend/railway.json` - secrets passed as BuildKit secrets, never baked into the image) |
 
 ---
 
