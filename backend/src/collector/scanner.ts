@@ -51,6 +51,15 @@ export function scannerConfig(): ScannerConfig {
 // Radon discover.py index_symbols - index options are not single-stock swing candidates.
 export const INDEX_SYMBOLS = new Set(['SPX', 'SPXW', 'NDX', 'NDXP', 'RUT', 'RUTW', 'VIX', 'VIXW', 'DJX', 'OEX', 'XSP']);
 
+// ETFs that track (or lever) an index the core already collects. Scored and shown, never promoted:
+// a slot costs ~22 Signa calls/day for data the core ETF already provides.
+export const DUPLICATE_ETFS: Record<string, string> = {
+  VOO: 'SPY', IVV: 'SPY', SPLG: 'SPY', SPYM: 'SPY', SPXL: 'SPY', UPRO: 'SPY', SPXU: 'SPY', SPXS: 'SPY', SSO: 'SPY', SDS: 'SPY',
+  QQQM: 'QQQ', TQQQ: 'QQQ', SQQQ: 'QQQ', QLD: 'QQQ', QID: 'QQQ',
+  VTWO: 'IWM', TNA: 'IWM', TZA: 'IWM', UWM: 'IWM', TWM: 'IWM',
+  SOXX: 'SMH', SOXL: 'SMH', SOXS: 'SMH', USD: 'SMH',
+};
+
 // ── Flow aggregation (Radon _aggregate_alerts) ───────────────────────────────
 
 export interface FlowPrint {
@@ -278,6 +287,7 @@ export function buildCandidate(flow: FlowAggregate, dp: DpMulti): Candidate {
 // Tradeability gate; returns the first failing reason or null.
 export function rejectReason(c: Candidate, cfg: ScannerConfig): string | null {
   if (INDEX_SYMBOLS.has(c.symbol)) return 'index option';
+  if (DUPLICATE_ETFS[c.symbol]) return `tracks ${DUPLICATE_ETFS[c.symbol]} (already collected)`;
   if (c.alerts < cfg.minAlerts) return `fewer than ${cfg.minAlerts} large prints`;
   if (c.total_premium < cfg.minTotalPremium) return `premium under $${(cfg.minTotalPremium / 1e6).toFixed(1)}M`;
   if (c.underlying_price === null || c.underlying_price < cfg.minPrice) return `price under $${cfg.minPrice}`;
@@ -307,7 +317,7 @@ export function addDays(date: string, days: number): string {
 
 // planPromotions:
 //   - Qualifying candidates (passed filters, score >= threshold, not core) are added or have their expiry refreshed
-//   - Existing scanner symbols past expires_at are demoted
+//   - Existing scanner symbols past expires_at, or on the duplicate-ETF list, are demoted
 //   - When over the cap, the lowest scores are demoted so the Signa budget stays bounded
 export function planPromotions(
   qualifying: Candidate[],
@@ -321,7 +331,7 @@ export function planPromotions(
   const demote = new Set<string>();
 
   for (const s of current) {
-    if (s.expiresAt < today) demote.add(s.symbol);
+    if (s.expiresAt < today || DUPLICATE_ETFS[s.symbol]) demote.add(s.symbol);
     else slots.set(s.symbol, s);
   }
   for (const c of qualifying) {
