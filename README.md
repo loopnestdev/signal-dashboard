@@ -493,6 +493,8 @@ In Railway --> your service --> **Variables**, add:
 Railway should pick up `"start": "tsx src/index.ts"` from `backend/package.json` automatically.  
 If not, set **Start Command** to `npm start`.
 
+`backend/railway.json` selects the **Railpack** builder. Railpack passes service variables to the build as BuildKit secrets, so API keys are never written into image layers or build logs. The older Nixpacks builder passed them as Dockerfile `ARG`/`ENV` instructions (Docker's `SecretsUsedInArgOrEnv` warning), which stores them in the image.
+
 #### Step 4 - Get your Railway URL
 
 After deploy, Railway gives you a public URL like:
