@@ -400,6 +400,8 @@ Run [`supabase/migrations/20261004_data_collector.sql`](supabase/migrations/2026
 
 Then run [`supabase/migrations/20261005_flow_scanner.sql`](supabase/migrations/20261005_flow_scanner.sql) for the Flow Scanner (`raw_flow`, `signa_scans`, `scanner_candidates`, and `source` / `expires_at` columns on `tracked_symbols`). Choose **Run and enable RLS** if Supabase asks.
 
+Then run [`supabase/migrations/20261006_cboe_option_quotes.sql`](supabase/migrations/20261006_cboe_option_quotes.sql): Greek columns on `option_quotes` and the `iv_daily` table. Option quotes come from Cboe's free delayed chain (Yahoo rate-limits cloud servers).
+
 To change the permanent core later, edit `signal.tracked_symbols` rows with `source = 'core'` (set `active = false` to pause a symbol). Rows with `source = 'scanner'` are managed by the scanner.
 
 #### Step 4 - Grant yourself admin access

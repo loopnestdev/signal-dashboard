@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.4] - 2026-10-06
+
+### Fixed - Option quotes were never collected
+
+- Yahoo's option chain endpoint returns 429 (rate limited) from Railway's shared IPs, so `option_quotes` stayed empty. Option quotes now come from Cboe's free delayed chain (one request per symbol, no session), with Yahoo kept as a per-symbol fallback.
+- Quotes gain Greeks (delta, gamma, theta, vega) and a `source` column, and each symbol's 30-day IV is stored daily in the new `iv_daily` table (needed for IV rank; cannot be back-filled). Migration: `supabase/migrations/20261006_cboe_option_quotes.sql`.
+- The job moves from 15 minutes before the close to 25 minutes after it, so the ~15-minute delayed quotes reflect the closing market.
+- Data Collection: the "Rows" tooltip now says correctly that the count includes items already stored.
+
+---
+
 ## [1.2.3] - 2026-10-04
 
 ### Changed - Record Signa's full daily scan

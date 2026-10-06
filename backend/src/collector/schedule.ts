@@ -5,7 +5,7 @@ export type JobName =
   | 'darkpool'       // per-symbol dark pool prints - every 30 min in session
   | 'flow-alerts'    // per-symbol UW flow alerts - hourly, since active names hit the 50-alert cap
   | 'curated-flow'   // market-wide curated flow, filtered to the universe
-  | 'option-chain'   // Yahoo option quotes near the close (no Signa calls)
+  | 'option-chain'   // Cboe delayed option quotes after the close (no Signa calls)
   | 'gex'            // per-symbol GEX after the close
   | 'rollup'         // dp_daily rollup + raw print pruning (no API calls)
   | 'raw-flow'       // market-wide large prints (scanner discovery feed)
@@ -45,7 +45,8 @@ export function jobSlots(job: JobName, date: string): number[] {
     case 'darkpool':     return inSession(Array.from({ length: 13 }, (_, i) => hm(10, 5) + i * 30));
     case 'flow-alerts':  return [...inSession([hm(10, 35), hm(11, 35), hm(12, 35), hm(13, 35), hm(14, 35), hm(15, 35)]), close + 10];
     case 'curated-flow': return [...inSession([hm(10, 30), hm(12, 30), hm(14, 30)]), close + 10];
-    case 'option-chain': return [close - 15];
+    // Cboe quotes are ~15 min delayed, so close+25 captures the closing market.
+    case 'option-chain': return [close + 25];
     case 'gex':          return [close + 20];
     case 'rollup':       return [close + 40];
     case 'signa-scan':   return [hm(9, 15)];

@@ -4,8 +4,9 @@ import { recentTradingDays } from '../lib/marketCalendar.js';
 import { insertRow, rpc, selectRows, updateRows, upsertRows } from '../lib/supabaseRest.js';
 import {
   parseCuratedFlow, parseDpPrints, parseFlowAlerts, parseGexSnapshot,
-  parseOptionChain, parseRawFlow, parseSignalSnapshot, parseSignaScan, pickSwingExpiries,
+  parseCboeChain, parseOptionChain, parseRawFlow, parseSignalSnapshot, parseSignaScan, pickSwingExpiries,
 } from './parsers.js';
+import { fetchCboeChain } from './cboeOptions.js';
 import {
   aggregateFlow, analyzeDpMulti, buildCandidate, INDEX_SYMBOLS, planPromotions, rejectReason, scannerConfig,
   type DpDayVolume, type FlowPrint, type ScannerSlot,
@@ -112,29 +113,56 @@ async function runSignaJob(job: JobName, tradeDate: string, symbols: string[]): 
   }
 }
 
-async function runOptionChain(tradeDate: string, symbols: string[]): Promise<JobResult> {
+async function yahooQuotes(symbol: string, tradeDate: string): Promise<{ rows: number; calls: number }> {
   const session = await openYahooSession();
+  const first = await fetchOptionChain(session, symbol);
+  let calls = 1;
+  let rows = 0;
+  for (const expiry of pickSwingExpiries(expirationDates(first))) {
+    await sleep(500);
+    const chain = await fetchOptionChain(session, symbol, expiry);
+    calls++;
+    rows += await upsertRows('option_quotes', parseOptionChain(chain, symbol, tradeDate), 'merge');
+  }
+  return { rows, calls };
+}
+
+// runOptionChain:
+//   - Cboe delayed chain is the source (one request per symbol, Greeks included, no session needed)
+//   - Yahoo is only a per-symbol fallback; it rate-limits shared cloud IPs (429 on Railway)
+//   - Also stores Cboe's 30-day IV per symbol in iv_daily for IV rank later
+async function runOptionChain(tradeDate: string, symbols: string[]): Promise<JobResult> {
   let calls = 0;
   let rows = 0;
   const failed: string[] = [];
+  const viaYahoo: string[] = [];
   for (const symbol of symbols) {
     try {
-      const first = await fetchOptionChain(session, symbol);
+      const payload = await fetchCboeChain(symbol);
       calls++;
-      for (const expiry of pickSwingExpiries(expirationDates(first))) {
-        await sleep(500);
-        const chain = await fetchOptionChain(session, symbol, expiry);
-        calls++;
-        rows += await upsertRows('option_quotes', parseOptionChain(chain, symbol, tradeDate), 'merge');
+      const { quotes, iv } = parseCboeChain(payload, symbol, tradeDate);
+      if (quotes.length === 0) throw new Error('no swing-window contracts in Cboe chain');
+      rows += await upsertRows('option_quotes', quotes, 'merge');
+      if (iv) await upsertRows('iv_daily', [iv], 'merge', 'symbol,trade_date');
+    } catch (cboeErr) {
+      try {
+        const y = await yahooQuotes(symbol, tradeDate);
+        calls += y.calls;
+        rows += y.rows;
+        viaYahoo.push(symbol);
+      } catch (yahooErr) {
+        failed.push(symbol);
+        console.warn(`[collector] option-chain ${symbol}: cboe ${cboeErr instanceof Error ? cboeErr.message : cboeErr}; yahoo ${yahooErr instanceof Error ? yahooErr.message : yahooErr}`);
       }
-    } catch (err) {
-      failed.push(symbol);
-      console.warn(`[collector] option-chain ${symbol}:`, err instanceof Error ? err.message : err);
     }
-    await sleep(500);
+    await sleep(300);
   }
   const status = failed.length === 0 ? 'ok' : failed.length === symbols.length ? 'error' : 'partial';
-  return { status, apiCalls: calls, rowsWritten: rows, message: failed.length ? `failed: ${failed.join(', ')}` : undefined };
+  const message = [
+    failed.length ? `failed: ${failed.join(', ')}` : '',
+    viaYahoo.length ? `Yahoo fallback: ${viaYahoo.join(', ')}` : '',
+  ].filter(Boolean).join('; ');
+  return { status, apiCalls: calls, rowsWritten: rows, message: message || undefined };
 }
 
 interface TrackedRow {

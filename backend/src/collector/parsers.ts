@@ -294,6 +294,11 @@ export interface OptionQuoteRow {
   open_interest: number | null;
   volume: number | null;
   spot: number | null;
+  delta: number | null;
+  gamma: number | null;
+  theta: number | null;
+  vega: number | null;
+  source: 'cboe' | 'yahoo';
   captured_at: string;
 }
 
@@ -342,6 +347,11 @@ export function parseOptionChain(payload: unknown, symbol: string, tradeDate: st
           open_interest: num(c.openInterest),
           volume: num(c.volume),
           spot,
+          delta: null,
+          gamma: null,
+          theta: null,
+          vega: null,
+          source: 'yahoo',
           captured_at: now.toISOString(),
         });
       }
@@ -449,4 +459,79 @@ export function parseSignaScan(payload: unknown, tradeDate: string, now = new Da
     });
   }
   return [...rows.values()];
+}
+
+// ── Cboe delayed option chain ────────────────────────────────────────────────
+
+// OCC-style symbol: root, YYMMDD expiry, C/P, strike x 1000 zero-padded to 8 digits (e.g. MU261120C01070000).
+const OCC = /^([A-Z][A-Z0-9.]*?)(\d{6})([CP])(\d{8})$/;
+
+export function parseOccSymbol(contract: string): { root: string; expiry: string; type: 'CALL' | 'PUT'; strike: number } | null {
+  const m = OCC.exec(contract);
+  if (!m) return null;
+  const [, root, ymd, cp, strike] = m;
+  return {
+    root,
+    expiry: `20${ymd.slice(0, 2)}-${ymd.slice(2, 4)}-${ymd.slice(4, 6)}`,
+    type: cp === 'C' ? 'CALL' : 'PUT',
+    strike: Number(strike) / 1000,
+  };
+}
+
+export interface IvDailyRow {
+  symbol: string;
+  trade_date: string;
+  iv30: number | null;
+  price: number | null;
+  captured_at: string;
+}
+
+// Same selection as the Yahoo path: the two swing expiries (closest to 30 and 60 DTE) and strikes within 15% of spot.
+export function parseCboeChain(
+  payload: unknown,
+  symbol: string,
+  tradeDate: string,
+  now = new Date(),
+): { quotes: OptionQuoteRow[]; iv: IvDailyRow | null } {
+  const data = (payload as Raw | null)?.data as Raw | undefined;
+  if (!data || !Array.isArray(data.options)) return { quotes: [], iv: null };
+  const spot = num(data.current_price ?? data.close);
+  const contracts = (data.options as Raw[])
+    .map(c => ({ c, occ: parseOccSymbol(String(c.option ?? '')) }))
+    .filter((x): x is { c: Raw; occ: NonNullable<ReturnType<typeof parseOccSymbol>> } => x.occ !== null);
+
+  const expiryEpochs = [...new Set(contracts.map(x => x.occ.expiry))].map(e => Date.parse(`${e}T00:00:00Z`) / 1000);
+  const picked = new Set(pickSwingExpiries(expiryEpochs, now).map(e => new Date(e * 1000).toISOString().slice(0, 10)));
+
+  const quotes: OptionQuoteRow[] = [];
+  for (const { c, occ } of contracts) {
+    if (!picked.has(occ.expiry)) continue;
+    if (spot && Math.abs(occ.strike - spot) / spot > QUOTE_BAND) continue;
+    const iv = num(c.iv);
+    quotes.push({
+      contract_symbol: String(c.option),
+      trade_date: tradeDate,
+      symbol: symbol.toUpperCase(),
+      option_type: occ.type,
+      strike: occ.strike,
+      expiry: occ.expiry,
+      bid: num(c.bid),
+      ask: num(c.ask),
+      last: num(c.last_trade_price),
+      iv: iv === 0 ? null : iv,
+      open_interest: num(c.open_interest),
+      volume: num(c.volume),
+      spot,
+      delta: num(c.delta),
+      gamma: num(c.gamma),
+      theta: num(c.theta),
+      vega: num(c.vega),
+      source: 'cboe',
+      captured_at: now.toISOString(),
+    });
+  }
+  return {
+    quotes,
+    iv: { symbol: symbol.toUpperCase(), trade_date: tradeDate, iv30: num(data.iv30), price: spot, captured_at: now.toISOString() },
+  };
 }
