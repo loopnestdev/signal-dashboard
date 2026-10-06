@@ -39,7 +39,7 @@ describe('jobSlots', () => {
   it('shifts close-relative jobs and drops after-close session slots on early-close days', () => {
     expect(jobSlots('darkpool', '2026-11-27')).toEqual([hm(10, 5), hm(10, 35), hm(11, 5), hm(11, 35), hm(12, 5), hm(12, 35), hm(13, 5)]);
     expect(jobSlots('gex', '2026-11-27')).toEqual([hm(13, 20)]);
-    expect(jobSlots('option-chain', '2026-11-27')).toEqual([hm(12, 45)]);
+    expect(jobSlots('option-chain', '2026-11-27')).toEqual([hm(13, 25)]);
     expect(jobSlots('flow-alerts', '2026-11-27')).toEqual([hm(10, 35), hm(11, 35), hm(12, 35), hm(13, 10)]);
   });
 

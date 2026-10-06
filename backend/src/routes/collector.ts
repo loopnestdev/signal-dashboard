@@ -18,6 +18,7 @@ const DATASETS = [
   { table: 'gex_daily', label: 'GEX snapshots' },
   { table: 'signal_snapshots', label: 'Signa signal snapshots' },
   { table: 'option_quotes', label: 'Option quotes' },
+  { table: 'iv_daily', label: 'Daily 30-day IV' },
   { table: 'raw_flow', label: 'Large prints (market-wide)' },
   { table: 'scanner_candidates', label: 'Scanner candidates' },
 ];

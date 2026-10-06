@@ -9,7 +9,7 @@ const JOB_LABELS: Record<string, string> = {
   darkpool: 'Dark pool prints',
   'flow-alerts': 'Options flow alerts',
   'curated-flow': 'Curated flow',
-  'option-chain': 'Option quotes (Yahoo)',
+  'option-chain': 'Option quotes (Cboe)',
   gex: 'GEX levels',
   rollup: 'Dark pool daily rollup',
   'raw-flow': 'Large prints (market-wide)',
@@ -22,7 +22,7 @@ const JOB_TIPS: Record<string, string> = {
   darkpool: 'Latest 50 off-exchange prints per tracked ticker, every 30 minutes. Each print is classed as buying or selling by where it traded vs the bid-ask midpoint.',
   'flow-alerts': 'Unusual Whales options flow alerts (repeated hits, unusual volume) per tracked ticker, hourly.',
   'curated-flow': "Signa's AI-scored institutional options trades, market-wide, kept for tracked tickers.",
-  'option-chain': 'Option bid/ask, implied volatility and open interest from Yahoo for contracts about 30 and 60 days out. Needed later to price paper trades and backtests. Uses no Signa calls.',
+  'option-chain': 'Option bid/ask, implied volatility, open interest and Greeks from Cboe (free, ~15 min delayed) for contracts about 30 and 60 days out, taken just after the close. Needed later to price paper trades and backtests. Also records each ticker\'s 30-day IV. Uses no Signa calls; Yahoo is the fallback.',
   gex: 'Dealer gamma levels per tracked ticker after the close: gamma flip, call wall, put wall, and net gamma by strike.',
   rollup: "Summarises each ticker's dark pool prints into one buy/sell row per day (kept permanently) and deletes raw prints older than 60 days.",
   'raw-flow': 'Market-wide options prints of $250K+, hourly. The Flow Scanner discovers new tickers from this feed.',
@@ -35,8 +35,8 @@ const COLUMN_TIPS = {
   runs: 'Scheduled times in New York time (US Eastern), only on US trading days. Sydney/Melbourne is 14-16 hours ahead depending on daylight saving.',
   last: 'When the job last ran, in your local time.',
   status: 'OK = all tickers succeeded. PARTIAL = some tickers failed (see Recent problems). ERROR = nothing was saved. SKIPPED = paused to protect the Signa daily quota.',
-  rows: 'Rows saved by the last run. Already-stored items are skipped, so repeats show fewer rows.',
-  calls: 'API calls the last run used (Signa, or Yahoo for option quotes).',
+  rows: 'Rows the last run sent to the database, including items it already had (those are skipped or refreshed, never stored twice). For new-row counts, see Stored history.',
+  calls: 'API calls the last run used (Signa, or Cboe/Yahoo for option quotes).',
 };
 
 const DATASET_TIPS: Record<string, string> = {
@@ -46,7 +46,8 @@ const DATASET_TIPS: Record<string, string> = {
   curated_flow: "Signa's AI-scored institutional options trades.",
   gex_daily: 'Daily dealer gamma levels per ticker.',
   signal_snapshots: 'Daily Signa Action Card per ticker (direction, score, levels), so a backtest knows what Signa said that morning.',
-  option_quotes: 'Daily option prices and implied volatility, for pricing paper trades and backtests.',
+  option_quotes: 'Daily option prices, implied volatility and Greeks, for pricing paper trades and backtests.',
+  iv_daily: 'One 30-day implied volatility reading per ticker per day, for IV rank (how expensive options are vs their own history).',
   raw_flow: 'Market-wide large options prints ($250K+), the scanner\'s discovery feed.',
   scanner_candidates: 'Every ticker the scanner scored each day, with its score breakdown, so promotion thresholds can be backtested.',
 };

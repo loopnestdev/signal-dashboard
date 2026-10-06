@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyDpSide, dedupeById, parseCuratedFlow, parseDpPrints, parseFlowAlerts,
   parseGexSnapshot, parseOptionChain, parseSignalSnapshot, pickSwingExpiries, rowId,
+  parseCboeChain, parseOccSymbol,
 } from '../../collector/parsers.js';
 
 describe('rowId', () => {
@@ -221,5 +222,60 @@ describe('parseOptionChain', () => {
   it('returns [] for an empty or failed chain', () => {
     expect(parseOptionChain({ optionChain: { result: [] } }, 'X', '2026-10-05')).toEqual([]);
     expect(parseOptionChain(null, 'X', '2026-10-05')).toEqual([]);
+  });
+});
+
+describe('parseOccSymbol', () => {
+  it('decodes root, expiry, type and strike', () => {
+    expect(parseOccSymbol('MU261120C01070000')).toEqual({ root: 'MU', expiry: '2026-11-20', type: 'CALL', strike: 1070 });
+    expect(parseOccSymbol('SPY261218P00767500')).toEqual({ root: 'SPY', expiry: '2026-12-18', type: 'PUT', strike: 767.5 });
+    expect(parseOccSymbol('BRKB261120C00500000')?.root).toBe('BRKB');
+  });
+
+  it('rejects malformed symbols', () => {
+    expect(parseOccSymbol('MU 261120C01070000')).toBeNull();
+    expect(parseOccSymbol('MU261120X01070000')).toBeNull();
+    expect(parseOccSymbol('')).toBeNull();
+  });
+});
+
+describe('parseCboeChain', () => {
+  const now = new Date('2026-10-05T20:30:00Z');
+  const contract = (option: string, over: Record<string, unknown> = {}) => ({
+    option, bid: 67.75, ask: 72.65, iv: 0.4596, open_interest: 751, volume: 285,
+    delta: 0.5318, gamma: 0.0023, vega: 1.5022, theta: -0.7425, last_trade_price: 68.83, ...over,
+  });
+  const payload = {
+    timestamp: '2026-10-05 16:20:00',
+    data: {
+      current_price: 1064.3, close: 1063.96, iv30: 45.74,
+      options: [
+        contract('MU261120C01070000'),                  // 46 DTE, near the money -> kept
+        contract('MU261120P01000000', { iv: 0 }),        // kept, zero IV stored as null
+        contract('MU261120C01500000'),                  // strike > 15% from spot -> dropped
+        contract('MU261009C01070000'),                  // 4 DTE, outside swing window -> dropped
+        contract('MU261204C01070000'),                  // 60 DTE -> kept as the second expiry
+        contract('garbage'),
+      ],
+    },
+  };
+
+  it('keeps the two swing expiries within the strike band, with Greeks', () => {
+    const { quotes } = parseCboeChain(payload, 'mu', '2026-10-05', now);
+    expect(quotes.map(q => q.contract_symbol)).toEqual(['MU261120C01070000', 'MU261120P01000000', 'MU261204C01070000']);
+    expect(quotes[0]).toMatchObject({
+      symbol: 'MU', option_type: 'CALL', strike: 1070, expiry: '2026-11-20', bid: 67.75, ask: 72.65, last: 68.83,
+      iv: 0.4596, open_interest: 751, delta: 0.5318, theta: -0.7425, spot: 1064.3, source: 'cboe', trade_date: '2026-10-05',
+    });
+    expect(quotes[1].iv).toBeNull();
+  });
+
+  it('returns the 30-day IV reading for the symbol', () => {
+    expect(parseCboeChain(payload, 'mu', '2026-10-05', now).iv).toMatchObject({ symbol: 'MU', iv30: 45.74, price: 1064.3 });
+  });
+
+  it('handles empty or failed payloads', () => {
+    expect(parseCboeChain(null, 'MU', '2026-10-05', now)).toEqual({ quotes: [], iv: null });
+    expect(parseCboeChain({ data: {} }, 'MU', '2026-10-05', now)).toEqual({ quotes: [], iv: null });
   });
 });
