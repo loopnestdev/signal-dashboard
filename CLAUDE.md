@@ -272,7 +272,7 @@ Records history that Signa cannot serve retroactively, so Radon-style strategies
   - Per symbol: call/put print counts (bias = 1.5x rule), sweeps, avg vol/OI, total premium, max OI, latest price
   - Dark pool: last 3 sessions from `dp_daily` (scanner refreshes today's rollup first); untracked names get one live `get_dark_pool` pull, up to `SCANNER_DP_LOOKUPS` per run, biggest premium first
   - Score = Radon weights: dp strength 30, sustained days 20, confluence 20, vol/OI 15, sweeps 15 (0-100)
-  - Filters (`rejectReason`): index options, < `SCANNER_MIN_ALERTS` prints, < `SCANNER_MIN_TOTAL_PREMIUM`, price < `SCANNER_MIN_PRICE`, max OI < `SCANNER_MIN_OPEN_INTEREST` (default 0 = off; low OI on a big print usually means a new opening position), no dark pool data
+  - Filters (`rejectReason`): index options, `DUPLICATE_ETFS` (ETFs tracking or levering a core index - VOO/IVV/SPLG/SPYM -> SPY, QQQM/TQQQ -> QQQ, VTWO/TNA -> IWM, SOXX/SOXL -> SMH, etc.; reason names the core ETF, and any already-promoted one is demoted on the next run), < `SCANNER_MIN_ALERTS` prints, < `SCANNER_MIN_TOTAL_PREMIUM`, price < `SCANNER_MIN_PRICE`, max OI < `SCANNER_MIN_OPEN_INTEREST` (default 0 = off; low OI on a big print usually means a new opening position), no dark pool data
   - Promotion (`planPromotions`): passed + score >= `SCANNER_PROMOTE_SCORE` (45 - promotion only starts collection; untracked names max out near 69 because Signa gives them just 1 day of dark pool) --> `tracked_symbols` source 'scanner' for `SCANNER_PROMOTION_DAYS` (14 calendar days), renewed on requalifying; capped at `SCANNER_MAX_PROMOTED` (12) by score; core rows are never modified
   - Every scored symbol is stored in `scanner_candidates` (one row per symbol per session, latest run wins) so promotion thresholds can be backtested later
   - The feed is a sample: 200 prints >= $250k span ~5 trading hours (pulled hourly, deduped by id), far sparser than Radon's full UW alert walk; on 2026-10-02 only ~80 prints were >= $500k, about half of them SPX/SPXW
@@ -343,7 +343,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 256 tests - one-shot
+cd backend && npm test          # 258 tests - one-shot
 cd frontend && npm test         # 64 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode

@@ -150,6 +150,13 @@ describe('rejectReason', () => {
     expect(rejectReason(candidate({ dp_direction: 'NO_DATA' }), cfg)).toMatch(/dark pool/);
   });
 
+  it('rejects ETFs that duplicate a core index, naming the core ETF', () => {
+    expect(rejectReason(candidate({ symbol: 'QQQM' }), cfg)).toBe('tracks QQQ (already collected)');
+    expect(rejectReason(candidate({ symbol: 'VOO' }), cfg)).toBe('tracks SPY (already collected)');
+    expect(rejectReason(candidate({ symbol: 'SOXL' }), cfg)).toBe('tracks SMH (already collected)');
+    expect(rejectReason(candidate({ symbol: 'XLE' }), cfg)).toBeNull();
+  });
+
   it('skips the open interest check when the minimum is 0', () => {
     expect(rejectReason(candidate({ max_open_interest: 0 }), { ...cfg, minOpenInterest: 0 })).toBeNull();
   });
@@ -183,6 +190,12 @@ describe('planPromotions', () => {
     );
     expect(plan.keep.map(k => k.symbol)).toEqual(['A', 'C']);
     expect(plan.demote).toEqual(['B']);
+  });
+
+  it('demotes an already-promoted duplicate ETF before its expiry', () => {
+    const plan = planPromotions([], [{ symbol: 'QQQM', score: 55, expiresAt: '2026-10-20' }, { symbol: 'AMD', score: 50, expiresAt: '2026-10-20' }], core, today, cfg);
+    expect(plan.keep.map(k => k.symbol)).toEqual(['AMD']);
+    expect(plan.demote).toEqual(['QQQM']);
   });
 
   it('a requalifying expired symbol is kept, not demoted', () => {

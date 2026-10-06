@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.2.6] - 2026-10-07
+
+### Changed - Scanner skips ETFs that duplicate the core
+
+- The Flow Scanner no longer promotes ETFs that track or lever an index the core already collects (e.g. VOO/IVV/SPLG -> SPY, QQQM/TQQQ/SQQQ -> QQQ, VTWO/TNA -> IWM, SOXX/SOXL -> SMH). They are still scored and listed under "show filtered out" with the reason "tracks QQQ (already collected)". An already-promoted duplicate (QQQM, promoted 2026-10-06) is removed on the next scanner run, freeing its ~22 Signa calls per day.
+
+---
+
 ## [1.2.5] - 2026-10-06
 
 ### Security - Keep API keys out of the backend image
