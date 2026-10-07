@@ -4,7 +4,7 @@ import { toEtClock } from '../lib/marketCalendar.js';
 import { RULES_VERSION } from '../lib/settings.js';
 import { deleteRows, isSupabaseAdminConfigured, selectAll, selectRows } from '../lib/supabaseRest.js';
 import { getDailyBars } from '../lib/yahooClient.js';
-import { barsRangeFor, benchmarkCurve, latestRunSet, parseRunRequest, type RunHeader } from '../backtest/report.js';
+import { barsRangeFor, benchmarkCurve, lastCompleteSession, latestRunSet, parseRunRequest, type RunHeader } from '../backtest/report.js';
 import { currentJob, startReplayJob } from '../backtest/runner.js';
 
 const router = Router();
@@ -42,7 +42,7 @@ router.get('/backtest/runs', async (_req, res) => {
       job: currentJob(),
       rulesVersion: RULES_VERSION,
       dataFrom: first?.trade_date ?? null,
-      today: toEtClock(new Date()).date,
+      lastSession: lastCompleteSession(toEtClock(new Date())),
     });
   } catch (err) {
     storageError(res, err);
@@ -68,7 +68,7 @@ router.get('/backtest/runs/:id', async (req, res) => {
 });
 
 router.post('/backtest/run', requireAdmin, (req, res) => {
-  const parsed = parseRunRequest(req.body, toEtClock(new Date()).date);
+  const parsed = parseRunRequest(req.body, lastCompleteSession(toEtClock(new Date())));
   if ('error' in parsed) return res.status(400).json({ error: parsed.error });
   const job = startReplayJob(parsed.request, String(res.locals.adminEmail ?? 'unknown'));
   if (!job) return res.status(409).json({ error: 'A replay is already running', job: currentJob() });

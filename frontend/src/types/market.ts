@@ -337,7 +337,7 @@ export interface BacktestRunsResponse {
   job: ReplayJob | null;
   rulesVersion: string;
   dataFrom: string | null;
-  today: string;
+  lastSession: string;
 }
 
 export interface BacktestLeg { contract: string; type: 'CALL' | 'PUT'; strike: number; expiry: string; side: 1 | -1 }

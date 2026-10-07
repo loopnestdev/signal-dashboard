@@ -1,3 +1,4 @@
+import { closeMinuteFor, isTradingDay, recentTradingDays, type EtClock } from '../lib/marketCalendar.js';
 import type { Range } from '../lib/yahooClient.js';
 import type { Bar, Book } from './types.js';
 
@@ -6,6 +7,17 @@ import type { Bar, Book } from './types.js';
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_RANGE_DAYS = 366;
 const BOOKS: Book[] = ['A', 'B', 'C'];
+// The option-quote job runs at close+25; a session's data is complete a few minutes later.
+const SESSION_COMPLETE_AFTER_CLOSE = 30;
+
+// The newest session whose recorded data is complete. Before that point of today's session (or on a non-trading
+// day) it is the previous trading day, so a replay never counts a session that has not happened yet.
+export function lastCompleteSession(clock: EtClock): string {
+  if (isTradingDay(clock.date) && clock.minute >= closeMinuteFor(clock.date) + SESSION_COMPLETE_AFTER_CLOSE) return clock.date;
+  const d = new Date(`${clock.date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return recentTradingDays(d.toISOString().slice(0, 10), 1)[0];
+}
 
 export interface RunRequest {
   from: string;
@@ -15,11 +27,11 @@ export interface RunRequest {
 
 const validDate = (s: unknown): s is string => typeof s === 'string' && ISO_DATE.test(s) && !Number.isNaN(Date.parse(`${s}T12:00:00Z`));
 
-export function parseRunRequest(body: unknown, today: string): { request: RunRequest } | { error: string } {
+export function parseRunRequest(body: unknown, lastSession: string): { request: RunRequest } | { error: string } {
   const b = (body ?? {}) as Record<string, unknown>;
   if (!validDate(b.from) || !validDate(b.to)) return { error: 'from and to must be dates (YYYY-MM-DD)' };
   if (b.from > b.to) return { error: 'from must be on or before to' };
-  if (b.to > today) return { error: 'to cannot be in the future' };
+  if (b.to > lastSession) return { error: `to cannot be after the last completed session (${lastSession})` };
   const days = (Date.parse(`${b.to}T12:00:00Z`) - Date.parse(`${b.from}T12:00:00Z`)) / 86_400_000;
   if (days > MAX_RANGE_DAYS) return { error: 'range is limited to one year' };
   const raw = b.books == null ? BOOKS : b.books;

@@ -279,7 +279,7 @@ Helper functions:
 - `GET /api/collector/status` - collector health: enabled flag, symbols, Signa usage today vs limit, job schedule + last run, table row counts, daily rows. 60s cache. 503 when service role key or migration is missing.
 - `GET /api/scanner?date=YYYY-MM-DD` - Flow Scanner payload for a session (default: latest scanned): candidates sorted by score, active core + scanner-promoted symbols, Signa scan top lists, scanner thresholds. 60s cache.
 - `GET /api/settings` - trading settings (+ defaults, rules version, which AI keys are set, risk-per-trade preview). `PUT /api/settings` - validated save; requires `Authorization: Bearer <Supabase access token>` of an `is_admin` user (loopback requests without a token are allowed only when not on Railway). Settings live in `signal.app_settings` (key `trading`).
-- `GET /api/backtest/runs` - last 60 saved replays (header + summary, newest first), `latest` (ids of the newest run per book sharing the newest range + rules version), the current replay `job`, `dataFrom` (first `signal_snapshots` date), `today` (ET). `GET /api/backtest/runs/:id` - run + trades + equity + `benchmark` (SPY scaled to the starting balance on each equity date). `POST /api/backtest/run` `{from, to, books?}` (admin) - starts a background replay with the saved settings and saves each book (202; 409 while one runs; max one year, not in the future). `DELETE /api/backtest/runs/:id` (admin) - cascades to trades and equity. 503 without the service role key or migration.
+- `GET /api/backtest/runs` - last 60 saved replays (header + summary, newest first), `latest` (ids of the newest run per book sharing the newest range + rules version), the current replay `job`, `dataFrom` (first `signal_snapshots` date), `lastSession` (newest session with complete data: today from close+30 ET, else the previous trading day - `lastCompleteSession`; also the latest allowed replay end). `GET /api/backtest/runs/:id` - run + trades + equity + `benchmark` (SPY scaled to the starting balance on each equity date). `POST /api/backtest/run` `{from, to, books?}` (admin) - starts a background replay with the saved settings and saves each book (202; 409 while one runs; max one year, not in the future). `DELETE /api/backtest/runs/:id` (admin) - cascades to trades and equity. 503 without the service role key or migration.
 - `GET /health` - health check
 
 ### Data Collector (Release 1 of the trading roadmap)
@@ -385,7 +385,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 327 tests - one-shot
+cd backend && npm test          # 330 tests - one-shot
 cd frontend && npm test         # 71 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -415,7 +415,7 @@ cd frontend && npm run test:watch  # watch mode
 | `backend/src/__tests__/lib/settings.test.ts` | `riskPerTrade` (fixed $1,000 band, 2.5% above $40k with no jump, 10% cap below $10k), `validateSettings` (defaults merge, every-error reporting, Kelly <= 0.5, integer fields, risk <= balance, no default mutation), `isLoopback` |
 | `frontend/src/__tests__/lib/risk.test.ts` | Frontend `riskPerTrade` mirror matches the backend at preview balances; NaN handling for half-typed fields |
 | `backend/src/__tests__/backtest/engine.test.ts` | Replay on fixtures: next-close ask fill, -50% exit at bid with commissions/R, mid marks, too-expensive-at-fill skip, earnings window skip, earnings exit + shadow P&L, max open trades, open-risk budget cap, Black-Scholes marks; Book C open fills, 1% sizing, intraday stop, gap fill, target, 2% entry rule, 2R earnings hold, earnings exit + shadow |
-| `backend/src/__tests__/backtest/report.test.ts` | Replay request validation (dates, range, future, books), Yahoo bar range choice, SPY same-start benchmark (carry-forward, leading gaps), latest run set grouping |
+| `backend/src/__tests__/backtest/report.test.ts` | Replay request validation (dates, range, future, books), Yahoo bar range choice, SPY same-start benchmark (carry-forward, leading gaps), latest run set grouping, last complete session (close+30, weekends, holidays, early closes) |
 | `frontend/src/__tests__/lib/performance.test.ts` | Equity chart curve merge (by date, null skip, numeric strings), leg descriptions (single, spread, shares), $/% formatters |
 | `backend/src/__tests__/backtest/units.test.ts` | normCdf, Black-Scholes (textbook value, parity, expiry), expiry choice, contract selection (single, spread 2:1, skip reasons, liquidity), payoff, earnings dates/windows/exit timing, Book A/B/C signals and exits, ATR, drawdown, profit factor, losing streak, SPY return, trading-day ranges |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |

@@ -3,14 +3,14 @@
 import 'dotenv/config';
 import { getSettings, RULES_VERSION } from '../lib/settings.js';
 import { toEtClock } from '../lib/marketCalendar.js';
-import { parseRunRequest } from './report.js';
+import { lastCompleteSession, parseRunRequest } from './report.js';
 import { replay } from './runner.js';
 
 const args = process.argv.slice(2);
 const opt = (name: string) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
-const today = toEtClock(new Date()).date;
+const lastSession = lastCompleteSession(toEtClock(new Date()));
 const bookArg = (opt('book') ?? 'all').toUpperCase();
-const parsed = parseRunRequest({ from: opt('from') ?? '2026-10-05', to: opt('to') ?? today, books: bookArg === 'ALL' ? undefined : [bookArg] }, today);
+const parsed = parseRunRequest({ from: opt('from') ?? '2026-10-05', to: opt('to') ?? lastSession, books: bookArg === 'ALL' ? undefined : [bookArg] }, lastSession);
 if ('error' in parsed) {
   console.error(parsed.error);
   process.exit(1);
