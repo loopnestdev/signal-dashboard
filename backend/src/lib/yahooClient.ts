@@ -9,7 +9,7 @@ const HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-type Range = '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y';
+export type Range = '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y';
 
 interface ChartResult {
   meta: {
@@ -117,4 +117,26 @@ export async function getStockProfile(symbol: string): Promise<StockProfile> {
   } catch {
     return { name: symbol, sector: null, industry: null, exchange: null };
   }
+}
+
+export interface DailyBar {
+  date: string; // US/Eastern session date
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+// Daily OHLC bars, oldest first. Sessions with any missing price are dropped rather than guessed.
+export async function getDailyBars(symbol: string, range: Range): Promise<DailyBar[]> {
+  const r = await fetchChartFallback(symbol, range);
+  const q = r.indicators.quote[0];
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const bars: DailyBar[] = [];
+  r.timestamp.forEach((ts, i) => {
+    const [open, high, low, close] = [q.open[i], q.high[i], q.low[i], q.close[i]];
+    if (open == null || high == null || low == null || close == null) return;
+    bars.push({ date: fmt.format(new Date(ts * 1000)), open, high, low, close });
+  });
+  return bars;
 }

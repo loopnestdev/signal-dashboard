@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyDpSide, dedupeById, parseCuratedFlow, parseDpPrints, parseFlowAlerts,
   parseGexSnapshot, parseOptionChain, parseSignalSnapshot, pickSwingExpiries, rowId,
-  parseCboeChain, parseOccSymbol, parseNasdaqEarnings, earningsWindow,
+  parseCboeChain, parseOccSymbol, parseNasdaqEarnings, earningsWindow, isMonthlyExpiry,
 } from '../../collector/parsers.js';
 import { isTradingDay } from '../../lib/marketCalendar.js';
 
@@ -178,9 +178,15 @@ describe('pickSwingExpiries', () => {
   const now = new Date('2026-10-05T14:00:00Z');
   const epoch = (d: string) => Date.parse(`${d}T00:00:00Z`) / 1000;
 
-  it('picks the expiries closest to 30 and 60 DTE within 21-75 days', () => {
-    const list = ['2026-10-09', '2026-10-30', '2026-11-06', '2026-11-20', '2026-12-04', '2026-12-18', '2027-01-15'].map(epoch);
-    expect(pickSwingExpiries(list, now)).toEqual([epoch('2026-11-06'), epoch('2026-12-04')]);
+  it('picks the expiries closest to 30 and 60 DTE plus every monthly in 14-75 DTE', () => {
+    const list = ['2026-10-09', '2026-10-16', '2026-10-30', '2026-11-06', '2026-11-20', '2026-12-04', '2026-12-18', '2027-01-15'].map(epoch);
+    // 30/60 picks: Nov 6, Dec 4; monthlies within 14-75 DTE: Oct 16 (~11 DTE) excluded, Nov 20 and Dec 18 included
+    expect(pickSwingExpiries(list, now)).toEqual([epoch('2026-11-06'), epoch('2026-11-20'), epoch('2026-12-04'), epoch('2026-12-18')]);
+  });
+
+  it('keeps a held monthly down to 14 DTE so it stays priced through its 21-day exit', () => {
+    const late = new Date('2026-11-03T20:30:00Z');
+    expect(pickSwingExpiries([epoch('2026-11-20')], late)).toEqual([epoch('2026-11-20')]);
   });
 
   it('returns one expiry when the same date is closest to both targets', () => {
@@ -223,6 +229,20 @@ describe('parseOptionChain', () => {
   it('returns [] for an empty or failed chain', () => {
     expect(parseOptionChain({ optionChain: { result: [] } }, 'X', '2026-10-05')).toEqual([]);
     expect(parseOptionChain(null, 'X', '2026-10-05')).toEqual([]);
+  });
+});
+
+describe('isMonthlyExpiry', () => {
+  it('is the third Friday of the month', () => {
+    expect(['2026-10-16', '2026-11-20', '2026-12-18', '2027-01-15'].map(isMonthlyExpiry)).toEqual([true, true, true, true]);
+    expect(['2026-10-09', '2026-10-23', '2026-11-06', '2026-11-19'].map(isMonthlyExpiry)).toEqual([false, false, false, false]);
+  });
+
+  it('moves to Thursday when the third Friday is a market holiday', () => {
+    // Good Friday 2027-03-26 is not the third Friday; use the Juneteenth-observed Friday 2027-06-18 (third Friday of June)
+    expect(isMonthlyExpiry('2027-06-17')).toBe(true);
+    expect(isMonthlyExpiry('2027-06-18')).toBe(true);
+    expect(isMonthlyExpiry('2026-10-15')).toBe(false);
   });
 });
 

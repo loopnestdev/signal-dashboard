@@ -45,7 +45,7 @@ Status: **approved 2026-10-07, frozen as v1.0**. These rules are fixed in code b
 
 ### 1.6 Contract selection (options books)
 
-1. Use the two recorded expiries (about 30 and 60 days out); prefer the later one.
+1. Use the recorded expiries about 30-60 days out (30-75 calendar days); prefer the later one, and among those the latest **standard monthly** (third Friday), so the held contract is recorded every day until its exit.
 2. **Single option first:** the call (or put) with delta closest to **0.40** whose cost fits the risk budget.
 3. **Otherwise a debit spread:** buy ~0.50 delta, sell a further-out strike so that cost <= budget **and** max gain >= 2x cost.
 4. **Otherwise skip** and log "skipped: too expensive for account size".

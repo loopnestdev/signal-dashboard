@@ -104,6 +104,17 @@ signal-dashboard/
 |   |   |   +-- nasdaqEarnings.ts      # Nasdaq earnings calendar (one request per date)
 |   |   |   +-- yahooOptions.ts        # Yahoo v7 option chain (cookie + crumb) - fallback only
 |   |   |   +-- cli.ts                 # npm run collect -- <job> [date]
+|   |   +-- backtest/
+|   |   |   +-- types.ts               # DayData, MarketData, Position, ClosedTrade, EquityPoint
+|   |   |   +-- data.ts                # loadMarketData(): collector tables (paged) + Yahoo daily bars, one session at a time
+|   |   |   +-- engine.ts              # runBacktest(data, book, settings): day-by-day replay, fills, limits, earnings, shadows
+|   |   |   +-- strategies.ts          # Book A/B/C entry signals + exit rules (pure)
+|   |   |   +-- contracts.ts           # Rules 1.6 contract selection: monthly expiry, 0.40-delta single or 2:1 debit spread
+|   |   |   +-- earnings.ts            # Entry window, last close before report, exit timing
+|   |   |   +-- pricing.ts             # Black-Scholes for held contracts missing a quote (flagged modeled)
+|   |   |   +-- metrics.ts             # summarize(): win rate, R, profit factor, drawdown, SPY, skips, go-live checklist
+|   |   |   +-- store.ts               # saveRun() -> backtest_runs / backtest_trades / backtest_equity
+|   |   |   +-- cli.ts                 # npm run backtest -- --from --to [--book] [--save] [--trades]
 |   |   +-- services/
 |   |   |   +-- ai.ts                  # Signa --> Settings AI provider --> template priority chain
 |   |   |   +-- llm.ts                 # generateText(prompt, provider): Gemini or Claude, null on failure
@@ -287,7 +298,20 @@ Records history that Signa cannot serve retroactively, so Radon-style strategies
   - Every scored symbol is stored in `scanner_candidates` (one row per symbol per session, latest run wins) so promotion thresholds can be backtested later
   - The feed is a sample: 200 prints >= $250k span ~5 trading hours (pulled hourly, deduped by id), far sparser than Radon's full UW alert walk; on 2026-10-02 only ~80 prints were >= $500k, about half of them SPX/SPXW
 - **Earnings calendar:** `api.nasdaq.com/api/calendar/earnings?date=YYYY-MM-DD` (needs browser-like User-Agent + Accept headers) into `earnings_calendar`. Every company, not just tracked ones, so scanner-promoted names are covered. Each fetched date is deleted and re-inserted so moved report dates disappear; a failed date keeps its old rows. Used by the release 2 earnings rules in `docs/release2-trading-rules.md` section 5.
+- **Option quote expiries:** besides the two nearest 30/60 DTE, every standard monthly (third Friday; Thursday when that Friday is a holiday - `isMonthlyExpiry`) within 14-75 DTE is recorded, so a monthly contract the paper books hold is priced every day until its 21-days-left exit.
 - **Holidays:** `NYSE_HOLIDAYS` / `NYSE_EARLY_CLOSES` in `lib/marketCalendar.ts` - update annually with `fomc.ts`.
+
+### Replay engine (release 2 step 3)
+
+`backend/src/backtest/` replays one paper book over stored history under `docs/release2-trading-rules.md` v1.0. Pure modules (strategies, contracts, earnings, pricing, metrics, engine) take a `MarketData` interface, so tests run on in-memory fixtures (`src/__tests__/backtest/fixtures.ts`); only `data.ts` touches Supabase/Yahoo.
+
+- **Timing:** decisions use a session's data after its close. Options fill at the next session's close quotes (buy at ask, sell at bid); shares at the next session's open; share stops/targets trigger intraday on the daily bar (stop assumed first if both). Nothing is decided on the last session.
+- **Missing quotes:** a held contract without a quote is priced by Black-Scholes from its last seen IV (else the symbol's IV30) with a 3% half-spread, counted in `modeledMarks` / `modeledFills`. New entries always need a real quote ("no quote at fill").
+- **Contracts:** latest monthly expiry 30-75 DTE (else latest expiry in that window); single option nearest 0.40 delta within budget, else debit spread (long ~0.50 delta, nearest further strike with max gain >= 2x debit), else skip with reason. Liquidity: spread <= 10% of mid, OI >= 100. Book B adds its 2:1-at-GEX-target test via `accept`.
+- **Sizing/limits:** `riskPerTrade` (options) or `shares.riskPct` (Book C); half-Kelly after `kellyMinTrades` closed trades (skip when Kelly <= 0); max open trades, total open risk (budget shrinks to the remaining room), one position per ticker.
+- **Earnings:** entries blocked when a report is today or within 10 trading days; exits decided so the fill lands on the last close before the report (pre-market -> previous session, after-hours/unknown -> that day). Book C holds instead if up >= 2R, moving the stop to entry. Each earnings exit spawns a shadow twin (no cash, no limits) whose result is stored as `shadowPnl`.
+- **Data hygiene:** signal snapshots captured before their own session (manual test runs) are ignored.
+- **Persistence:** `--save` writes `backtest_runs` (settings + summary + skips + open positions), `backtest_trades`, `backtest_equity` (migration `20261007_backtest_runs.sql`).
 
 ### Signa MCP Streamable HTTP
 
@@ -354,7 +378,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 275 tests - one-shot
+cd backend && npm test          # 317 tests - one-shot
 cd frontend && npm test         # 67 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -378,11 +402,13 @@ cd frontend && npm run test:watch  # watch mode
 | `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path - add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
 | `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` | `useWatchlist` Supabase-mode path - all mutations write to localStorage (dual persistence), in-memory state correct immediately |
 | `backend/src/__tests__/services/flowScoring.test.ts` | `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, +/-2 boundary, field preservation); `summarizeFlow`: direction counts, premium totals, avg conviction, market bias tie-breaking |
-| `backend/src/__tests__/collector/parsers.test.ts` | Collector row transforms: dark pool side classification (Radon mid rule), ET trade dates, dedupe, flow-alert stable ids, curated universe filter, GEX strike aggregation + band, signal field extraction, swing expiry selection, option chain band filter, OCC symbol decoding, Cboe chain selection + Greeks + IV30, Nasdaq earnings rows (timing, EPS parsing, dedupe), earnings lookahead window |
+| `backend/src/__tests__/collector/parsers.test.ts` | Collector row transforms: dark pool side classification (Radon mid rule), ET trade dates, dedupe, flow-alert stable ids, curated universe filter, GEX strike aggregation + band, signal field extraction, swing expiry selection (30/60 + monthlies), monthly expiry detection, option chain band filter, OCC symbol decoding, Cboe chain selection + Greeks + IV30, Nasdaq earnings rows (timing, EPS parsing, dedupe), earnings lookahead window |
 | `backend/src/__tests__/collector/schedule.test.ts` | ET clock across DST, NYSE holidays/early closes, job slots, `dueJobs` grace window, Signa daily call estimate |
 | `backend/src/__tests__/collector/scanner.test.ts` | Radon discover port: config defaults, flow aggregation (premium/DTE floors), 1.5x bias rule, dark pool day/multi-day analysis + sustained days, vol/OI scale, weighted score, confluence, reject reasons, promotion cap/expiry/renewal, trading-day lookback, raw flow + Signa scan parsers |
 | `backend/src/__tests__/lib/settings.test.ts` | `riskPerTrade` (fixed $1,000 band, 2.5% above $40k with no jump, 10% cap below $10k), `validateSettings` (defaults merge, every-error reporting, Kelly <= 0.5, integer fields, risk <= balance, no default mutation), `isLoopback` |
 | `frontend/src/__tests__/lib/risk.test.ts` | Frontend `riskPerTrade` mirror matches the backend at preview balances; NaN handling for half-typed fields |
+| `backend/src/__tests__/backtest/engine.test.ts` | Replay on fixtures: next-close ask fill, -50% exit at bid with commissions/R, mid marks, too-expensive-at-fill skip, earnings window skip, earnings exit + shadow P&L, max open trades, open-risk budget cap, Black-Scholes marks; Book C open fills, 1% sizing, intraday stop, gap fill, target, 2% entry rule, 2R earnings hold, earnings exit + shadow |
+| `backend/src/__tests__/backtest/units.test.ts` | normCdf, Black-Scholes (textbook value, parity, expiry), expiry choice, contract selection (single, spread 2:1, skip reasons, liquidity), payoff, earnings dates/windows/exit timing, Book A/B/C signals and exits, ATR, drawdown, profit factor, losing streak, SPY return, trading-day ranges |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |
 | `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |
 

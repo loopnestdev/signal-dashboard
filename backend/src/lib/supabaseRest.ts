@@ -86,6 +86,16 @@ export async function selectRows<T>(table: string, query: string): Promise<T[]> 
   return (await res.json()) as T[];
 }
 
+// PostgREST caps each response at 1,000 rows; page until a short page comes back. `query` must include an order.
+export async function selectAll<T>(table: string, query: string, pageSize = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await selectRows<T>(table, `${query}&limit=${pageSize}&offset=${offset}`);
+    out.push(...page);
+    if (page.length < pageSize) return out;
+  }
+}
+
 export async function countRows(table: string): Promise<number | null> {
   const res = await request(`${table}?select=*&limit=1`, {
     method: 'HEAD',
