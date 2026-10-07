@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barsRangeFor, benchmarkCurve, latestRunSet, parseRunRequest, type RunHeader } from '../../backtest/report.js';
+import { barsRangeFor, benchmarkCurve, lastCompleteSession, latestRunSet, parseRunRequest, type RunHeader } from '../../backtest/report.js';
 
 const TODAY = '2026-10-07';
 
@@ -16,7 +16,7 @@ describe('parseRunRequest', () => {
     expect(parseRunRequest({ from: '2026/10/02', to: '2026-10-06' }, TODAY)).toHaveProperty('error');
     expect(parseRunRequest({ from: '2026-13-02', to: '2026-10-06' }, TODAY)).toHaveProperty('error');
     expect(parseRunRequest({ from: '2026-10-06', to: '2026-10-02' }, TODAY)).toHaveProperty('error');
-    expect(parseRunRequest({ from: '2026-10-02', to: '2026-10-08' }, TODAY)).toHaveProperty('error');
+    expect(parseRunRequest({ from: '2026-10-02', to: '2026-10-08' }, TODAY)).toEqual({ error: 'to cannot be after the last completed session (2026-10-07)' });
     expect(parseRunRequest({ from: '2025-10-01', to: '2026-10-06' }, TODAY)).toHaveProperty('error');
     expect(parseRunRequest(null, TODAY)).toHaveProperty('error');
   });
@@ -25,6 +25,27 @@ describe('parseRunRequest', () => {
     expect(parseRunRequest({ from: '2026-10-02', to: '2026-10-06', books: ['D'] }, TODAY)).toHaveProperty('error');
     expect(parseRunRequest({ from: '2026-10-02', to: '2026-10-06', books: [] }, TODAY)).toHaveProperty('error');
     expect(parseRunRequest({ from: '2026-10-02', to: '2026-10-06', books: 'A' }, TODAY)).toHaveProperty('error');
+  });
+});
+
+describe('lastCompleteSession', () => {
+  const at = (date: string, hhmm: string) => ({ date, minute: Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3)), weekday: new Date(`${date}T12:00:00Z`).getUTCDay() });
+
+  it('is the previous session until 30 minutes after the close', () => {
+    expect(lastCompleteSession(at('2026-10-07', '00:45'))).toBe('2026-10-06');
+    expect(lastCompleteSession(at('2026-10-07', '16:29'))).toBe('2026-10-06');
+    expect(lastCompleteSession(at('2026-10-07', '16:30'))).toBe('2026-10-07');
+  });
+
+  it('skips weekends and holidays', () => {
+    expect(lastCompleteSession(at('2026-10-10', '12:00'))).toBe('2026-10-09');
+    expect(lastCompleteSession(at('2026-10-12', '09:00'))).toBe('2026-10-09');
+    expect(lastCompleteSession(at('2026-11-26', '18:00'))).toBe('2026-11-25');
+  });
+
+  it('follows early closes', () => {
+    expect(lastCompleteSession(at('2026-11-27', '13:29'))).toBe('2026-11-25');
+    expect(lastCompleteSession(at('2026-11-27', '13:30'))).toBe('2026-11-27');
   });
 });
 

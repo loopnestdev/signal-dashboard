@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.6.1] - 2026-10-07
+
+### Fixed
+
+- Replays could end on a session that had not happened yet (the default end was today's New York date, which turns over at midnight), adding a flat equity point and false "no quote at fill" / "no price at fill" skips. The latest allowed end is now the last session with complete data: today from 30 minutes after the close, otherwise the previous trading day.
+
+---
+
 ## [1.6.0] - 2026-10-07
 
 ### Added - Performance page (trading roadmap, release 2 step 4)

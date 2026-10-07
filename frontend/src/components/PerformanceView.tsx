@@ -221,8 +221,8 @@ function BookDetail({ detail }: { detail: BacktestRunDetail }) {
 }
 
 function RunReplay({ data, onStarted }: { data: BacktestRunsResponse; onStarted: () => void }) {
-  const [from, setFrom] = useState(data.dataFrom ?? data.today);
-  const [to, setTo] = useState(data.today);
+  const [from, setFrom] = useState(data.dataFrom ?? data.lastSession);
+  const [to, setTo] = useState(data.lastSession);
   const [books, setBooks] = useState<BookId[]>(['A', 'B', 'C']);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -248,7 +248,7 @@ function RunReplay({ data, onStarted }: { data: BacktestRunsResponse; onStarted:
           From<input type="date" value={from} min={data.dataFrom ?? undefined} max={to} onChange={e => setFrom(e.target.value)} style={input} />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '12px', color: C.inkMute }}>
-          To<input type="date" value={to} min={from} max={data.today} onChange={e => setTo(e.target.value)} style={input} />
+          To<input type="date" value={to} min={from} max={data.lastSession} onChange={e => setTo(e.target.value)} style={input} />
         </label>
         <div style={{ display: 'flex', gap: 10, paddingBottom: 8 }}>
           {(['A', 'B', 'C'] as BookId[]).map(b => (
