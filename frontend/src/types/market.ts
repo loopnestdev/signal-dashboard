@@ -280,3 +280,97 @@ export interface SettingsResponse {
   aiKeys: { gemini: boolean; claude: boolean };
   riskPreview: Array<{ balance: number; risk: number }>;
 }
+
+// ── Backtest / Performance (release 2 step 4) ────────────────────────────────
+
+export type BookId = 'A' | 'B' | 'C';
+
+export interface BacktestSummary {
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+  avgWin: number | null;
+  avgLoss: number | null;
+  avgR: number | null;
+  profitFactor: number | null;
+  totalPnl: number;
+  returnPct: number;
+  maxDrawdownPct: number;
+  longestLosingStreak: number;
+  pnlWithoutTop2: number;
+  spyReturnPct: number | null;
+  openAtEnd: number;
+  unrealizedPnl: number;
+  modeledFillShare: number | null;
+  skipsByReason: Record<string, number>;
+  earningsExits: { count: number; actualPnl: number; shadowPnl: number | null };
+  goLive: Array<{ check: string; pass: boolean | null; detail: string }>;
+  sessions: number;
+}
+
+export interface BacktestRunRow {
+  id: string;
+  created_at: string;
+  book: BookId;
+  rules_version: string;
+  date_from: string;
+  date_to: string;
+  starting_balance: number;
+  summary: BacktestSummary;
+}
+
+export interface ReplayJob {
+  state: 'running' | 'done' | 'failed';
+  request: { from: string; to: string; books: BookId[] };
+  rulesVersion: string;
+  startedAt: string;
+  finishedAt: string | null;
+  currentBook: string | null;
+  runIds: string[];
+  error: string | null;
+}
+
+export interface BacktestRunsResponse {
+  runs: BacktestRunRow[];
+  latest: string[];
+  job: ReplayJob | null;
+  rulesVersion: string;
+  dataFrom: string | null;
+  today: string;
+}
+
+export interface BacktestLeg { contract: string; type: 'CALL' | 'PUT'; strike: number; expiry: string; side: 1 | -1 }
+
+export interface BacktestTrade {
+  trade_id: number;
+  symbol: string;
+  direction: 'BULLISH' | 'BEARISH';
+  kind: 'option' | 'spread' | 'shares';
+  legs: BacktestLeg[];
+  qty: number;
+  signal_date: string;
+  entry_date: string;
+  exit_date: string;
+  unit_cost: number;
+  exit_unit_value: number;
+  risk: number;
+  commissions: number;
+  pnl: number;
+  r_multiple: number;
+  exit_reason: string;
+  modeled_fills: number;
+  shadow_pnl: number | null;
+}
+
+export interface EquityRow { date: string; equity: number; cash: number; open_risk: number; open_positions: number }
+
+export interface BacktestRunDetail {
+  run: BacktestRunRow & {
+    skips: Array<{ date: string; symbol: string; reason: string }>;
+    open_at_end: Array<{ symbol: string; kind: string; direction: string; entryDate: string; unrealizedPnl: number; risk: number }>;
+  };
+  trades: BacktestTrade[];
+  equity: EquityRow[];
+  benchmark: Array<{ date: string; equity: number | null }>;
+}

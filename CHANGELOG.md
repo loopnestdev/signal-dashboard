@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.6.0] - 2026-10-07
+
+### Added - Performance page (trading roadmap, release 2 step 4)
+
+- **Performance view** (sidebar): the latest replay of each paper book side by side - return vs SPY, trades, win rate, average R, profit factor, max drawdown, P&L - and one equity chart with all books plus SPY bought with the same starting balance.
+- Per book: go-live checklist, skipped signals by reason, earnings exits vs "if held", modeled-fill share, result without the 2 best trades, every closed trade (structure, dates, risk, P&L, R, exit reason, held-through P&L) and positions open at the end.
+- **Run replay** (admins): pick a date range and books; the server replays them in the background with the saved Settings and stores the results. Saved replays list with View and Delete.
+- API: `GET /api/backtest/runs`, `GET /api/backtest/runs/:id`, `POST /api/backtest/run` and `DELETE /api/backtest/runs/:id` (admin).
+
+### Changed
+
+- The CLI and the API share one `replay()`; daily bars now load far enough back for any replay start (was fixed at 6 months).
+- Admin-only error messages no longer mention Settings specifically.
+
+---
+
 ## [1.5.0] - 2026-10-07
 
 ### Added - Replay engine (trading roadmap, release 2 step 3)

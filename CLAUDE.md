@@ -50,6 +50,7 @@ signal-dashboard/
 |   |   |   +-- MarketScanView.tsx     # Market Scanner view: Signa 30-model ranked setups
 |   |   |   +-- PlaybookView.tsx       # Playbook view: static strategy reference (GEX, Radon, combined read)
 |   |   |   +-- SettingsView.tsx       # Settings view: paper sizing/limits/costs, live risk preview, AI provider
+|   |   |   +-- PerformanceView.tsx    # Performance view: saved replays per book, equity vs SPY, go-live checklist, trades, skips, Run replay (admin)
 |   |   |   +-- MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
 |   |   |   +-- OptionsFlowView.tsx    # Options Flow view: market-wide unusual flow feed
 |   |   |   +-- OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
@@ -74,6 +75,7 @@ signal-dashboard/
 |   |   |   +-- colors.ts              # CSS custom property design tokens
 |   |   |   +-- priceLevels.ts         # validatePriceLevels() - stop/target directional validation
 |   |   |   +-- risk.ts                # riskPerTrade() mirror for the Settings live preview
+|   |   |   +-- performance.ts         # mergeCurves() for the equity chart, describeLegs(), $/% formatters
 |   |   |   +-- stockApi.ts            # Stock-specific API client
 |   |   |   +-- supabase.ts            # Typed Supabase client (null when unconfigured)
 |   |   +-- types/
@@ -94,6 +96,7 @@ signal-dashboard/
 |   |   |   +-- collector.ts           # GET /api/collector/status
 |   |   |   +-- scanner.ts             # GET /api/scanner?date=YYYY-MM-DD
 |   |   |   +-- settings.ts            # GET /api/settings, PUT /api/settings (admin)
+|   |   |   +-- backtest.ts            # GET /api/backtest/runs[/:id], POST /api/backtest/run + DELETE /api/backtest/runs/:id (admin)
 |   |   +-- collector/
 |   |   |   +-- index.ts               # startCollector(): 30s ET-clock tick, runs due jobs sequentially
 |   |   |   +-- schedule.ts            # Job slots (ET), dueJobs(), Signa call estimate
@@ -114,6 +117,8 @@ signal-dashboard/
 |   |   |   +-- pricing.ts             # Black-Scholes for held contracts missing a quote (flagged modeled)
 |   |   |   +-- metrics.ts             # summarize(): win rate, R, profit factor, drawdown, SPY, skips, go-live checklist
 |   |   |   +-- store.ts               # saveRun() -> backtest_runs / backtest_trades / backtest_equity
+|   |   |   +-- report.ts              # Pure: parseRunRequest, barsRangeFor, benchmarkCurve (SPY same start), latestRunSet
+|   |   |   +-- runner.ts              # replay() shared by CLI + API; one background replay job at a time
 |   |   |   +-- cli.ts                 # npm run backtest -- --from --to [--book] [--save] [--trades]
 |   |   +-- services/
 |   |   |   +-- ai.ts                  # Signa --> Settings AI provider --> template priority chain
@@ -257,7 +262,7 @@ Helper functions:
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
 - **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`<=768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
-- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` --> stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` --> `TerminalAnalysis`; `'sector-map'` --> `SectorHeatmap`; `'options-flow'` --> `OptionsFlowView`; `'dark-pool'` --> `DarkPoolView`; `'gamma'` --> `GammaView`; `'market-scan'` --> `MarketScanView`; `'playbook'` --> `PlaybookView` (static strategy reference, no data deps); `'flow-scanner'` --> `FlowScannerView`; `'data-collection'` --> `DataCollectionView` (collector health); `'settings'` --> `SettingsView` (receives `canEdit = !supabaseEnabled || isAdmin`). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
+- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` --> stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` --> `TerminalAnalysis`; `'sector-map'` --> `SectorHeatmap`; `'options-flow'` --> `OptionsFlowView`; `'dark-pool'` --> `DarkPoolView`; `'gamma'` --> `GammaView`; `'market-scan'` --> `MarketScanView`; `'playbook'` --> `PlaybookView` (static strategy reference, no data deps); `'flow-scanner'` --> `FlowScannerView`; `'data-collection'` --> `DataCollectionView` (collector health); `'performance'` --> `PerformanceView` (receives `canRun = !supabaseEnabled || isAdmin`); `'settings'` --> `SettingsView` (receives `canEdit = !supabaseEnabled || isAdmin`). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
 - **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column --> single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code - use CSS classes instead.
 
 ### API Routes
@@ -274,6 +279,7 @@ Helper functions:
 - `GET /api/collector/status` - collector health: enabled flag, symbols, Signa usage today vs limit, job schedule + last run, table row counts, daily rows. 60s cache. 503 when service role key or migration is missing.
 - `GET /api/scanner?date=YYYY-MM-DD` - Flow Scanner payload for a session (default: latest scanned): candidates sorted by score, active core + scanner-promoted symbols, Signa scan top lists, scanner thresholds. 60s cache.
 - `GET /api/settings` - trading settings (+ defaults, rules version, which AI keys are set, risk-per-trade preview). `PUT /api/settings` - validated save; requires `Authorization: Bearer <Supabase access token>` of an `is_admin` user (loopback requests without a token are allowed only when not on Railway). Settings live in `signal.app_settings` (key `trading`).
+- `GET /api/backtest/runs` - last 60 saved replays (header + summary, newest first), `latest` (ids of the newest run per book sharing the newest range + rules version), the current replay `job`, `dataFrom` (first `signal_snapshots` date), `today` (ET). `GET /api/backtest/runs/:id` - run + trades + equity + `benchmark` (SPY scaled to the starting balance on each equity date). `POST /api/backtest/run` `{from, to, books?}` (admin) - starts a background replay with the saved settings and saves each book (202; 409 while one runs; max one year, not in the future). `DELETE /api/backtest/runs/:id` (admin) - cascades to trades and equity. 503 without the service role key or migration.
 - `GET /health` - health check
 
 ### Data Collector (Release 1 of the trading roadmap)
@@ -312,6 +318,7 @@ Records history that Signa cannot serve retroactively, so Radon-style strategies
 - **Earnings:** entries blocked when a report is today or within 10 trading days; exits decided so the fill lands on the last close before the report (rules v1.1: after-hours -> that day; pre-market or unknown -> previous session). Book C holds instead if up >= 2R, moving the stop to entry. Each earnings exit spawns a shadow twin (no cash, no limits) whose result is stored as `shadowPnl`.
 - **Data hygiene:** signal snapshots captured before their own session (manual test runs) are ignored.
 - **Persistence:** `--save` writes `backtest_runs` (settings + summary + skips + open positions), `backtest_trades`, `backtest_equity` (migration `20261007_backtest_runs.sql`).
+- **Performance page (step 4):** `PerformanceView` reads those tables through `/api/backtest/*`. Admins start replays from the page; the API runs one job at a time in memory (lost on a restart - just run again) and the page polls every 4s while it runs. Daily bars use a Yahoo range long enough for the replay start plus the ATR lookback (`barsRangeFor`).
 
 ### Signa MCP Streamable HTTP
 
@@ -378,8 +385,8 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 317 tests - one-shot
-cd frontend && npm test         # 67 tests  - one-shot
+cd backend && npm test          # 327 tests - one-shot
+cd frontend && npm test         # 71 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
 cd frontend && npm run test:watch  # watch mode
@@ -408,6 +415,8 @@ cd frontend && npm run test:watch  # watch mode
 | `backend/src/__tests__/lib/settings.test.ts` | `riskPerTrade` (fixed $1,000 band, 2.5% above $40k with no jump, 10% cap below $10k), `validateSettings` (defaults merge, every-error reporting, Kelly <= 0.5, integer fields, risk <= balance, no default mutation), `isLoopback` |
 | `frontend/src/__tests__/lib/risk.test.ts` | Frontend `riskPerTrade` mirror matches the backend at preview balances; NaN handling for half-typed fields |
 | `backend/src/__tests__/backtest/engine.test.ts` | Replay on fixtures: next-close ask fill, -50% exit at bid with commissions/R, mid marks, too-expensive-at-fill skip, earnings window skip, earnings exit + shadow P&L, max open trades, open-risk budget cap, Black-Scholes marks; Book C open fills, 1% sizing, intraday stop, gap fill, target, 2% entry rule, 2R earnings hold, earnings exit + shadow |
+| `backend/src/__tests__/backtest/report.test.ts` | Replay request validation (dates, range, future, books), Yahoo bar range choice, SPY same-start benchmark (carry-forward, leading gaps), latest run set grouping |
+| `frontend/src/__tests__/lib/performance.test.ts` | Equity chart curve merge (by date, null skip, numeric strings), leg descriptions (single, spread, shares), $/% formatters |
 | `backend/src/__tests__/backtest/units.test.ts` | normCdf, Black-Scholes (textbook value, parity, expiry), expiry choice, contract selection (single, spread 2:1, skip reasons, liquidity), payoff, earnings dates/windows/exit timing, Book A/B/C signals and exits, ATR, drawdown, profit factor, losing streak, SPY return, trading-day ranges |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |
 | `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |

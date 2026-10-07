@@ -18,7 +18,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
       res.locals.adminEmail = 'local-dev';
       return next();
     }
-    res.status(401).json({ error: 'Sign in as an admin to change settings' });
+    res.status(401).json({ error: 'Sign in as an admin to do this' });
     return;
   }
 
@@ -41,7 +41,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     const user = (await userRes.json()) as { id?: string; email?: string };
     const [profile] = await selectRows<{ is_admin: boolean }>('user_profiles', `select=is_admin&id=eq.${encodeURIComponent(user.id ?? '')}`);
     if (!profile?.is_admin) {
-      res.status(403).json({ error: 'Only admins can change settings' });
+      res.status(403).json({ error: 'Only admins can do this' });
       return;
     }
     res.locals.adminEmail = user.email ?? user.id;

@@ -74,6 +74,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Auto-refresh | Every 45 seconds with manual refresh and "updated Xs ago" counter |
 | Flow Scanner | Port of Radon's discovery scorer: large options prints + dark pool --> 0-100 score; tradeable names scoring 45+ are added to data collection automatically for 14 days (capped at 12), alongside a permanent core of index ETFs and large caps |
 | Data collection | Scheduled recorder (US trading days, ET) storing dark pool prints, UW options flow alerts, curated flow, GEX levels, Signa signals and option quotes to Supabase for later backtesting; Data Collection view shows job health and Signa API usage vs the daily quota |
+| Performance | Saved replays of the three paper books: equity curves vs SPY, win rate, average R, profit factor, drawdown, go-live checklist, trade list, skipped-signal reasons; admins can run a new replay from the page |
 
 ---
 
@@ -405,7 +406,7 @@ Then run [`supabase/migrations/20261006_cboe_option_quotes.sql`](supabase/migrat
 
 Then run [`supabase/migrations/20261007_app_settings.sql`](supabase/migrations/20261007_app_settings.sql): the `app_settings` table behind the Settings page (only admins can save).
 
-Then run [`supabase/migrations/20261007_backtest_runs.sql`](supabase/migrations/20261007_backtest_runs.sql): stored replay results (`backtest_runs`, `backtest_trades`, `backtest_equity`). Run a replay with `cd backend && npm run backtest -- --from 2026-10-05 --to 2026-11-20 --trades` (add `--save` to store it).
+Then run [`supabase/migrations/20261007_backtest_runs.sql`](supabase/migrations/20261007_backtest_runs.sql): stored replay results (`backtest_runs`, `backtest_trades`, `backtest_equity`). Run a replay with `cd backend && npm run backtest -- --from 2026-10-05 --to 2026-11-20 --trades` (add `--save` to store it), or from the app's **Performance** page (admins: **Run replay**). The Performance page shows each book's equity curve against SPY, the go-live checklist, every trade (including what holding through earnings would have made) and why signals were skipped.
 
 Then run [`supabase/migrations/20261007_earnings_calendar.sql`](supabase/migrations/20261007_earnings_calendar.sql): the `earnings_calendar` table, refreshed daily at 08:30 ET from the free Nasdaq earnings calendar.
 
