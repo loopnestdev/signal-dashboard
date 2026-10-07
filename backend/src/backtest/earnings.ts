@@ -24,10 +24,13 @@ export function tradingDaysBetween(from: string, to: string): number {
   return n;
 }
 
-// Before-open report: the previous session's close. After-close or unknown timing: that day's close.
+// Rules v1.1: after-close report -> that day's close; before-open or unknown timing -> the previous session's close
+// (unknown is treated as before-open, the cautious case).
+const reportsBeforeClose = (e: EarningsEvent) => e.time !== 'after-hours';
+
 export function lastCloseBefore(e: EarningsEvent): string {
   const day = isTradingDay(e.date) ? e.date : prevTradingDay(e.date);
-  return e.time === 'pre-market' ? prevTradingDay(day) : day;
+  return reportsBeforeClose(e) ? prevTradingDay(day) : day;
 }
 
 // A report today (any timing) or within the next `window` trading days blocks a new entry decided today.
@@ -41,6 +44,6 @@ export function earningsExitDue(events: EarningsEvent[], date: string): Earnings
   const next = nextTradingDay(date);
   return events.find(e => {
     const deadline = lastCloseBefore(e);
-    return next === deadline || (date >= deadline && date <= e.date && !(date === e.date && e.time === 'pre-market'));
+    return next === deadline || (date >= deadline && date <= e.date && !(date === e.date && reportsBeforeClose(e)));
   }) ?? null;
 }

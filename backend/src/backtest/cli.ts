@@ -1,4 +1,4 @@
-// Replay the stored history under rules v1.0.
+// Replay the stored history under the current trading rules (RULES_VERSION).
 // Usage: npm run backtest -- --from 2026-10-05 --to 2026-10-07 [--book A|B|C|all] [--save] [--trades]
 import 'dotenv/config';
 import { getSettings, RULES_VERSION } from '../lib/settings.js';

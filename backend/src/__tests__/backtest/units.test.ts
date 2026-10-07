@@ -97,7 +97,7 @@ describe('earnings dates (rules 5)', () => {
     expect(lastCloseBefore({ date: '2026-10-15', time: 'pre-market' })).toBe('2026-10-14');
     expect(lastCloseBefore({ date: '2026-10-19', time: 'pre-market' })).toBe('2026-10-16');
     expect(lastCloseBefore({ date: '2026-10-15', time: 'after-hours' })).toBe('2026-10-15');
-    expect(lastCloseBefore({ date: '2026-10-15', time: 'unknown' })).toBe('2026-10-15');
+    expect(lastCloseBefore({ date: '2026-10-15', time: 'unknown' })).toBe('2026-10-14');
   });
 
   it('counts trading days and steps over weekends/holidays', () => {
@@ -120,6 +120,10 @@ describe('earnings dates (rules 5)', () => {
     expect(earningsExitDue(pre, '2026-10-15')).toBeNull();       // report already out before the open
     const after = [{ date: '2026-10-15', time: 'after-hours' as const }];
     expect(earningsExitDue(after, '2026-10-14')).not.toBeNull();  // fills Oct 15's close, before the report
+    const unknown = [{ date: '2026-10-15', time: 'unknown' as const }];
+    expect(earningsExitDue(unknown, '2026-10-12')).toBeNull();
+    expect(earningsExitDue(unknown, '2026-10-13')).not.toBeNull(); // v1.1: treated like before-open
+    expect(earningsExitDue(unknown, '2026-10-15')).toBeNull();
   });
 });
 

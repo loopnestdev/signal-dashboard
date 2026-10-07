@@ -1,6 +1,6 @@
-# Release 2 - Paper Trading Rules - v1.0
+# Release 2 - Paper Trading Rules - v1.1
 
-Status: **approved 2026-10-07, frozen as v1.0**. These rules are fixed in code before any backtest result is looked at. Account-level values (balance, risk per trade, limits, costs) are editable in the app's Settings page and stored with every trade. Any later change gets a new version number and is re-tested on held-back data (see section 8, "Overfitting guard").
+Status: **approved 2026-10-07 (v1.0), amended to v1.1 the same day** - see the change log at the end. These rules are fixed in code before any backtest result is looked at. Account-level values (balance, risk per trade, limits, costs) are editable in the app's Settings page and stored with every trade. Any later change gets a new version number and is re-tested on held-back data (see section 8, "Overfitting guard").
 
 ---
 
@@ -136,7 +136,7 @@ Source: Nasdaq earnings calendar, collected daily into `signal.earnings_calendar
 | New entries | No new trade if the ticker reports within the next **10 trading days** | Same |
 | Open position before earnings | **Close at the last close before the report**, in profit or loss | Close too, **unless the position is up 2R or more**: then hold, with the stop moved to the entry price |
 
-- "Last close before the report": for a before-open report, the previous session's close; for an after-close report (or unknown timing), that same day's close.
+- "Last close before the report": for an after-close report, that same day's close; for a before-open report **or unknown timing**, the previous session's close (unknown is treated as the cautious case).
 - Why options always close: implied volatility rises into the report and collapses the day after (IV crush), so a bought option often loses even when the stock moves the right way.
 - **Shadow tracking:** every position closed for earnings also records what it would have returned if held to its normal exit. After a few earnings seasons this shows, with our own numbers, whether holding would have been better. A rule change based on it is a new version (section 8).
 - A ticker with no known report date is treated as having none; this is logged so gaps in the calendar are visible.
@@ -179,3 +179,12 @@ A book may trade real money only when **all** hold:
 - Flow alerts for the busiest tickers are capped at 50 per hour.
 - Earnings dates come from a free calendar and can move; the calendar is refreshed daily and the latest date wins.
 - Option fills use end-of-day delayed quotes; real fills during the day could be better or worse.
+
+---
+
+## Change log
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 1.0 | 2026-10-07 | Approved. |
+| 1.1 | 2026-10-07 | Earnings with unknown timing exit at the previous session's close (was: that day's close). Rule 1.6 step 1 wording clarified to prefer the latest standard monthly expiry. |

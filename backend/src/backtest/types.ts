@@ -1,4 +1,4 @@
-// Shared types for the replay engine (docs/release2-trading-rules.md v1.0).
+// Shared types for the replay engine (docs/release2-trading-rules.md).
 
 export type Book = 'A' | 'B' | 'C';
 export type Direction = 'BULLISH' | 'BEARISH';

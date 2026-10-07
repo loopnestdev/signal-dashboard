@@ -303,13 +303,13 @@ Records history that Signa cannot serve retroactively, so Radon-style strategies
 
 ### Replay engine (release 2 step 3)
 
-`backend/src/backtest/` replays one paper book over stored history under `docs/release2-trading-rules.md` v1.0. Pure modules (strategies, contracts, earnings, pricing, metrics, engine) take a `MarketData` interface, so tests run on in-memory fixtures (`src/__tests__/backtest/fixtures.ts`); only `data.ts` touches Supabase/Yahoo.
+`backend/src/backtest/` replays one paper book over stored history under `docs/release2-trading-rules.md` v1.1 (`RULES_VERSION` in `lib/settings.ts`, stored with every run). Pure modules (strategies, contracts, earnings, pricing, metrics, engine) take a `MarketData` interface, so tests run on in-memory fixtures (`src/__tests__/backtest/fixtures.ts`); only `data.ts` touches Supabase/Yahoo.
 
 - **Timing:** decisions use a session's data after its close. Options fill at the next session's close quotes (buy at ask, sell at bid); shares at the next session's open; share stops/targets trigger intraday on the daily bar (stop assumed first if both). Nothing is decided on the last session.
 - **Missing quotes:** a held contract without a quote is priced by Black-Scholes from its last seen IV (else the symbol's IV30) with a 3% half-spread, counted in `modeledMarks` / `modeledFills`. New entries always need a real quote ("no quote at fill").
 - **Contracts:** latest monthly expiry 30-75 DTE (else latest expiry in that window); single option nearest 0.40 delta within budget, else debit spread (long ~0.50 delta, nearest further strike with max gain >= 2x debit), else skip with reason. Liquidity: spread <= 10% of mid, OI >= 100. Book B adds its 2:1-at-GEX-target test via `accept`.
 - **Sizing/limits:** `riskPerTrade` (options) or `shares.riskPct` (Book C); half-Kelly after `kellyMinTrades` closed trades (skip when Kelly <= 0); max open trades, total open risk (budget shrinks to the remaining room), one position per ticker.
-- **Earnings:** entries blocked when a report is today or within 10 trading days; exits decided so the fill lands on the last close before the report (pre-market -> previous session, after-hours/unknown -> that day). Book C holds instead if up >= 2R, moving the stop to entry. Each earnings exit spawns a shadow twin (no cash, no limits) whose result is stored as `shadowPnl`.
+- **Earnings:** entries blocked when a report is today or within 10 trading days; exits decided so the fill lands on the last close before the report (rules v1.1: after-hours -> that day; pre-market or unknown -> previous session). Book C holds instead if up >= 2R, moving the stop to entry. Each earnings exit spawns a shadow twin (no cash, no limits) whose result is stored as `shadowPnl`.
 - **Data hygiene:** signal snapshots captured before their own session (manual test runs) are ignored.
 - **Persistence:** `--save` writes `backtest_runs` (settings + summary + skips + open positions), `backtest_trades`, `backtest_equity` (migration `20261007_backtest_runs.sql`).
 

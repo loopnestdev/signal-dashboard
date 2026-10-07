@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- **Trading rules v1.1**: earnings with unknown timing now exit at the previous session's close (cautious case), like before-open reports. Settings shows RULES v1.1.
 - The option-quote job also records every standard monthly expiry 14-75 days out, so held monthly contracts are priced every day until their 21-days-left exit (previously a 60-day contract dropped out of the recorded set around 45 days out). Rules 1.6 step 1 wording clarified to prefer monthlies.
 
 ---

@@ -8,7 +8,7 @@ import {
 } from './strategies.js';
 import type { Bar, Book, ClosedTrade, DayData, EquityPoint, Leg, MarketData, Position } from './types.js';
 
-// Day-by-day replay of one paper book under rules v1.0.
+// Day-by-day replay of one paper book under the current trading rules (RULES_VERSION).
 //   - Decisions use a session's data after its close; options fill at the next session's close quotes (buy at ask,
 //     sell at bid), shares at the next session's open; share stops/targets trigger intraday on the daily bar
 //   - A held contract without a recorded quote is priced by Black-Scholes from its last seen IV and flagged "modeled";

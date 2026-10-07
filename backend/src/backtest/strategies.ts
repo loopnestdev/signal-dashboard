@@ -2,7 +2,7 @@ import { analyzeDpVolumes } from '../collector/scanner.js';
 import { yearsBetween } from './pricing.js';
 import type { Bar, DayData, Direction, Position } from './types.js';
 
-// Entry and exit rules per book (docs/release2-trading-rules.md v1.0, sections 2-4). Pure: no I/O.
+// Entry and exit rules per book (docs/release2-trading-rules.md sections 2-4). Pure: no I/O.
 
 export const GOOD_GRADES = new Set(['A', 'B']);
 export const FLOW_RATIO = 1.5;

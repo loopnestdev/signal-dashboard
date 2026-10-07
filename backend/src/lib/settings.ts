@@ -2,7 +2,7 @@ import { isSupabaseAdminConfigured, selectRows, upsertRows } from './supabaseRes
 
 // Trading rules version these settings apply to (docs/release2-trading-rules.md). Strategy thresholds live in code;
 // these are the account-level knobs the rules leave to the user.
-export const RULES_VERSION = '1.0';
+export const RULES_VERSION = '1.1';
 
 export type AiProvider = 'gemini' | 'claude' | 'none';
 
