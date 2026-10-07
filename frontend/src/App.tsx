@@ -24,6 +24,7 @@ import { PlaybookView } from './components/PlaybookView';
 import { DataCollectionView } from './components/DataCollectionView';
 import { FlowScannerView } from './components/FlowScannerView';
 import { SettingsView } from './components/SettingsView';
+import { PerformanceView } from './components/PerformanceView';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
 import type { View } from './components/layout/Sidebar';
@@ -360,6 +361,8 @@ export default function App() {
 
               {/* Data Collection view */}
               {activeView === 'data-collection' && <DataCollectionView />}
+
+              {activeView === 'performance' && <PerformanceView canRun={!supabaseEnabled || isAdmin} />}
 
               {/* Footer */}
               <div style={{

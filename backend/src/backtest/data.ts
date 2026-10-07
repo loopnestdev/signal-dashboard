@@ -1,6 +1,7 @@
-import { etDateOf, isTradingDay } from '../lib/marketCalendar.js';
+import { etDateOf, isTradingDay, toEtClock } from '../lib/marketCalendar.js';
 import { selectAll } from '../lib/supabaseRest.js';
 import { getDailyBars } from '../lib/yahooClient.js';
+import { barsRangeFor } from './report.js';
 import type { Bar, DayData, EarningsEvent, MarketData, OptionQuote } from './types.js';
 
 // MarketData backed by the collector tables (Supabase) + daily bars from Yahoo. Loads one session at a time.
@@ -30,12 +31,13 @@ export async function loadMarketData(from: string, to: string): Promise<MarketDa
     'dp_daily', `select=symbol,trade_date,buy_volume,sell_volume,num_prints&trade_date=gte.${from}&trade_date=lte.${to}&order=trade_date,symbol`);
 
   const barCache = new Map<string, Promise<Bar[]>>();
+  const barsRange = barsRangeFor(from, toEtClock(new Date()).date);
 
   return {
     days,
     earnings: symbol => earnings.get(symbol) ?? [],
     bars: symbol => {
-      if (!barCache.has(symbol)) barCache.set(symbol, getDailyBars(symbol, '6mo').catch(() => []));
+      if (!barCache.has(symbol)) barCache.set(symbol, getDailyBars(symbol, barsRange).catch(() => []));
       return barCache.get(symbol)!;
     },
     async day(date: string): Promise<DayData> {

@@ -287,6 +287,18 @@ input, textarea, select, button { font-family: inherit; font-size: inherit; }
   gap: 16px;
 }
 
+/* Performance: book cards (up to 3) and 2-column detail cards - stack on mobile */
+.perf-books {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.perf-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 /* Desktop: hide hamburger */
 .topnav-hamburger { display: none !important; }
 .sidebar-close-btn { display: none !important; }
@@ -324,7 +336,8 @@ input, textarea, select, button { font-family: inherit; font-size: inherit; }
     padding: 16px 16px 48px;
   }
   .fib-grid,
-  .collector-grid {
+  .collector-grid,
+  .perf-grid-2 {
     grid-template-columns: 1fr;
   }
 }

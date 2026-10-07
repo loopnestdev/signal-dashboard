@@ -1,4 +1,4 @@
-import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings } from '../types/market';
+import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings, BacktestRunsResponse, BacktestRunDetail, BookId, ReplayJob } from '../types/market';
 import type { UnusualFlowResponse } from '../types/stock';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
@@ -85,4 +85,34 @@ export async function saveSettings(settings: TradingSettings, accessToken: strin
   const body = await res.json().catch(() => ({})) as { error?: string; details?: string[] };
   if (!res.ok) throw new SettingsSaveError(body.error ?? `API ${res.status}`, body.details ?? []);
   return body as unknown as SettingsResponse;
+}
+
+export async function fetchBacktestRuns(): Promise<BacktestRunsResponse> {
+  const res = await fetch(`${BASE}/api/backtest/runs`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+  return res.json() as Promise<BacktestRunsResponse>;
+}
+
+export async function fetchBacktestRun(id: string): Promise<BacktestRunDetail> {
+  const res = await fetch(`${BASE}/api/backtest/runs/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+  return res.json() as Promise<BacktestRunDetail>;
+}
+
+const authHeaders = (accessToken: string | null): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {});
+
+export async function startReplay(req: { from: string; to: string; books: BookId[] }, accessToken: string | null): Promise<ReplayJob> {
+  const res = await fetch(`${BASE}/api/backtest/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(accessToken) },
+    body: JSON.stringify(req),
+  });
+  const body = await res.json().catch(() => ({})) as { error?: string; job?: ReplayJob };
+  if (!res.ok) throw new Error(body.error ?? `API ${res.status}`);
+  return body.job!;
+}
+
+export async function deleteBacktestRun(id: string, accessToken: string | null): Promise<void> {
+  const res = await fetch(`${BASE}/api/backtest/runs/${encodeURIComponent(id)}`, { method: 'DELETE', headers: authHeaders(accessToken) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
 }
