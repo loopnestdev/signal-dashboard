@@ -233,7 +233,8 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy - no CORS config n
 | `FRONTEND_URL` | No | `http://localhost:5173` | CORS allowed origin |
 | `SIGNA_API_KEY` | No | - | Signa.ai API key - enables stock signals, options intelligence, fundamentals, and AI market analysis |
 | `GEMINI_API_KEY` | No | - | Google AI Studio key - used as AI analysis fallback when `SIGNA_API_KEY` is absent |
-| `AI_PROVIDER` | No | `gemini` | Set to `none` to skip Gemini entirely and always use template analysis |
+| `ANTHROPIC_API_KEY` | No | - | Anthropic key - enables Claude as the AI provider (chosen in the app's Settings page) |
+| `AI_PROVIDER` | No | - | Set to `none` to always use template analysis, whatever Settings says |
 | `SUPABASE_URL` | For data collection | - | coredb project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | For data collection | - | Service role key - the backend writes collector tables (RLS has no client policies). Never expose it to the frontend |
 | `COLLECTOR_ENABLED` | No | `false` | `true` starts the scheduled data collector. Enable on **one** deployment only (Railway); a second collector doubles Signa API usage |
@@ -243,7 +244,7 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy - no CORS config n
 | `SCANNER_MAX_PROMOTED` | No | `12` | Cap on scanner-added symbols (each costs ~22 Signa calls per trading day) |
 | `SCANNER_DP_LOOKUPS` | No | `10` | Live dark pool pulls per scanner run for untracked candidates |
 
-**Priority chain for AI market analysis:** Signa.ai --> Gemini 1.5 Flash --> built-in template
+**Priority chain for AI market analysis:** Signa.ai --> the AI provider chosen in **Settings** (Gemini Flash-Lite by default, or Claude Opus 5.5) --> built-in template
 
 - With `SIGNA_API_KEY`: Signa provides analysis; Gemini is not called.
 - With `GEMINI_API_KEY` only: Gemini generates analysis.
@@ -401,6 +402,8 @@ Run [`supabase/migrations/20261004_data_collector.sql`](supabase/migrations/2026
 Then run [`supabase/migrations/20261005_flow_scanner.sql`](supabase/migrations/20261005_flow_scanner.sql) for the Flow Scanner (`raw_flow`, `signa_scans`, `scanner_candidates`, and `source` / `expires_at` columns on `tracked_symbols`). Choose **Run and enable RLS** if Supabase asks.
 
 Then run [`supabase/migrations/20261006_cboe_option_quotes.sql`](supabase/migrations/20261006_cboe_option_quotes.sql): Greek columns on `option_quotes` and the `iv_daily` table. Option quotes come from Cboe's free delayed chain (Yahoo rate-limits cloud servers).
+
+Then run [`supabase/migrations/20261007_app_settings.sql`](supabase/migrations/20261007_app_settings.sql): the `app_settings` table behind the Settings page (only admins can save).
 
 Then run [`supabase/migrations/20261007_earnings_calendar.sql`](supabase/migrations/20261007_earnings_calendar.sql): the `earnings_calendar` table, refreshed daily at 08:30 ET from the free Nasdaq earnings calendar.
 

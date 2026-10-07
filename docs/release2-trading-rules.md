@@ -1,6 +1,6 @@
-# Release 2 - Paper Trading Rules (DRAFT for review)
+# Release 2 - Paper Trading Rules - v1.0
 
-Status: **draft, not yet approved**. Once approved, these rules are frozen in code before any backtest result is looked at. Any later change gets a new version number and is re-tested on held-back data (see section 8, "Overfitting guard").
+Status: **approved 2026-10-07, frozen as v1.0**. These rules are fixed in code before any backtest result is looked at. Account-level values (balance, risk per trade, limits, costs) are editable in the app's Settings page and stored with every trade. Any later change gets a new version number and is re-tested on held-back data (see section 8, "Overfitting guard").
 
 ---
 

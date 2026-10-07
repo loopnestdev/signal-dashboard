@@ -253,3 +253,30 @@ export interface ScannerResponse {
     bearish: Array<{ symbol: string; signal: string | null; score: number | null; grade: string | null }>;
   };
 }
+
+export type AiProvider = 'gemini' | 'claude' | 'none';
+
+export interface TradingSettings {
+  paperStartingBalance: number;
+  sizing: {
+    fixedRiskUsd: number;
+    fixedUntilBalance: number;
+    pctAboveThreshold: number;
+    maxPctBelow: number;
+    kellyFraction: number;
+    kellyMinTrades: number;
+  };
+  optionsLimits: { maxOpenTrades: number; maxOpenRiskPct: number; maxPerTicker: number };
+  shares: { riskPct: number; maxPositionPct: number; maxOpenPositions: number };
+  costs: { optionPerContract: number; sharePerOrder: number };
+  ai: { provider: AiProvider };
+}
+
+export interface SettingsResponse {
+  settings: TradingSettings;
+  defaults: TradingSettings;
+  updatedAt: string | null;
+  rulesVersion: string;
+  aiKeys: { gemini: boolean; claude: boolean };
+  riskPreview: Array<{ balance: number; risk: number }>;
+}

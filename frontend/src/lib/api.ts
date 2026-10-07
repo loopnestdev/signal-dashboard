@@ -1,4 +1,4 @@
-import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse } from '../types/market';
+import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings } from '../types/market';
 import type { UnusualFlowResponse } from '../types/stock';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
@@ -61,4 +61,28 @@ export async function fetchScanner(date?: string): Promise<ScannerResponse> {
   const res = await fetch(`${BASE}/api/scanner${qs}`);
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
   return res.json() as Promise<ScannerResponse>;
+}
+
+export async function fetchSettings(): Promise<SettingsResponse> {
+  const res = await fetch(`${BASE}/api/settings`);
+  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+  return res.json() as Promise<SettingsResponse>;
+}
+
+export class SettingsSaveError extends Error {
+  constructor(message: string, readonly details: string[]) { super(message); }
+}
+
+export async function saveSettings(settings: TradingSettings, accessToken: string | null): Promise<SettingsResponse> {
+  const res = await fetch(`${BASE}/api/settings`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(settings),
+  });
+  const body = await res.json().catch(() => ({})) as { error?: string; details?: string[] };
+  if (!res.ok) throw new SettingsSaveError(body.error ?? `API ${res.status}`, body.details ?? []);
+  return body as unknown as SettingsResponse;
 }
