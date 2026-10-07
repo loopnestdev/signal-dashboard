@@ -405,6 +405,8 @@ Then run [`supabase/migrations/20261006_cboe_option_quotes.sql`](supabase/migrat
 
 Then run [`supabase/migrations/20261007_app_settings.sql`](supabase/migrations/20261007_app_settings.sql): the `app_settings` table behind the Settings page (only admins can save).
 
+Then run [`supabase/migrations/20261007_backtest_runs.sql`](supabase/migrations/20261007_backtest_runs.sql): stored replay results (`backtest_runs`, `backtest_trades`, `backtest_equity`). Run a replay with `cd backend && npm run backtest -- --from 2026-10-05 --to 2026-11-20 --trades` (add `--save` to store it).
+
 Then run [`supabase/migrations/20261007_earnings_calendar.sql`](supabase/migrations/20261007_earnings_calendar.sql): the `earnings_calendar` table, refreshed daily at 08:30 ET from the free Nasdaq earnings calendar.
 
 To change the permanent core later, edit `signal.tracked_symbols` rows with `source = 'core'` (set `active = false` to pause a symbol). Rows with `source = 'scanner'` are managed by the scanner.

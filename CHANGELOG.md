@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.5.0] - 2026-10-07
+
+### Added - Replay engine (trading roadmap, release 2 step 3)
+
+- **`backend/src/backtest/`**: replays each paper book (A: Signa + flow options, B: Radon options, C: shares) day by day over the stored history under rules v1.0 - next-session fills (options at close ask/bid, shares at the open), intraday share stops/targets, rules 1.6 contract selection, risk-per-trade sizing with half-Kelly after 30 trades, max open trades / total open risk / one per ticker, earnings entry window and pre-report exits with "held through" shadow results, Black-Scholes marks for held contracts missing a quote (flagged).
+- **Summary per book**: trades, win rate, average win/loss, average R, profit factor, return vs SPY, max drawdown, losing streak, result without the 2 best trades, skipped signals by reason, modeled-fill share, earnings exits vs shadow, and the go-live checklist.
+- `npm run backtest -- --from --to [--book A|B|C|all] [--save] [--trades]`; `--save` stores runs in the new `backtest_runs` / `backtest_trades` / `backtest_equity` tables (migration `20261007_backtest_runs.sql`).
+- `getDailyBars()` in `yahooClient.ts`; `selectAll()` paging helper (Supabase returns at most 1,000 rows per request).
+
+### Changed
+
+- **Trading rules v1.1**: earnings with unknown timing now exit at the previous session's close (cautious case), like before-open reports. Settings shows RULES v1.1.
+- The option-quote job also records every standard monthly expiry 14-75 days out, so held monthly contracts are priced every day until their 21-days-left exit (previously a 60-day contract dropped out of the recorded set around 45 days out). Rules 1.6 step 1 wording clarified to prefer monthlies.
+
+---
+
 ## [1.4.1] - 2026-10-07
 
 ### Fixed - Dependency security advisories

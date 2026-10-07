@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { etDateOf } from '../lib/marketCalendar.js';
+import { etDateOf, isTradingDay } from '../lib/marketCalendar.js';
 
 // Pure transforms from Signa / Yahoo payloads into signal-schema rows.
 
@@ -302,7 +302,24 @@ export interface OptionQuoteRow {
   captured_at: string;
 }
 
-// Swing horizon: the listed expiries closest to 30 and 60 calendar days out, within 21-75 DTE.
+// Standard monthly expiry: the third Friday, or the Thursday before when that Friday is a market holiday (e.g. Good Friday).
+export function isMonthlyExpiry(date: string): boolean {
+  const d = new Date(`${date}T12:00:00Z`);
+  const day = d.getUTCDate();
+  const weekday = d.getUTCDay();
+  if (weekday === 5) return day >= 15 && day <= 21;
+  if (weekday === 4 && day >= 14 && day <= 20) {
+    const friday = new Date(d);
+    friday.setUTCDate(day + 1);
+    return !isTradingDay(friday.toISOString().slice(0, 10));
+  }
+  return false;
+}
+
+// Expiries to record each day:
+//   - the listed expiries closest to 30 and 60 calendar days out, within 21-75 DTE (new-entry candidates)
+//   - every standard monthly expiry within 14-75 DTE, so a monthly contract the paper books hold is priced every day
+//     until its 21-days-left exit (which fills the next session, around 20 DTE)
 export function pickSwingExpiries(expiriesEpoch: number[], now = new Date()): number[] {
   const dte = (e: number) => (e * 1000 - now.getTime()) / 86_400_000;
   const eligible = expiriesEpoch.filter(e => dte(e) >= 21 && dte(e) <= 75);
@@ -313,6 +330,9 @@ export function pickSwingExpiries(expiriesEpoch: number[], now = new Date()): nu
       if (best === null || Math.abs(dte(e) - targetDays) < Math.abs(dte(best) - targetDays)) best = e;
     }
     if (best !== null) picks.add(best);
+  }
+  for (const e of expiriesEpoch) {
+    if (dte(e) >= 14 && dte(e) <= 75 && isMonthlyExpiry(new Date(e * 1000).toISOString().slice(0, 10))) picks.add(e);
   }
   return [...picks].sort((a, b) => a - b);
 }
