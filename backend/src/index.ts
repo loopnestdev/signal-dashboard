@@ -9,6 +9,7 @@ import intelligenceRouter from './routes/intelligence.js';
 import stockGexRouter from './routes/stockGex.js';
 import collectorRouter from './routes/collector.js';
 import scannerRouter from './routes/scanner.js';
+import settingsRouter from './routes/settings.js';
 import { startCollector } from './collector/index.js';
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api', intelligenceRouter);
 app.use('/api', stockGexRouter);
 app.use('/api', collectorRouter);
 app.use('/api', scannerRouter);
+app.use('/api', settingsRouter);
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
 app.listen(PORT, () => {

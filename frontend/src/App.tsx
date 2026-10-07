@@ -23,6 +23,7 @@ import { MarketScanView } from './components/MarketScanView';
 import { PlaybookView } from './components/PlaybookView';
 import { DataCollectionView } from './components/DataCollectionView';
 import { FlowScannerView } from './components/FlowScannerView';
+import { SettingsView } from './components/SettingsView';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
 import type { View } from './components/layout/Sidebar';
@@ -353,6 +354,9 @@ export default function App() {
 
               {/* Playbook view */}
               {activeView === 'playbook' && <PlaybookView />}
+
+              {/* Settings view */}
+              {activeView === 'settings' && <SettingsView canEdit={!supabaseEnabled || isAdmin} signedIn={user !== null} />}
 
               {/* Data Collection view */}
               {activeView === 'data-collection' && <DataCollectionView />}

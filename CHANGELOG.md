@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.4.0] - 2026-10-07
+
+### Added - Settings page (trading roadmap, release 2 step 2)
+
+- **Settings view** (sidebar): paper starting balance, risk per trade ($1,000 until $40k, then 2.5%; capped at 10% of a shrinking balance) with a live preview at six balances, Kelly fraction and minimum trades, options limits (max open trades, max total open risk, per ticker), shares sizing, commissions, and the AI provider. Every field has an explanatory tooltip. Strategy thresholds stay frozen in code (rules v1.0).
+- `GET /api/settings` / `PUT /api/settings`: settings stored in the new `signal.app_settings` table (migration `20261007_app_settings.sql`), validated server-side with a full error list. Saving requires an admin's Supabase session (`requireAdmin` verifies the token with Supabase, then checks `is_admin`).
+- **AI provider switch**: market analysis now uses the provider chosen in Settings - Gemini (`gemini-3.5-flash-lite`, default) or Claude (`claude-opus-5-5` at low effort, with server-side refusal fallbacks) - falling back to the template. `AI_PROVIDER=none` still forces the template.
+
+### Changed
+
+- Replaced the deprecated `@google/generative-ai` SDK and the retired `gemini-1.5-flash` model with `@google/genai`; added `@anthropic-ai/sdk`.
+- `docs/release2-trading-rules.md` approved and frozen as v1.0.
+
+---
+
 ## [1.3.0] - 2026-10-07
 
 ### Added - Earnings calendar + release 2 trading rules draft

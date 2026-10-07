@@ -15,7 +15,8 @@
     "collect": "tsx src/collector/cli.ts"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@google/genai": "^2.27.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

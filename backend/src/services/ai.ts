@@ -1,6 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Decision } from './scoring.js';
 import { getSignaSignal, formatSignaMarketAnalysis } from '../lib/signaClient.js';
+import { getSettings } from '../lib/settings.js';
+import { generateText } from './llm.js';
 
 interface AnalysisInput {
   marketQualityScore: number;
@@ -66,21 +67,8 @@ export async function generateAnalysis(input: AnalysisInput): Promise<string> {
     );
   }
 
-  // 2. Try Gemini
-  const apiKey = process.env.GEMINI_API_KEY;
-  const provider = process.env.AI_PROVIDER ?? 'gemini';
-
-  if (!apiKey || provider === 'none') {
-    return templateAnalysis(input);
-  }
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent(buildPrompt(input));
-    const text = result.response.text().trim();
-    return text || templateAnalysis(input);
-  } catch {
-    return templateAnalysis(input);
-  }
+  // 2. AI provider chosen in Settings (Gemini default, Claude optional); AI_PROVIDER=none still forces the template
+  if (process.env.AI_PROVIDER === 'none') return templateAnalysis(input);
+  const { settings } = await getSettings();
+  return (await generateText(buildPrompt(input), settings.ai.provider)) ?? templateAnalysis(input);
 }
