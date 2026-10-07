@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.3.0] - 2026-10-07
+
+### Added - Earnings calendar + release 2 trading rules draft
+
+- **Earnings calendar job** (`collector/nasdaqEarnings.ts`): every trading day at 08:30 ET, pulls the free Nasdaq earnings calendar for the next 30 calendar days (one request per date, no Signa calls) into the new `earnings_calendar` table, with before-open / after-close timing and EPS forecast. Each fetched date is replaced in full so moved report dates drop off. Migration: `supabase/migrations/20261007_earnings_calendar.sql`.
+- **`docs/release2-trading-rules.md`**: draft paper-trading rules for the three books (Signa + flow options, Radon options, shares), sizing ($1,000 per trade until $40k, then 2.5%; max 5 open options trades; 50% total open risk), fills, costs, earnings handling (no new trades within 10 trading days of a report; options close before it; shares may hold if up 2R with the stop at entry; shadow-track the held-through result), reporting, go-live checklist and overfitting guard.
+
+---
+
 ## [1.2.6] - 2026-10-07
 
 ### Changed - Scanner skips ETFs that duplicate the core

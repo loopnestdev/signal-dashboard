@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyDpSide, dedupeById, parseCuratedFlow, parseDpPrints, parseFlowAlerts,
   parseGexSnapshot, parseOptionChain, parseSignalSnapshot, pickSwingExpiries, rowId,
-  parseCboeChain, parseOccSymbol,
+  parseCboeChain, parseOccSymbol, parseNasdaqEarnings, earningsWindow,
 } from '../../collector/parsers.js';
+import { isTradingDay } from '../../lib/marketCalendar.js';
 
 describe('rowId', () => {
   it('is deterministic and order-sensitive', () => {
@@ -277,5 +278,46 @@ describe('parseCboeChain', () => {
   it('handles empty or failed payloads', () => {
     expect(parseCboeChain(null, 'MU', '2026-10-05', now)).toEqual({ quotes: [], iv: null });
     expect(parseCboeChain({ data: {} }, 'MU', '2026-10-05', now)).toEqual({ quotes: [], iv: null });
+  });
+});
+
+describe('parseNasdaqEarnings', () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    symbol: 'TSM', time: 'time-pre-market', fiscalQuarterEnding: 'Sep/2026', epsForecast: '$4.45', ...over,
+  });
+
+  it('maps symbol, timing, quarter and EPS forecast', () => {
+    expect(parseNasdaqEarnings({ data: { rows: [row()] } }, '2026-10-15')).toEqual([
+      { symbol: 'TSM', report_date: '2026-10-15', report_time: 'pre-market', fiscal_quarter: 'Sep/2026', eps_forecast: 4.45 },
+    ]);
+  });
+
+  it('normalises after-hours, unknown timing and negative or missing forecasts', () => {
+    const rows = parseNasdaqEarnings({ data: { rows: [
+      row({ symbol: 'aa', time: 'time-after-hours', epsForecast: '($0.12)' }),
+      row({ symbol: 'BB', time: 'time-not-supplied', epsForecast: '' }),
+      row({ symbol: 'CC', time: null, epsForecast: '$1,234.50' }),
+    ] } }, '2026-10-15');
+    expect(rows.map(r => [r.symbol, r.report_time, r.eps_forecast])).toEqual([
+      ['AA', 'after-hours', -0.12], ['BB', 'unknown', null], ['CC', 'unknown', 1234.5],
+    ]);
+  });
+
+  it('dedupes symbols and handles empty or failed payloads', () => {
+    expect(parseNasdaqEarnings({ data: { rows: [row(), row({ time: 'time-after-hours' })] } }, '2026-10-15')).toHaveLength(1);
+    expect(parseNasdaqEarnings({ data: { rows: null } }, '2026-10-15')).toEqual([]);
+    expect(parseNasdaqEarnings({ data: null }, '2026-10-15')).toEqual([]);
+    expect(parseNasdaqEarnings(null, '2026-10-15')).toEqual([]);
+  });
+});
+
+describe('earningsWindow', () => {
+  it('lists trading days from today through the lookahead, skipping weekends and holidays', () => {
+    expect(earningsWindow('2026-10-07', 7, isTradingDay)).toEqual(['2026-10-07', '2026-10-08', '2026-10-09', '2026-10-12', '2026-10-13', '2026-10-14']);
+    expect(earningsWindow('2026-11-24', 4, isTradingDay)).toEqual(['2026-11-24', '2026-11-25', '2026-11-27']);
+  });
+
+  it('covers every trading day in the 30-day lookahead (Oct 7 - Nov 6 inclusive = 23)', () => {
+    expect(earningsWindow('2026-10-07', 30, isTradingDay)).toHaveLength(23);
   });
 });

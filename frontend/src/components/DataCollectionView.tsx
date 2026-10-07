@@ -15,6 +15,7 @@ const JOB_LABELS: Record<string, string> = {
   'raw-flow': 'Large prints (market-wide)',
   'signa-scan': 'Signa scan',
   scanner: 'Flow scanner',
+  earnings: 'Earnings calendar',
 };
 
 const JOB_TIPS: Record<string, string> = {
@@ -28,6 +29,7 @@ const JOB_TIPS: Record<string, string> = {
   'raw-flow': 'Market-wide options prints of $250K+, hourly. The Flow Scanner discovers new tickers from this feed.',
   'signa-scan': "Signa's ranked bullish and bearish technical scan, recorded once a day as a cross-check for the scanner.",
   scanner: 'Scores every ticker in the large-print feed with the Radon formula and promotes the best into data collection.',
+  earnings: 'Upcoming earnings dates for every US-listed company over the next 30 days, from the free Nasdaq calendar. Used by the earnings rules (no new options trades within 10 trading days of a report; close before it). Uses no Signa calls.',
 };
 
 const COLUMN_TIPS = {
@@ -50,6 +52,7 @@ const DATASET_TIPS: Record<string, string> = {
   iv_daily: 'One 30-day implied volatility reading per ticker per day, for IV rank (how expensive options are vs their own history).',
   raw_flow: 'Market-wide large options prints ($250K+), the scanner\'s discovery feed.',
   scanner_candidates: 'Every ticker the scanner scored each day, with its score breakdown, so promotion thresholds can be backtested.',
+  earnings_calendar: 'Upcoming earnings report dates and timing (before open / after close) for the next 30 days.',
 };
 
 const STATUS_COLOR: Record<CollectorRun['status'], string> = {

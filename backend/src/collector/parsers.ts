@@ -535,3 +535,52 @@ export function parseCboeChain(
     iv: { symbol: symbol.toUpperCase(), trade_date: tradeDate, iv30: num(data.iv30), price: spot, captured_at: now.toISOString() },
   };
 }
+
+// ── Nasdaq earnings calendar ─────────────────────────────────────────────────
+
+export interface EarningsRow {
+  symbol: string;
+  report_date: string;
+  report_time: 'pre-market' | 'after-hours' | 'unknown';
+  fiscal_quarter: string | null;
+  eps_forecast: number | null;
+}
+
+const money = (v: unknown): number | null => {
+  const s = str(v);
+  if (!s) return null;
+  const neg = s.includes('(');
+  const n = num(s.replace(/[$,()\s]/g, ''));
+  return n === null ? null : neg ? -n : n;
+};
+
+export function parseNasdaqEarnings(payload: unknown, date: string): EarningsRow[] {
+  const rows = ((payload as Raw | null)?.data as Raw | null | undefined)?.rows;
+  if (!Array.isArray(rows)) return [];
+  const out = new Map<string, EarningsRow>();
+  for (const r of rows as Raw[]) {
+    const symbol = str(r.symbol)?.toUpperCase();
+    if (!symbol) continue;
+    const time = str(r.time) ?? '';
+    out.set(symbol, {
+      symbol,
+      report_date: date,
+      report_time: time.includes('pre-market') ? 'pre-market' : time.includes('after-hours') ? 'after-hours' : 'unknown',
+      fiscal_quarter: str(r.fiscalQuarterEnding),
+      eps_forecast: money(r.epsForecast),
+    });
+  }
+  return [...out.values()];
+}
+
+// Calendar dates to refresh: every NYSE trading day from `today` through `days` calendar days ahead.
+export function earningsWindow(today: string, days: number, isTradingDay: (d: string) => boolean): string[] {
+  const out: string[] = [];
+  const d = new Date(`${today}T12:00:00Z`);
+  for (let i = 0; i <= days; i++) {
+    const iso = d.toISOString().slice(0, 10);
+    if (isTradingDay(iso)) out.push(iso);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}

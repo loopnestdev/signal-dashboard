@@ -402,6 +402,8 @@ Then run [`supabase/migrations/20261005_flow_scanner.sql`](supabase/migrations/2
 
 Then run [`supabase/migrations/20261006_cboe_option_quotes.sql`](supabase/migrations/20261006_cboe_option_quotes.sql): Greek columns on `option_quotes` and the `iv_daily` table. Option quotes come from Cboe's free delayed chain (Yahoo rate-limits cloud servers).
 
+Then run [`supabase/migrations/20261007_earnings_calendar.sql`](supabase/migrations/20261007_earnings_calendar.sql): the `earnings_calendar` table, refreshed daily at 08:30 ET from the free Nasdaq earnings calendar.
+
 To change the permanent core later, edit `signal.tracked_symbols` rows with `source = 'core'` (set `active = false` to pause a symbol). Rows with `source = 'scanner'` are managed by the scanner.
 
 #### Step 4 - Grant yourself admin access

@@ -77,6 +77,10 @@ export async function updateRows(table: string, filter: string, patch: object): 
   });
 }
 
+export async function deleteRows(table: string, filter: string): Promise<void> {
+  await request(`${table}?${filter}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+}
+
 export async function selectRows<T>(table: string, query: string): Promise<T[]> {
   const res = await request(`${table}?${query}`, { method: 'GET' });
   return (await res.json()) as T[];
