@@ -21,6 +21,7 @@ const DATASETS = [
   { table: 'iv_daily', label: 'Daily 30-day IV' },
   { table: 'raw_flow', label: 'Large prints (market-wide)' },
   { table: 'scanner_candidates', label: 'Scanner candidates' },
+  { table: 'earnings_calendar', label: 'Earnings calendar (next 30 days)' },
 ];
 
 interface RunRow {

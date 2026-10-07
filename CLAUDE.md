@@ -98,6 +98,7 @@ signal-dashboard/
 |   |   |   +-- parsers.ts             # Pure payload --> row transforms (dark pool, flow, curated, GEX, signal, option chain, raw flow, Signa scan)
 |   |   |   +-- scanner.ts             # Pure Radon discover.py port: aggregate, dark pool analysis, score, filters, promotions
 |   |   |   +-- cboeOptions.ts         # Cboe delayed option chain (primary option quotes source)
+|   |   |   +-- nasdaqEarnings.ts      # Nasdaq earnings calendar (one request per date)
 |   |   |   +-- yahooOptions.ts        # Yahoo v7 option chain (cookie + crumb) - fallback only
 |   |   |   +-- cli.ts                 # npm run collect -- <job> [date]
 |   |   +-- services/
@@ -118,6 +119,7 @@ signal-dashboard/
 |   +-- .env.example
 |   +-- package.json
 |
++-- docs/release2-trading-rules.md  # Paper-trading rules for release 2 (draft until approved; frozen once approved)
 +-- supabase/migrations/            # SQL to run in the Supabase SQL editor (collector tables)
 +-- package.json     # Root: concurrently dev, install:all
 +-- DESIGN.md        # Stripe-inspired light design tokens (source of truth)
@@ -260,7 +262,7 @@ Helper functions:
 Records history that Signa cannot serve retroactively, so Radon-style strategies can be backtested later. Signa only returns live/latest data for flow, dark pool and GEX; **a missed slot cannot be back-filled.**
 
 - **Universe:** `signal.tracked_symbols` (active rows). `source='core'` never expires: SPY, QQQ, IWM, SMH, MU, AMZN, SPCX, AAPL, NVDA, META, GOOGL, AVGO, MSFT, TSLA. `source='scanner'` rows are added/renewed/expired by the Flow Scanner. Not tied to the user's watchlist.
-- **Schedule (ET, NYSE trading days, `schedule.ts`):** signals 09:00; Signa scan 09:15 (top 100 bullish + 100 bearish, 2 calls - also the input for a future shares-only "Signa top picks" backtest); raw flow hourly 10:15-15:15 + close+5; scanner 11:45, 14:45, close+30; dark pool every 30 min 10:05-16:05; flow alerts hourly 10:35-15:35 + close+10 (active names hit Signa's 50-alert cap); curated flow 10:30, 12:30, 14:30, close+10; Cboe option chain close+25; GEX close+20; dark pool rollup close+40. Close-relative slots follow early closes.
+- **Schedule (ET, NYSE trading days, `schedule.ts`):** earnings calendar 08:30 (next 30 calendar days, ~22 Nasdaq requests, no Signa calls); signals 09:00; Signa scan 09:15 (top 100 bullish + 100 bearish, 2 calls - also the input for a future shares-only "Signa top picks" backtest); raw flow hourly 10:15-15:15 + close+5; scanner 11:45, 14:45, close+30; dark pool every 30 min 10:05-16:05; flow alerts hourly 10:35-15:35 + close+10 (active names hit Signa's 50-alert cap); curated flow 10:30, 12:30, 14:30, close+10; Cboe option chain close+25; GEX close+20; dark pool rollup close+40. Close-relative slots follow early closes.
 - **Budget:** about `symbols x 22 + 13 + 3 x SCANNER_DP_LOOKUPS` Signa calls per trading day (14 core + 12 promoted = 615). Every Signa request goes through `signaFetch()` (`lib/apiUsage.ts`), which counts it and flushes to `signal.api_usage` every 5 min. `runJob()` skips a Signa job when `used + planned > SIGNA_DAILY_LIMIT - SIGNA_RESERVE_CALLS`.
 - **Dark pool:** Signa returns at most 50 latest prints per call, so 30-minute pulls are a *sample* (13 snapshots/day), not the full tape Radon uses with direct UW access. Side classification matches Radon `analyze_darkpool` (price >= NBBO mid = buy). Raw prints are kept 60 days; `signal.rollup_dp_daily()` keeps permanent daily aggregates in `dp_daily`.
 - **Signa dark pool coverage is thin:** a 50-print pull spans only minutes of tape for liquid names (often after-hours); treat `dp_daily` as a noisy estimate.
@@ -276,6 +278,7 @@ Records history that Signa cannot serve retroactively, so Radon-style strategies
   - Promotion (`planPromotions`): passed + score >= `SCANNER_PROMOTE_SCORE` (45 - promotion only starts collection; untracked names max out near 69 because Signa gives them just 1 day of dark pool) --> `tracked_symbols` source 'scanner' for `SCANNER_PROMOTION_DAYS` (14 calendar days), renewed on requalifying; capped at `SCANNER_MAX_PROMOTED` (12) by score; core rows are never modified
   - Every scored symbol is stored in `scanner_candidates` (one row per symbol per session, latest run wins) so promotion thresholds can be backtested later
   - The feed is a sample: 200 prints >= $250k span ~5 trading hours (pulled hourly, deduped by id), far sparser than Radon's full UW alert walk; on 2026-10-02 only ~80 prints were >= $500k, about half of them SPX/SPXW
+- **Earnings calendar:** `api.nasdaq.com/api/calendar/earnings?date=YYYY-MM-DD` (needs browser-like User-Agent + Accept headers) into `earnings_calendar`. Every company, not just tracked ones, so scanner-promoted names are covered. Each fetched date is deleted and re-inserted so moved report dates disappear; a failed date keeps its old rows. Used by the release 2 earnings rules in `docs/release2-trading-rules.md` section 5.
 - **Holidays:** `NYSE_HOLIDAYS` / `NYSE_EARLY_CLOSES` in `lib/marketCalendar.ts` - update annually with `fomc.ts`.
 
 ### Signa MCP Streamable HTTP
@@ -343,7 +346,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 258 tests - one-shot
+cd backend && npm test          # 264 tests - one-shot
 cd frontend && npm test         # 64 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -367,7 +370,7 @@ cd frontend && npm run test:watch  # watch mode
 | `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path - add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
 | `frontend/src/__tests__/hooks/useWatchlist.supabase.test.ts` | `useWatchlist` Supabase-mode path - all mutations write to localStorage (dual persistence), in-memory state correct immediately |
 | `backend/src/__tests__/services/flowScoring.test.ts` | `scoreFlowEvent`: all Radon-adapted scoring branches (CALL/PUT base, sentiment, sweep multiplier, vol/OI bonus, confirms/contradicts signal, mega premium, gamma pin, negative GEX amplifier, combined stacking, +/-2 boundary, field preservation); `summarizeFlow`: direction counts, premium totals, avg conviction, market bias tie-breaking |
-| `backend/src/__tests__/collector/parsers.test.ts` | Collector row transforms: dark pool side classification (Radon mid rule), ET trade dates, dedupe, flow-alert stable ids, curated universe filter, GEX strike aggregation + band, signal field extraction, swing expiry selection, option chain band filter, OCC symbol decoding, Cboe chain selection + Greeks + IV30 |
+| `backend/src/__tests__/collector/parsers.test.ts` | Collector row transforms: dark pool side classification (Radon mid rule), ET trade dates, dedupe, flow-alert stable ids, curated universe filter, GEX strike aggregation + band, signal field extraction, swing expiry selection, option chain band filter, OCC symbol decoding, Cboe chain selection + Greeks + IV30, Nasdaq earnings rows (timing, EPS parsing, dedupe), earnings lookahead window |
 | `backend/src/__tests__/collector/schedule.test.ts` | ET clock across DST, NYSE holidays/early closes, job slots, `dueJobs` grace window, Signa daily call estimate |
 | `backend/src/__tests__/collector/scanner.test.ts` | Radon discover port: config defaults, flow aggregation (premium/DTE floors), 1.5x bias rule, dark pool day/multi-day analysis + sustained days, vol/OI scale, weighted score, confluence, reject reasons, promotion cap/expiry/renewal, trading-day lookback, raw flow + Signa scan parsers |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |

@@ -46,6 +46,11 @@ describe('jobSlots', () => {
   it('fetches signals before the open', () => {
     expect(jobSlots('signals', '2026-10-05')).toEqual([hm(9, 0)]);
   });
+
+  it('refreshes the earnings calendar before signals, using no Signa calls', () => {
+    expect(jobSlots('earnings', '2026-10-05')).toEqual([hm(8, 30)]);
+    expect(estimatedSignaCallsPerDay(0, 0)).toBe(13);
+  });
 });
 
 describe('dueJobs', () => {

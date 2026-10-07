@@ -1,12 +1,13 @@
 import { callMcpTool } from '../lib/signaClient.js';
 import { callsToday } from '../lib/apiUsage.js';
-import { recentTradingDays } from '../lib/marketCalendar.js';
-import { insertRow, rpc, selectRows, updateRows, upsertRows } from '../lib/supabaseRest.js';
+import { isTradingDay, recentTradingDays } from '../lib/marketCalendar.js';
+import { deleteRows, insertRow, rpc, selectRows, updateRows, upsertRows } from '../lib/supabaseRest.js';
 import {
   parseCuratedFlow, parseDpPrints, parseFlowAlerts, parseGexSnapshot,
-  parseCboeChain, parseOptionChain, parseRawFlow, parseSignalSnapshot, parseSignaScan, pickSwingExpiries,
+  earningsWindow, parseCboeChain, parseNasdaqEarnings, parseOptionChain, parseRawFlow, parseSignalSnapshot, parseSignaScan, pickSwingExpiries,
 } from './parsers.js';
 import { fetchCboeChain } from './cboeOptions.js';
+import { fetchNasdaqEarnings } from './nasdaqEarnings.js';
 import {
   aggregateFlow, analyzeDpMulti, buildCandidate, INDEX_SYMBOLS, planPromotions, rejectReason, scannerConfig,
   type DpDayVolume, type FlowPrint, type ScannerSlot,
@@ -276,6 +277,38 @@ async function runScanner(tradeDate: string, trackedActive: string[], dpLookups:
   return { status: 'ok', apiCalls, rowsWritten: written, message: parts.join('; ') };
 }
 
+const EARNINGS_LOOKAHEAD_DAYS = 30;
+
+// runEarnings:
+//   - Refreshes every trading day in the next 30 calendar days, one Nasdaq request per day
+//   - Each successfully fetched day is replaced in full, so moved report dates disappear from their old day
+//   - A failed day keeps its previous rows rather than being wiped
+async function runEarnings(tradeDate: string, tracked: string[]): Promise<JobResult> {
+  const days = earningsWindow(tradeDate, EARNINGS_LOOKAHEAD_DAYS, isTradingDay);
+  const trackedSet = new Set(tracked);
+  let rows = 0;
+  const failed: string[] = [];
+  const upcoming: string[] = [];
+  for (const day of days) {
+    try {
+      const parsed = parseNasdaqEarnings(await fetchNasdaqEarnings(day), day);
+      await deleteRows('earnings_calendar', `report_date=eq.${day}`);
+      rows += await upsertRows('earnings_calendar', parsed, 'merge', 'symbol,report_date');
+      for (const r of parsed) if (trackedSet.has(r.symbol)) upcoming.push(`${r.symbol} ${day.slice(5)}`);
+    } catch (err) {
+      failed.push(day);
+      console.warn(`[collector] earnings ${day}:`, err instanceof Error ? err.message : err);
+    }
+    await sleep(400);
+  }
+  const status = failed.length === 0 ? 'ok' : failed.length === days.length ? 'error' : 'partial';
+  const message = [
+    upcoming.length ? `tracked reporting: ${upcoming.join(', ')}` : 'no tracked tickers report in the next 30 days',
+    failed.length ? `failed days: ${failed.join(', ')}` : '',
+  ].filter(Boolean).join('; ');
+  return { status, apiCalls: days.length, rowsWritten: rows, message };
+}
+
 async function runRollup(tradeDate: string): Promise<JobResult> {
   const rolled = await rpc<number>('rollup_dp_daily', { p_date: tradeDate });
   const pruned = await rpc<number>('prune_dp_prints', { p_keep_days: 60 });
@@ -299,6 +332,8 @@ export async function runJob(job: JobName, tradeDate: string): Promise<JobResult
         : { status: 'skipped', apiCalls: 0, rowsWritten: 0, message: `budget: ${budget.used}/${budget.limit} used, needs ${planned}` };
     } else if (job === 'option-chain') {
       result = await runOptionChain(tradeDate, symbols);
+    } else if (job === 'earnings') {
+      result = await runEarnings(tradeDate, symbols);
     } else {
       result = await runRollup(tradeDate);
     }

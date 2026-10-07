@@ -1,6 +1,6 @@
 import { isSupabaseAdminConfigured, rpc, selectRows } from './supabaseRest.js';
 
-export type UsageSource = 'signa' | 'yahoo-options' | 'cboe-options';
+export type UsageSource = 'signa' | 'yahoo-options' | 'cboe-options' | 'nasdaq-earnings';
 
 // Pending (unflushed) call counts keyed by `${utcDay}|${source}`.
 const pending = new Map<string, number>();
