@@ -18,9 +18,10 @@
     "recharts": "^3.9.0"
   },
   "overrides": {
-    "undici": "^7.29.0",
+    "undici": "^7.30.0",
     "postcss": "^8.5.23",
-    "nanoid": "^3.3.17"
+    "nanoid": "^3.3.17",
+    "source-map-js": "^1.2.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.6",
@@ -34,6 +35,6 @@
     "tailwindcss": "^4.1.6",
     "typescript": "^5.5.3",
     "vite": "^8.0.16",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.11"
   }
 }

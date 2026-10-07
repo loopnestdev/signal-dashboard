@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.4.1] - 2026-10-07
+
+### Fixed - Dependency security advisories
+
+- **`proxy-addr` IP spoofing** ([GHSA-jqcg-44mw-7w3h](https://github.com/advisories/GHSA-jqcg-44mw-7w3h), critical) - IPv4-mapped IPv6 addresses could match a trusted subnet. Transitive via `express`. Backend `overrides` entry `^2.0.8`.
+- **`qs` array-limit bypass and DoS** ([GHSA-x5fp-wj9c-mxmx](https://github.com/advisories/GHSA-x5fp-wj9c-mxmx), [GHSA-4mjr-xmp4-gh2g](https://github.com/advisories/GHSA-4mjr-xmp4-gh2g), moderate). Transitive via `express`/`body-parser`. Backend `overrides` entry `^6.16.0`.
+- **`source-map-js` event-loop DoS** ([GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q), high). Transitive via `vite`/`vitest`. `overrides` entry `^1.2.2` in both projects.
+- **`@vitest/mocker` path traversal / arbitrary file read** ([GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9), moderate). `vitest` raised to `^4.1.11` in both projects (dev only).
+- **`undici` 7.0.0-7.29.0** (10 advisories incl. [GHSA-w293-vg96-wgc3](https://github.com/advisories/GHSA-w293-vg96-wgc3) TLS validation bypass, [GHSA-2jfj-6hjv-fm6j](https://github.com/advisories/GHSA-2jfj-6hjv-fm6j) cookie disclosure, high) - the existing `^7.29.0` override still allowed a vulnerable version; raised to `^7.30.0` in both projects.
+- `npm audit`: backend 1 critical + 1 high + 5 moderate --> 0, frontend 2 high + 2 moderate --> 0.
+
+---
+
 ## [1.4.0] - 2026-10-07
 
 ### Added - Settings page (trading roadmap, release 2 step 2)
