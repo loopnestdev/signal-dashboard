@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { C } from '../lib/colors';
-import { deleteBacktestRun, fetchBacktestRun, fetchBacktestRuns, startReplay } from '../lib/api';
+import { deleteBacktestRun, fetchBacktestRun, fetchBacktestRuns, fetchFlowStudy, startReplay } from '../lib/api';
 import { describeLegs, fmtPct, fmtUsd, mergeCurves } from '../lib/performance';
 import { supabase } from '../lib/supabase';
-import type { BacktestRunDetail, BacktestRunRow, BacktestRunsResponse, BookId } from '../types/market';
+import type { BacktestRunDetail, BacktestRunRow, BacktestRunsResponse, BookId, FlowStudyResponse } from '../types/market';
 import { InfoTip } from './InfoTip';
 
 const BOOKS: Record<BookId, { name: string; short: string; color: string; tip: string }> = {
@@ -127,7 +127,7 @@ function TradesTable({ detail }: { detail: BacktestRunDetail }) {
         <thead>
           <tr>
             <th style={th}>Trade<InfoTip tip="Ticker and structure: strike(s), C/P and expiry for options (a spread shows long/short strikes), or the ticker for shares." /></th>
-            <th style={th}>Dir</th>
+            <th style={th}>Dir<InfoTip tip="Bull = bets on a rise (calls, call spreads or shares). Bear = bets on a fall (puts or put spreads); the shares book is long only." /></th>
             <th style={th}>Entry → exit<InfoTip tip="Fill dates. Options fill at the next session's close (buy at ask, sell at bid); shares at the next open, or intraday at the stop/target." /></th>
             <th style={{ ...th, textAlign: 'right' }}>Qty</th>
             <th style={{ ...th, textAlign: 'right' }}>Risk<InfoTip tip="The most this trade could lose: premium paid for options, entry-to-stop x shares for stock." /></th>
@@ -144,7 +144,7 @@ function TradesTable({ detail }: { detail: BacktestRunDetail }) {
                 {describeLegs(t.symbol, t.legs)}
                 {t.modeled_fills > 0 && <span title="At least one fill was priced by Black-Scholes because no quote was recorded that day" style={{ marginLeft: 6, fontSize: '10px', color: C.warn, fontWeight: 700 }}>MODELED</span>}
               </td>
-              <td style={{ ...td, color: t.direction === 'BULLISH' ? C.bull : C.bear }}>{t.direction === 'BULLISH' ? 'Long' : 'Short'}</td>
+              <td style={{ ...td, color: t.direction === 'BULLISH' ? C.bull : C.bear }}>{t.direction === 'BULLISH' ? 'Bull' : 'Bear'}</td>
               <td className="tnum" style={td}>{t.entry_date.slice(5)} → {t.exit_date.slice(5)}</td>
               <td className="tnum" style={{ ...td, textAlign: 'right' }}>{Number(t.qty)}</td>
               <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtUsd(Number(t.risk))}</td>
@@ -209,7 +209,7 @@ function BookDetail({ detail }: { detail: BacktestRunDetail }) {
             {open.map((p, i) => (
               <div key={i} style={{ display: 'flex', gap: 12, fontSize: '13px', color: C.inkSec, flexWrap: 'wrap' }}>
                 <span style={{ color: C.ink, fontWeight: 600 }}>{p.symbol}</span>
-                <span>{p.kind} {p.direction === 'BULLISH' ? 'long' : 'short'} since {p.entryDate}</span>
+                <span>{p.kind} {p.direction === 'BULLISH' ? 'bull' : 'bear'} since {p.entryDate}</span>
                 <span className="tnum" style={{ color: pnlColor(p.unrealizedPnl) }}>{fmtUsd(p.unrealizedPnl, true)} on {fmtUsd(p.risk)} risk</span>
               </div>
             ))}
@@ -321,6 +321,117 @@ function RunHistory({ runs, selected, canRun, onView, onDeleted }: {
   );
 }
 
+const GROUP_LABEL: Record<string, { name: string; tip: string }> = {
+  all: { name: 'All flow days', tip: 'Every ticker-day with enough flow premium. The baseline: a signal only matters if it beats this.' },
+  'call-heavy': { name: 'Call-heavy', tip: 'Calls were at least the chosen share of the day\'s flow-alert premium. Bullish if these days beat the baseline.' },
+  'put-heavy': { name: 'Put-heavy', tip: 'Puts were at least the chosen share of the day\'s premium. Bearish if these days do worse than the baseline (negative "vs all").' },
+  mixed: { name: 'Mixed', tip: 'Neither side dominated.' },
+  'call-heavy surge': { name: 'Call-heavy + surge', tip: 'Call-heavy AND total premium at least 2x the ticker\'s usual (median of its previous 20 flow days). Closest to a "record call volume" day. Needs 5+ earlier days per ticker.' },
+  'put-heavy surge': { name: 'Put-heavy + surge', tip: 'Put-heavy AND at least 2x the ticker\'s usual premium.' },
+};
+
+function FlowStudy() {
+  const [share, setShare] = useState(0.75);
+  const [data, setData] = useState<FlowStudyResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setData(null); setError(null);
+    fetchFlowStudy(share).then(setData).catch(e => setError(e instanceof Error ? e.message : 'Failed to load the flow study'));
+  }, [share]);
+
+  const cell = (n: number, mean: number | null, up: number | null, vsAll: number | null, bear: boolean) => {
+    if (n === 0) return <span style={{ color: C.inkMute }}>-</span>;
+    const right = vsAll == null ? null : bear ? vsAll < 0 : vsAll > 0;
+    return (
+      <div className="tnum" style={{ lineHeight: 1.4, opacity: n < (data?.minSample ?? 30) ? 0.55 : 1 }}>
+        <div style={{ color: pnlColor(mean), fontWeight: 600 }}>{fmtPct(mean)}</div>
+        <div style={{ fontSize: '11px', color: C.inkMute }}>
+          up {up?.toFixed(0)}% · <span style={{ color: right == null ? C.inkMute : right ? C.bull : C.bear }}>vs all {fmtPct(vsAll)}</span> · n {n}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <Card
+      title="Flow study: call-heavy vs put-heavy days"
+      tip="After a ticker's options flow was mostly calls (or mostly puts), how did the stock do over the next 1, 5, 10 and 20 sessions, compared with all flow days? Uses the collector's flow-alert premium for tracked tickers, from 2 Oct 2026. Faded cells have fewer than 30 cases - treat them as noise."
+      right={(
+        <label style={{ fontSize: '12px', color: C.inkMute, display: 'flex', alignItems: 'center', gap: 6 }}>
+          Heavy =
+          <select value={share} onChange={e => setShare(Number(e.target.value))} style={{ padding: '4px 8px', borderRadius: 8, border: `1px solid ${C.borderInput}`, background: C.canvas, color: C.ink, fontSize: '12px' }}>
+            {[0.65, 0.7, 0.75, 0.8, 0.85].map(v => <option key={v} value={v}>{Math.round(v * 100)}%+ one side</option>)}
+          </select>
+        </label>
+      )}
+    >
+      {error && <div style={{ fontSize: '13px', color: C.bear }}>{error}</div>}
+      {!data && !error && <div style={{ fontSize: '13px', color: C.inkMute }}>Loading (fetches daily prices for each ticker)...</div>}
+      {data && (
+        <>
+          <div style={{ fontSize: '12px', color: C.inkSec, marginBottom: 12 }}>
+            <span className="tnum">{data.flowDays}</span> ticker-days with at least <span className="tnum">{fmtUsd(data.config.minPremium)}</span> of flow,{' '}
+            <span className="tnum">{data.symbols}</span> tickers, <span className="tnum">{data.from} → {data.to}</span>.
+            {data.flowDays < 200 && ' Far too little history yet: expect meaningful numbers after about two months of collection.'}
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 720 }}>
+              <thead>
+                <tr>
+                  <th style={th}>Flow day</th>
+                  {data.config.horizons.map(h => <th key={h} style={th}>Next {h} {h === 1 ? 'session' : 'sessions'}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {data.groups.map(g => (
+                  <tr key={g.group}>
+                    <td style={{ ...td, color: C.ink, fontWeight: 600 }}>
+                      {GROUP_LABEL[g.group]?.name ?? g.group}<InfoTip tip={GROUP_LABEL[g.group]?.tip ?? ''} />
+                      <div className="tnum" style={{ fontSize: '11px', color: C.inkMute, fontWeight: 400 }}>{g.days} days</div>
+                    </td>
+                    {g.stats.map(s => <td key={s.horizon} style={td}>{cell(s.n, s.meanPct, s.upPct, s.vsAllPct, g.group.startsWith('put'))}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {data.events.length > 0 && (
+            <>
+              <div style={{ ...label, marginTop: 18, marginBottom: 8 }}>Recent one-sided days<InfoTip tip="The latest call-heavy and put-heavy ticker-days, biggest premium first within a day, with what the stock did after the flow day's close." /></div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 720 }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Date</th><th style={th}>Ticker</th><th style={th}>Side</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Calls</th><th style={{ ...th, textAlign: 'right' }}>Premium</th>
+                      {data.config.horizons.map(h => <th key={h} style={{ ...th, textAlign: 'right' }}>+{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.events.map(e => (
+                      <tr key={`${e.symbol}-${e.date}`}>
+                        <td className="tnum" style={td}>{e.date}</td>
+                        <td style={{ ...td, color: C.ink, fontWeight: 600 }}>{e.symbol}{e.surge && <span title="At least 2x this ticker's usual flow premium" style={{ marginLeft: 6, fontSize: '10px', color: C.warn, fontWeight: 700 }}>SURGE</span>}</td>
+                        <td style={{ ...td, color: e.bucket === 'call-heavy' ? C.bull : C.bear }}>{e.bucket === 'call-heavy' ? 'Calls' : 'Puts'}</td>
+                        <td className="tnum" style={{ ...td, textAlign: 'right' }}>{e.callShare.toFixed(0)}%</td>
+                        <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtUsd(e.totalPremium)}</td>
+                        {data.config.horizons.map(h => (
+                          <td key={h} className="tnum" style={{ ...td, textAlign: 'right', color: pnlColor(e.forward[h]) }}>{e.forward[h] == null ? '-' : fmtPct(e.forward[h])}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 export function PerformanceView({ canRun }: { canRun: boolean }) {
   const [data, setData] = useState<BacktestRunsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -415,6 +526,8 @@ export function PerformanceView({ canRun }: { canRun: boolean }) {
           )}
         </>
       )}
+
+      {data && <FlowStudy />}
 
       {data && data.runs.length > 0 && (
         <RunHistory

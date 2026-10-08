@@ -1,4 +1,4 @@
-import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings, BacktestRunsResponse, BacktestRunDetail, BookId, ReplayJob } from '../types/market';
+import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings, BacktestRunsResponse, BacktestRunDetail, BookId, ReplayJob, FlowStudyResponse } from '../types/market';
 import type { UnusualFlowResponse } from '../types/stock';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
@@ -115,4 +115,10 @@ export async function startReplay(req: { from: string; to: string; books: BookId
 export async function deleteBacktestRun(id: string, accessToken: string | null): Promise<void> {
   const res = await fetch(`${BASE}/api/backtest/runs/${encodeURIComponent(id)}`, { method: 'DELETE', headers: authHeaders(accessToken) });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+}
+
+export async function fetchFlowStudy(share: number): Promise<FlowStudyResponse> {
+  const res = await fetch(`${BASE}/api/backtest/flow-study?share=${share}`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+  return res.json() as Promise<FlowStudyResponse>;
 }

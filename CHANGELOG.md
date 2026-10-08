@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.7.0] - 2026-10-08
+
+### Added
+
+- **Flow study** on the Performance page: after a tracked ticker's options flow was call-heavy or put-heavy (75%+ of flow-alert premium on one side by default, adjustable 65-85%; at least $1M of premium), what did the stock do over the next 1, 5, 10 and 20 sessions, compared with all flow days? Also "surge" days (2x the ticker's usual premium), closest to a "record call volume" headline. Groups under 30 cases are faded. Lists recent one-sided days with their forward returns.
+- `GET /api/backtest/flow-study`; migration `20261008_flow_daily.sql` adds the `signal.flow_daily` view (daily call/put premium per ticker from `flow_alerts`).
+- Tests proving the bearish side of the options books: bearish signals buy puts (0.40 delta) or bear put debit spreads (long the higher strike), and a Book A put trade closes at +100%.
+
+### Changed
+
+- Trade direction in the Performance trade table reads Bull / Bear (a bought put is a bear trade, not a short).
+
+---
+
 ## [1.6.1] - 2026-10-07
 
 ### Fixed
