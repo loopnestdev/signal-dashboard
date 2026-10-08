@@ -21,6 +21,32 @@ function bookASetup(d: DayData) {
 }
 
 describe('runBacktest - Book A option lifecycle', () => {
+  it('trades a bearish signal with puts and takes profit at +100%', async () => {
+    const putChain = (d: DayData, p95: [number, number]) => d.quotes.set('NVDA', [
+      quote('NVDA261120P00100000', 100, 4.9, 5.0, -0.5, { type: 'PUT' }),
+      quote('NVDA261120P00095000', 95, p95[0], p95[1], -0.4, { type: 'PUT' }),
+      quote('NVDA261120P00090000', 90, 1.0, 1.05, -0.3, { type: 'PUT' }),
+    ]);
+    const prices: Record<string, [number, number]> = { '2026-10-07': [6.1, 6.2], '2026-10-08': [6.4, 6.5] };
+    const data = fakeMarket('2026-10-05', '2026-10-09', d => {
+      if (d.date === '2026-10-05') {
+        d.signals.set('NVDA', signal('NVDA', { engineDirection: 'BEARISH', stop: 105 }));
+        d.flow.set('NVDA', { callPremium: 1_000_000, putPremium: 3_000_000 });
+      }
+      putChain(d, prices[d.date] ?? [2.9, 3.0]);
+    }, { NVDA: flatBars('NVDA', '2026-10-05', '2026-10-09') });
+
+    const r = await runBacktest(data, 'A', DEFAULT_SETTINGS);
+
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0]).toMatchObject({
+      direction: 'BEARISH', kind: 'option', legs: [{ type: 'PUT', strike: 95, side: 1 }], qty: 3,
+      entryDate: '2026-10-06', exitDate: '2026-10-08', unitCost: 300, exitUnitValue: 640, exitReason: 'up 100%',
+    });
+    // (640 - 300) x 3 - $6 commissions
+    expect(r.trades[0].pnl).toBe(1014);
+  });
+
   it('buys at the next close ask, exits on -50% at the following close bid, with costs and R', async () => {
     const prices: Record<string, [number, number]> = {
       '2026-10-05': [2.9, 3.0], '2026-10-06': [2.9, 3.0], '2026-10-07': [1.4, 1.5], '2026-10-08': [1.3, 1.4],

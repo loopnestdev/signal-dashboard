@@ -374,3 +374,14 @@ export interface BacktestRunDetail {
   equity: EquityRow[];
   benchmark: Array<{ date: string; equity: number | null }>;
 }
+
+export interface FlowStudyResponse {
+  config: { heavyShare: number; minPremium: number; surgeMultiple: number; surgeMinHistory: number; horizons: number[] };
+  from: string | null;
+  to: string | null;
+  symbols: number;
+  flowDays: number;
+  minSample: number;
+  groups: Array<{ group: string; days: number; stats: Array<{ horizon: number; n: number; meanPct: number | null; upPct: number | null; vsAllPct: number | null }> }>;
+  events: Array<{ symbol: string; date: string; bucket: 'call-heavy' | 'put-heavy' | 'mixed'; callShare: number; totalPremium: number; surge: boolean | null; forward: Record<number, number | null> }>;
+}

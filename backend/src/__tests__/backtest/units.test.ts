@@ -74,6 +74,32 @@ describe('contract selection (rules 1.6)', () => {
     expect(selectContract([], 'BULLISH', 1000, '2026-10-05')).toEqual({ ok: false, reason: 'no expiry 30-75 days out' });
   });
 
+  describe('bearish (puts)', () => {
+    // CRWD-style put chain on the Nov 20 monthly, spot ~275; put deltas are negative.
+    const puts = [
+      quote('P270', 270, 7.0, 7.2, -0.5, { type: 'PUT' }),
+      quote('P260', 260, 4.0, 4.1, -0.38, { type: 'PUT' }),
+      quote('P250', 250, 1.9, 2.0, -0.2, { type: 'PUT' }),
+      quote('C280', 280, 4.0, 4.1, 0.4),
+    ];
+
+    it('buys the put nearest 0.40 delta, never a call', () => {
+      const s = selectContract(puts, 'BEARISH', 1000, '2026-10-05');
+      expect(s).toMatchObject({ ok: true, structure: { kind: 'option', legs: [{ contract: 'P260', type: 'PUT', side: 1 }] } });
+      if (s.ok) expect(s.structure.unitCost).toBeCloseTo(410);
+    });
+
+    it('builds a bear put spread: long the higher strike, short the next lower one, 2:1 payoff', () => {
+      const s = selectContract(puts, 'BEARISH', 1000, '2026-10-05', st => st.kind === 'spread');
+      // long P270 at $7.20, short P260 at $4.00: $320 debit, $1,000 wide, max gain $680 >= 2 x $320
+      expect(s).toMatchObject({ ok: true, structure: { kind: 'spread', unitCost: 320, maxValue: 1000, legs: [{ contract: 'P270', side: 1 }, { contract: 'P260', side: -1 }] } });
+      if (!s.ok) throw new Error('expected a spread');
+      expect(payoffAt(s.structure, 280)).toBe(0);
+      expect(payoffAt(s.structure, 265)).toBe(500);
+      expect(payoffAt(s.structure, 240)).toBe(1000);
+    });
+  });
+
   it('filters illiquid quotes (wide spread, low OI, missing delta)', () => {
     expect(isLiquid(quote('x', 100, 1, 1.05, 0.4))).toBe(true);
     expect(isLiquid(quote('x', 100, 1, 1.3, 0.4))).toBe(false);
