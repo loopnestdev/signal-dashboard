@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.8.0] - 2026-10-21
+
+### Added
+
+- **Fundamentals view** (sidebar): operating leverage of every US-listed stock researched in moat-finder, from SEC 10-Q/10-K filings - latest quarter's operating income, operating margin now vs a year ago, revenue growth, incremental margin (how much of each extra revenue dollar became operating profit), degree of operating leverage (DOL) and a leverage rank. Sortable columns; click a row for its last 8 quarters; click a ticker to open it on the Dashboard. Tickers that cannot be ranked are listed with the reason.
+- Non-US listings (exchange-suffixed tickers) and ADRs / foreign private issuers (20-F / 40-F filers) are left out. Fiscal Q4 is derived from the annual report; companies that stopped tagging operating income use revenue minus total costs (marked).
+- Quarters are stored permanently in Supabase (`sec_companies`, `sec_quarters`; migration `20261021_sec_fundamentals.sql`), so the page never waits on SEC.
+- Updates: new moat-finder research is classified and loaded when the Fundamentals page is opened; a collector job at 07:00 ET on trading days downloads figures only for companies with a new 10-Q/10-K; admins can **Check for new filings** or **Re-download all** (e.g. after earnings season). CLI: `npm run fundamentals -- [new|daily|full]`.
+- SEC requests are spaced ~250 ms apart (about 4 per second, under SEC's 10 per second limit) with back-off on throttling. New env var `SEC_USER_AGENT` (app name + contact email, required by SEC).
+- `GET /api/fundamentals/leverage`, `POST /api/fundamentals/sync` (admin).
+
+---
+
 ## [1.7.0] - 2026-10-08
 
 ### Added

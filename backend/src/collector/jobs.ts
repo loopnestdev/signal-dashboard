@@ -13,6 +13,8 @@ import {
   type DpDayVolume, type FlowPrint, type ScannerSlot,
 } from './scanner.js';
 import { SIGNA_CALLS_PER_RUN, type JobName } from './schedule.js';
+import { secUserAgent } from '../fundamentals/secClient.js';
+import { startSync } from '../fundamentals/sync.js';
 import { expirationDates, fetchOptionChain, openYahooSession } from './yahooOptions.js';
 
 export interface JobResult {
@@ -309,6 +311,17 @@ async function runEarnings(tradeDate: string, tracked: string[]): Promise<JobRes
   return { status, apiCalls: days.length, rowsWritten: rows, message };
 }
 
+// runFundamentals:
+//   - Re-checks every moat-finder ticker's newest SEC filing; company facts are downloaded only for new 10-Q/10-K filings
+//   - Shares the in-process sync lock with the Fundamentals page, so it skips if a page-triggered sync is running
+async function runFundamentals(): Promise<JobResult> {
+  if (!secUserAgent()) return { status: 'skipped', apiCalls: 0, rowsWritten: 0, message: 'SEC_USER_AGENT not set' };
+  const started = startSync('daily');
+  if (!started) return { status: 'skipped', apiCalls: 0, rowsWritten: 0, message: 'a fundamentals sync is already running' };
+  const r = await started.promise;
+  return { status: r.status, apiCalls: r.secCalls, rowsWritten: r.quarterRows, message: r.message };
+}
+
 async function runRollup(tradeDate: string): Promise<JobResult> {
   const rolled = await rpc<number>('rollup_dp_daily', { p_date: tradeDate });
   const pruned = await rpc<number>('prune_dp_prints', { p_keep_days: 60 });
@@ -334,6 +347,8 @@ export async function runJob(job: JobName, tradeDate: string): Promise<JobResult
       result = await runOptionChain(tradeDate, symbols);
     } else if (job === 'earnings') {
       result = await runEarnings(tradeDate, symbols);
+    } else if (job === 'fundamentals') {
+      result = await runFundamentals();
     } else {
       result = await runRollup(tradeDate);
     }

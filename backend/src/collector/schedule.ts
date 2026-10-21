@@ -11,11 +11,12 @@ export type JobName =
   | 'raw-flow'       // market-wide large prints (scanner discovery feed)
   | 'signa-scan'     // Signa 30-model scan, bullish + bearish (technical cross-check)
   | 'scanner'        // Radon discover scoring + promote/expire scanner symbols
-  | 'earnings';      // Nasdaq earnings calendar, next 30 days (no Signa calls)
+  | 'earnings'       // Nasdaq earnings calendar, next 30 days (no Signa calls)
+  | 'fundamentals';  // SEC 10-Q/10-K revenue + operating income for moat-finder tickers (no Signa calls)
 
 export const JOB_NAMES: JobName[] = [
   'signals', 'signa-scan', 'raw-flow', 'darkpool', 'flow-alerts', 'curated-flow',
-  'scanner', 'option-chain', 'gex', 'rollup', 'earnings',
+  'scanner', 'option-chain', 'gex', 'rollup', 'earnings', 'fundamentals',
 ];
 
 // Signa calls per run: per-symbol jobs scale with the universe, market-wide jobs cost a fixed count,
@@ -32,6 +33,7 @@ export const SIGNA_CALLS_PER_RUN: Record<JobName, 'per-symbol' | 'scanner' | num
   'signa-scan': 2,
   scanner: 'scanner',
   earnings: 0,
+  fundamentals: 0,
 };
 
 const hm = (h: number, m: number) => h * 60 + m;
@@ -44,6 +46,8 @@ export function jobSlots(job: JobName, date: string): number[] {
     case 'signals':      return [hm(9, 0)];
     // Before the open, so entry/exit rules see today's calendar.
     case 'earnings':     return [hm(8, 30)];
+    // Filings land overnight (EDGAR accepts until 22:00 ET), so one early pass sees yesterday's 10-Qs.
+    case 'fundamentals': return [hm(7, 0)];
     // Each pull is only the latest 50 prints (minutes of tape), so the daily buy ratio is built from snapshots;
     // 13 snapshots instead of 7 cut its sampling noise by about a quarter.
     case 'darkpool':     return inSession(Array.from({ length: 13 }, (_, i) => hm(10, 5) + i * 30));

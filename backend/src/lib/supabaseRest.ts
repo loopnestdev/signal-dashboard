@@ -86,6 +86,12 @@ export async function selectRows<T>(table: string, query: string): Promise<T[]> 
   return (await res.json()) as T[];
 }
 
+// Reads another app's schema in the shared coredb project (e.g. moat-finder's `moat`).
+export async function selectRowsIn<T>(schema: string, table: string, query: string): Promise<T[]> {
+  const res = await request(`${table}?${query}`, { method: 'GET', headers: { 'Accept-Profile': schema } });
+  return (await res.json()) as T[];
+}
+
 // PostgREST caps each response at 1,000 rows; page until a short page comes back. `query` must include an order.
 export async function selectAll<T>(table: string, query: string, pageSize = 1000): Promise<T[]> {
   const out: T[] = [];

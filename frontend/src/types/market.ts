@@ -385,3 +385,54 @@ export interface FlowStudyResponse {
   groups: Array<{ group: string; days: number; stats: Array<{ horizon: number; n: number; meanPct: number | null; upPct: number | null; vsAllPct: number | null }> }>;
   events: Array<{ symbol: string; date: string; bucket: 'call-heavy' | 'put-heavy' | 'mixed'; callShare: number; totalPremium: number; surge: boolean | null; forward: Record<number, number | null> }>;
 }
+
+// Fundamentals (SEC operating leverage for moat-finder tickers)
+export interface LeverageQuarter {
+  end: string;
+  label: string | null;
+  revenue: number;
+  operatingIncome: number;
+  margin: number;
+}
+
+export interface LeverageRow {
+  ticker: string;
+  name: string | null;
+  periodEnd: string;
+  periodLabel: string | null;
+  derived: boolean;
+  opComputed: boolean;
+  operatingIncome: number;
+  revenue: number;
+  opMargin: number;
+  opMarginYearAgo: number | null;
+  revYoY: number | null;
+  incrementalMargin: number | null;
+  dol: number | null;
+  rank: number | null;
+  stale: boolean;
+  history: LeverageQuarter[];
+}
+
+export interface FundamentalsSync {
+  state: 'running' | 'done' | 'failed';
+  mode: 'new' | 'daily' | 'full';
+  startedAt: string;
+  finishedAt: string | null;
+  done: number;
+  total: number;
+  current: string | null;
+  result: { status: string; message: string; secCalls: number } | null;
+  error: string | null;
+}
+
+export interface LeverageResponse {
+  rows: LeverageRow[];
+  today: string;
+  skipped: { ticker: string; name: string | null; status: 'eligible' | 'excluded' | 'pending'; reason: string }[];
+  unseen: string[];
+  moatCount: number;
+  lastChecked: string | null;
+  sync: FundamentalsSync | null;
+  secConfigured: boolean;
+}

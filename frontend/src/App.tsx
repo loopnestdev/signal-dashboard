@@ -25,6 +25,7 @@ import { DataCollectionView } from './components/DataCollectionView';
 import { FlowScannerView } from './components/FlowScannerView';
 import { SettingsView } from './components/SettingsView';
 import { PerformanceView } from './components/PerformanceView';
+import { FundamentalsView } from './components/FundamentalsView';
 import { SectorSkeleton } from './components/Skeleton';
 import { Sidebar } from './components/layout/Sidebar';
 import type { View } from './components/layout/Sidebar';
@@ -351,6 +352,10 @@ export default function App() {
               {/* Flow Scanner view */}
               {activeView === 'flow-scanner' && (
                 <FlowScannerView onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
+              )}
+
+              {activeView === 'fundamentals' && (
+                <FundamentalsView canSync={!supabaseEnabled || isAdmin} onAnalyze={t => { loadStock(t); setActiveView('dashboard'); }} />
               )}
 
               {/* Playbook view */}

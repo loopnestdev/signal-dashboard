@@ -74,6 +74,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Auto-refresh | Every 45 seconds with manual refresh and "updated Xs ago" counter |
 | Flow Scanner | Port of Radon's discovery scorer: large options prints + dark pool --> 0-100 score; tradeable names scoring 45+ are added to data collection automatically for 14 days (capped at 12), alongside a permanent core of index ETFs and large caps |
 | Data collection | Scheduled recorder (US trading days, ET) storing dark pool prints, UW options flow alerts, curated flow, GEX levels, Signa signals and option quotes to Supabase for later backtesting; Data Collection view shows job health and Signa API usage vs the daily quota |
+| Fundamentals (operating leverage) | For every US-listed stock researched in moat-finder: latest quarter's operating income, operating margin vs a year ago, revenue growth, incremental margin, degree of operating leverage (DOL) and a leverage rank, from SEC 10-Q/10-K filings. New moat-finder research is added when the page is opened; new filings are picked up daily at 07:00 ET. Non-US listings and ADRs (20-F/40-F filers) are left out |
 | Performance | Saved replays of the three paper books: equity curves vs SPY, win rate, average R, profit factor, drawdown, go-live checklist, trade list, skipped-signal reasons; admins can run a new replay from the page |
 
 ---
@@ -132,6 +133,7 @@ signal-dashboard/
 |   |   |   +-- AlertBanner.tsx        # FOMC / VIX spike alerts
 |   |   |   +-- AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
 |   |   |   +-- FundamentalsPanel.tsx  # Valuation/growth/margins section
+|   |   |   +-- FundamentalsView.tsx   # SEC operating leverage table for moat-finder tickers
 |   |   |   +-- OptionsPanel.tsx       # Options flow + dark pool + gamma
 |   |   |   +-- SectorHeatmap.tsx      # Sectors + accordion sub-sectors
 |   |   |   +-- SignaCard.tsx          # Signa.ai signal card
@@ -241,6 +243,7 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy - no CORS config n
 | `COLLECTOR_ENABLED` | No | `false` | `true` starts the scheduled data collector. Enable on **one** deployment only (Railway); a second collector doubles Signa API usage |
 | `SIGNA_DAILY_LIMIT` | No | `1000` | Your Signa plan's daily call quota (REST + MCP share it) |
 | `SIGNA_RESERVE_CALLS` | No | `200` | Calls kept free for dashboard browsing; collector jobs are skipped once usage reaches `limit - reserve` |
+| `SEC_USER_AGENT` | For Fundamentals | - | `<app name> <contact email>` sent with every SEC EDGAR request (SEC requires it). Without it the Fundamentals view shows stored quarters but cannot fetch new filings |
 | `SCANNER_PROMOTE_SCORE` | No | `45` | Flow Scanner score (0-100) needed to add a symbol to data collection (not a trade signal) |
 | `SCANNER_MAX_PROMOTED` | No | `12` | Cap on scanner-added symbols (each costs ~22 Signa calls per trading day) |
 | `SCANNER_DP_LOOKUPS` | No | `10` | Live dark pool pulls per scanner run for untracked candidates |
@@ -408,6 +411,8 @@ Then run [`supabase/migrations/20261007_app_settings.sql`](supabase/migrations/2
 
 Then run [`supabase/migrations/20261007_backtest_runs.sql`](supabase/migrations/20261007_backtest_runs.sql): stored replay results (`backtest_runs`, `backtest_trades`, `backtest_equity`). Run a replay with `cd backend && npm run backtest -- --from 2026-10-05 --to 2026-11-20 --trades` (add `--save` to store it), or from the app's **Performance** page (admins: **Run replay**). Then run [`supabase/migrations/20261008_flow_daily.sql`](supabase/migrations/20261008_flow_daily.sql): the `flow_daily` view behind the Performance page's flow study (call-heavy vs put-heavy days and what the stock did next). The Performance page shows each book's equity curve against SPY, the go-live checklist, every trade (including what holding through earnings would have made) and why signals were skipped.
 
+Then run [`supabase/migrations/20261021_sec_fundamentals.sql`](supabase/migrations/20261021_sec_fundamentals.sql): `sec_companies` (each moat-finder ticker's SEC classification and newest filing) and `sec_quarters` (permanent quarterly revenue + operating income history) behind the **Fundamentals** view. Load everything once with `cd backend && npm run fundamentals -- full` (about 200 SEC requests, ~1 minute) or the page's **Re-download all** button (admins).
+
 Then run [`supabase/migrations/20261007_earnings_calendar.sql`](supabase/migrations/20261007_earnings_calendar.sql): the `earnings_calendar` table, refreshed daily at 08:30 ET from the free Nasdaq earnings calendar.
 
 To change the permanent core later, edit `signal.tracked_symbols` rows with `source = 'core'` (set `active = false` to pause a symbol). Rows with `source = 'scanner'` are managed by the scanner.
@@ -493,6 +498,7 @@ In Railway --> your service --> **Variables**, add:
 | `SUPABASE_URL` | `https://lcqsatefkutiakhgexue.supabase.co` *(data collection)* |
 | `SUPABASE_SERVICE_ROLE_KEY` | coredb service role key *(data collection)* |
 | `COLLECTOR_ENABLED` | `true` *(only on this one deployment)* |
+| `SEC_USER_AGENT` | `signal-dashboard you@example.com` *(Fundamentals view - your contact email, required by SEC)* |
 
 > `AI_PROVIDER` and `PORT` have sensible defaults - only add them if you want to override.
 
@@ -698,6 +704,14 @@ Data collector health for the Data Collection view: whether recording is enabled
 ### `GET /api/scanner`
 
 Flow Scanner results for the latest scanned session (or `?date=YYYY-MM-DD`): every scored symbol with its Radon score breakdown, options bias, dark pool direction/ratio/sustained days, confluence, sweeps, vol/OI, premium, filter result and promotion status; the active core and scanner-promoted symbols with expiry; Signa's bullish/bearish scan lists; and the scanner thresholds. Cached 60 seconds.
+
+### `GET /api/fundamentals/leverage`
+
+Operating leverage table for the Fundamentals view, read only from the stored `sec_*` tables: one row per eligible moat-finder ticker (latest quarter's operating income, margin now and a year ago, revenue YoY, incremental margin, DOL, rank, last 8 quarters), the tickers left out with a reason, and the current sync job. If moat-finder has tickers never classified yet, the request starts a background sync for just those (the page polls while it runs). Returns 503 when the service role key or the migration is missing.
+
+### `POST /api/fundamentals/sync` (admin)
+
+Body `{ "mode": "daily" | "full" }`. `daily` re-checks every moat-finder ticker's newest SEC filing and downloads figures only where a new 10-Q/10-K appeared; `full` re-downloads every company's history. Runs in the background (202); 409 while a sync is running. SEC requests are spaced ~250 ms apart (about 4 per second, under SEC's 10 per second limit).
 
 ### `GET /health`
 
