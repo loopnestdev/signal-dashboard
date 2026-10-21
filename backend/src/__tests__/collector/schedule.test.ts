@@ -51,6 +51,12 @@ describe('jobSlots', () => {
     expect(jobSlots('earnings', '2026-10-05')).toEqual([hm(8, 30)]);
     expect(estimatedSignaCallsPerDay(0, 0)).toBe(13);
   });
+
+  it('checks SEC filings once before the open, using no Signa calls', () => {
+    expect(jobSlots('fundamentals', '2026-10-05')).toEqual([hm(7, 0)]);
+    expect(dueJobs('2026-10-05', hm(7, 3), new Set()).map(d => d.job)).toEqual(['fundamentals']);
+    expect(dueJobs('2026-10-10', hm(7, 3), new Set())).toEqual([]);
+  });
 });
 
 describe('dueJobs', () => {

@@ -45,6 +45,7 @@ signal-dashboard/
 |   |   |   +-- DarkPoolView.tsx       # Dark Pool view: Radon-scored off-exchange block prints
 |   |   |   +-- FlowDirectionChart.tsx # Mini SVG arrow + full Recharts chart (Options tab)
 |   |   |   +-- FundamentalsPanel.tsx  # Fundamentals section (valuation/growth/margins)
+|   |   |   +-- FundamentalsView.tsx   # Fundamentals view: SEC operating leverage table for moat-finder tickers, sync buttons (admin)
 |   |   |   +-- InfoTip.tsx            # "?" tooltip badge (hover + tap, portal-rendered) for headers and card titles
 |   |   |   +-- GammaView.tsx          # Gamma/GEX view: SPY/QQQ/IWM cards with flip level/walls
 |   |   |   +-- MarketScanView.tsx     # Market Scanner view: Signa 30-model ranked setups
@@ -75,6 +76,7 @@ signal-dashboard/
 |   |   |   +-- colors.ts              # CSS custom property design tokens
 |   |   |   +-- priceLevels.ts         # validatePriceLevels() - stop/target directional validation
 |   |   |   +-- risk.ts                # riskPerTrade() mirror for the Settings live preview
+|   |   |   +-- fundamentals.ts        # fmtMoney/fmtRatioPct/fmtMargin, sortLeverage() for the leverage table
 |   |   |   +-- performance.ts         # mergeCurves() for the equity chart, describeLegs(), $/% formatters
 |   |   |   +-- stockApi.ts            # Stock-specific API client
 |   |   |   +-- supabase.ts            # Typed Supabase client (null when unconfigured)
@@ -96,6 +98,7 @@ signal-dashboard/
 |   |   |   +-- collector.ts           # GET /api/collector/status
 |   |   |   +-- scanner.ts             # GET /api/scanner?date=YYYY-MM-DD
 |   |   |   +-- settings.ts            # GET /api/settings, PUT /api/settings (admin)
+|   |   |   +-- fundamentals.ts        # GET /api/fundamentals/leverage, POST /api/fundamentals/sync (admin)
 |   |   |   +-- backtest.ts            # GET /api/backtest/runs[/:id], POST /api/backtest/run + DELETE /api/backtest/runs/:id (admin)
 |   |   +-- collector/
 |   |   |   +-- index.ts               # startCollector(): 30s ET-clock tick, runs due jobs sequentially
@@ -121,6 +124,13 @@ signal-dashboard/
 |   |   |   +-- flowStudy.ts           # Pure: call-heavy / put-heavy flow days vs forward returns (1/5/10/20 sessions) vs all flow days
 |   |   |   +-- runner.ts              # replay() shared by CLI + API; one background replay job at a time
 |   |   |   +-- cli.ts                 # npm run backtest -- --from --to [--book] [--save] [--trades]
+|   |   +-- fundamentals/
+|   |   |   +-- secClient.ts           # SEC EDGAR fetches (ticker map, submissions, companyfacts) through one ~4 req/s queue, SEC_USER_AGENT
+|   |   |   +-- parse.ts               # Pure: classifyFiler (10-Q/10-K vs 20-F/40-F), parseQuarters (quarters, derived Q4, revenue/op income tags)
+|   |   |   +-- plan.ts                # Pure: planSync (new/daily/full), needsFacts (download only on a new filing)
+|   |   |   +-- leverage.ts            # Pure: leverageFor (margins, YoY, incremental margin, DOL), rankLeverage
+|   |   |   +-- sync.ts                # syncFundamentals + one-at-a-time background job (collector, page, admin, CLI)
+|   |   |   +-- cli.ts                 # npm run fundamentals -- [new|daily|full]
 |   |   +-- services/
 |   |   |   +-- ai.ts                  # Signa --> Settings AI provider --> template priority chain
 |   |   |   +-- llm.ts                 # generateText(prompt, provider): Gemini or Claude, null on failure
@@ -190,6 +200,7 @@ The frontend Vite dev proxy routes `/api/*` --> `http://localhost:3001`, so no C
 | `COLLECTOR_ENABLED` | No | `false` | `true` on exactly one deployment (Railway) |
 | `SIGNA_DAILY_LIMIT` | No | `1000` | Signa quota; REST + MCP share it |
 | `SIGNA_RESERVE_CALLS` | No | `200` | Collector skips jobs once usage reaches `limit - reserve` |
+| `SEC_USER_AGENT` | For Fundamentals | - | `<app name> <contact email>` on every SEC EDGAR request; without it no new filings are fetched |
 
 **`frontend/.env`** (optional - enables Google sign-in and cross-device watchlist sync)
 
@@ -263,7 +274,7 @@ Helper functions:
 - No external UI component libraries
 - No comments unless the WHY is non-obvious
 - **Layout shell:** `App.tsx` uses a flexbox shell (`div.app-shell`) with a sticky 220px `Sidebar` (`div.app-sidebar`) and a `div.app-main` (`flex: 1`). The topnav is `div.app-topnav` (sticky, `z-index: 30`). Content lives in `div.app-content`. All layout classes are in `index.css`. On mobile (`<=768px`) the sidebar becomes `position: fixed` and slides in via `.mobile-open` class; a `.sidebar-overlay` backdrop handles dismiss-on-tap.
-- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` --> stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` --> `TerminalAnalysis`; `'sector-map'` --> `SectorHeatmap`; `'options-flow'` --> `OptionsFlowView`; `'dark-pool'` --> `DarkPoolView`; `'gamma'` --> `GammaView`; `'market-scan'` --> `MarketScanView`; `'playbook'` --> `PlaybookView` (static strategy reference, no data deps); `'flow-scanner'` --> `FlowScannerView`; `'data-collection'` --> `DataCollectionView` (collector health); `'performance'` --> `PerformanceView` (receives `canRun = !supabaseEnabled || isAdmin`); `'settings'` --> `SettingsView` (receives `canEdit = !supabaseEnabled || isAdmin`). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
+- **View routing:** `View` type is exported from `Sidebar.tsx` and imported by `App.tsx` (single source). `activeView` state in App controls what renders in `.app-content`: `'dashboard'` --> stock panels (tabs: Signal / Technical / Options / Fundamentals / Moat); `'market'` --> `TerminalAnalysis`; `'sector-map'` --> `SectorHeatmap`; `'options-flow'` --> `OptionsFlowView`; `'dark-pool'` --> `DarkPoolView`; `'gamma'` --> `GammaView`; `'market-scan'` --> `MarketScanView`; `'playbook'` --> `PlaybookView` (static strategy reference, no data deps); `'flow-scanner'` --> `FlowScannerView`; `'fundamentals'` --> `FundamentalsView` (receives `canSync = !supabaseEnabled || isAdmin`); `'data-collection'` --> `DataCollectionView` (collector health); `'performance'` --> `PerformanceView` (receives `canRun = !supabaseEnabled || isAdmin`); `'settings'` --> `SettingsView` (receives `canEdit = !supabaseEnabled || isAdmin`). All intelligence views pass `onAnalyze` that loads the ticker and switches to `'dashboard'`. No SOON items remain in the sidebar.
 - **Mobile responsiveness:** fixed-width grids that overflow on small screens use `overflowX: 'auto'` scroll containers + `minWidth` on inner content. Layouts that should *reflow* (e.g. multi-column --> single-column) use CSS classes in `index.css` with `@media (max-width: 768px)` breakpoints (e.g. `.fib-grid`). Never add per-component dark-mode or responsive code - use CSS classes instead.
 
 ### API Routes
@@ -281,6 +292,7 @@ Helper functions:
 - `GET /api/scanner?date=YYYY-MM-DD` - Flow Scanner payload for a session (default: latest scanned): candidates sorted by score, active core + scanner-promoted symbols, Signa scan top lists, scanner thresholds. 60s cache.
 - `GET /api/settings` - trading settings (+ defaults, rules version, which AI keys are set, risk-per-trade preview). `PUT /api/settings` - validated save; requires `Authorization: Bearer <Supabase access token>` of an `is_admin` user (loopback requests without a token are allowed only when not on Railway). Settings live in `signal.app_settings` (key `trading`).
 - `GET /api/backtest/runs` - last 60 saved replays (header + summary, newest first), `latest` (ids of the newest run per book sharing the newest range + rules version), the current replay `job`, `dataFrom` (first `signal_snapshots` date), `lastSession` (newest session with complete data: today from close+30 ET, else the previous trading day - `lastCompleteSession`; also the latest allowed replay end). `GET /api/backtest/runs/:id` - run + trades + equity + `benchmark` (SPY scaled to the starting balance on each equity date). `POST /api/backtest/run` `{from, to, books?}` (admin) - starts a background replay with the saved settings and saves each book (202; 409 while one runs; max one year, not in the future). `DELETE /api/backtest/runs/:id` (admin) - cascades to trades and equity. `GET /api/backtest/flow-study?share=0.75&minPremium=1000000` - flow study over `signal.flow_daily` (view, migration `20261008_flow_daily.sql`) + Yahoo daily bars, cached 15 min per parameter set. 503 without the service role key or migration.
+- `GET /api/fundamentals/leverage` - operating leverage rows for eligible moat-finder tickers (from `sec_quarters`), skipped tickers with reasons, current sync job; starts a background `'new'` sync when moat-finder has unclassified tickers (2 min cooldown). `POST /api/fundamentals/sync` `{mode: 'daily'|'full'}` (admin) - 202; 409 while a sync runs. 503 without the service role key or migration `20261021_sec_fundamentals.sql`.
 - `GET /health` - health check
 
 ### Data Collector (Release 1 of the trading roadmap)
@@ -288,7 +300,7 @@ Helper functions:
 Records history that Signa cannot serve retroactively, so Radon-style strategies can be backtested later. Signa only returns live/latest data for flow, dark pool and GEX; **a missed slot cannot be back-filled.**
 
 - **Universe:** `signal.tracked_symbols` (active rows). `source='core'` never expires: SPY, QQQ, IWM, SMH, MU, AMZN, SPCX, AAPL, NVDA, META, GOOGL, AVGO, MSFT, TSLA. `source='scanner'` rows are added/renewed/expired by the Flow Scanner. Not tied to the user's watchlist.
-- **Schedule (ET, NYSE trading days, `schedule.ts`):** earnings calendar 08:30 (next 30 calendar days, ~22 Nasdaq requests, no Signa calls); signals 09:00; Signa scan 09:15 (top 100 bullish + 100 bearish, 2 calls - also the input for a future shares-only "Signa top picks" backtest); raw flow hourly 10:15-15:15 + close+5; scanner 11:45, 14:45, close+30; dark pool every 30 min 10:05-16:05; flow alerts hourly 10:35-15:35 + close+10 (active names hit Signa's 50-alert cap); curated flow 10:30, 12:30, 14:30, close+10; Cboe option chain close+25; GEX close+20; dark pool rollup close+40. Close-relative slots follow early closes.
+- **Schedule (ET, NYSE trading days, `schedule.ts`):** SEC fundamentals 07:00 (see Fundamentals below, no Signa calls); earnings calendar 08:30 (next 30 calendar days, ~22 Nasdaq requests, no Signa calls); signals 09:00; Signa scan 09:15 (top 100 bullish + 100 bearish, 2 calls - also the input for a future shares-only "Signa top picks" backtest); raw flow hourly 10:15-15:15 + close+5; scanner 11:45, 14:45, close+30; dark pool every 30 min 10:05-16:05; flow alerts hourly 10:35-15:35 + close+10 (active names hit Signa's 50-alert cap); curated flow 10:30, 12:30, 14:30, close+10; Cboe option chain close+25; GEX close+20; dark pool rollup close+40. Close-relative slots follow early closes.
 - **Budget:** about `symbols x 22 + 13 + 3 x SCANNER_DP_LOOKUPS` Signa calls per trading day (14 core + 12 promoted = 615). Every Signa request goes through `signaFetch()` (`lib/apiUsage.ts`), which counts it and flushes to `signal.api_usage` every 5 min. `runJob()` skips a Signa job when `used + planned > SIGNA_DAILY_LIMIT - SIGNA_RESERVE_CALLS`.
 - **Dark pool:** Signa returns at most 50 latest prints per call, so 30-minute pulls are a *sample* (13 snapshots/day), not the full tape Radon uses with direct UW access. Side classification matches Radon `analyze_darkpool` (price >= NBBO mid = buy). Raw prints are kept 60 days; `signal.rollup_dp_daily()` keeps permanent daily aggregates in `dp_daily`.
 - **Signa dark pool coverage is thin:** a 50-print pull spans only minutes of tape for liquid names (often after-hours); treat `dp_daily` as a noisy estimate.
@@ -307,6 +319,16 @@ Records history that Signa cannot serve retroactively, so Radon-style strategies
 - **Earnings calendar:** `api.nasdaq.com/api/calendar/earnings?date=YYYY-MM-DD` (needs browser-like User-Agent + Accept headers) into `earnings_calendar`. Every company, not just tracked ones, so scanner-promoted names are covered. Each fetched date is deleted and re-inserted so moved report dates disappear; a failed date keeps its old rows. Used by the release 2 earnings rules in `docs/release2-trading-rules.md` section 5.
 - **Option quote expiries:** besides the two nearest 30/60 DTE, every standard monthly (third Friday; Thursday when that Friday is a holiday - `isMonthlyExpiry`) within 14-75 DTE is recorded, so a monthly contract the paper books hold is priced every day until its 21-days-left exit.
 - **Holidays:** `NYSE_HOLIDAYS` / `NYSE_EARLY_CLOSES` in `lib/marketCalendar.ts` - update annually with `fomc.ts`.
+
+### Fundamentals (SEC operating leverage)
+
+Universe = `moat.research_reports` tickers (read with the service role via `selectRowsIn('moat', ...)`), not the watchlist or tracked symbols.
+
+- **Classification (`sec_companies`):** exchange-suffixed tickers (`.KR`, `.AX`, ...) -> `non-US listing`; not in SEC's `company_tickers.json` -> excluded; latest periodic report 20-F/40-F -> excluded as ADR / foreign private issuer; no 10-Q/10-K yet -> pending. Re-evaluated on every daily run; a ticker dropped from moat-finder is marked `removed from moat-finder` but keeps its quarters.
+- **Quarters (`sec_quarters`, permanent history):** from `companyfacts`. Quarter = 75-105 day duration, latest filing wins (restatements), fy/fp from the earliest filing. Revenue = largest of the total-revenue tags per period; operating income = `OperatingIncomeLoss`, else revenue minus `CostsAndExpenses` (`op_computed`, shown as a dagger - COHR). Q4 = annual minus the three quarters inside it (`derived`, shown as Q4*).
+- **Metrics (`leverage.ts`):** year-ago quarter = 350-380 days earlier. Incremental margin = change in op income / change in revenue (null when revenue fell). DOL = % op income change / % revenue change; n/m when last year's op income <= 0 or margin < 1%. Rank = incremental margin desc (ties: margin expansion), growing companies only. Latest quarter > 150 days old -> stale, listed as skipped rather than ranked. Verified against a third-party table: MU, AVGO, SNDK, MCHP, ADI, AMD, LITE, CRDO, MPWR, VIAV, MTSI, ALAB, AXTI match exactly.
+- **Updates:** collector job `fundamentals` at 07:00 ET (`daily`: one submissions request per ticker, `companyfacts` only when the newest 10-Q/10-K accession changed); page load (`new`: only unseen tickers); admin buttons / `npm run fundamentals -- daily|full`. One sync per process at a time. `last_accession` advances only after quarters are stored, so failures retry next run.
+- **Rate limit:** SEC allows 10 req/s per IP and blocks ~10 min when exceeded. `secClient.ts` spaces every request 250 ms apart and backs off on 403/429/5xx. A full run is ~2 requests x ~100 filers.
 
 ### Replay engine (release 2 step 3)
 
@@ -387,8 +409,8 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 342 tests - one-shot
-cd frontend && npm test         # 71 tests  - one-shot
+cd backend && npm test          # 376 tests - one-shot
+cd frontend && npm test         # 79 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
 cd frontend && npm run test:watch  # watch mode
@@ -421,6 +443,10 @@ cd frontend && npm run test:watch  # watch mode
 | `backend/src/__tests__/backtest/flowStudy.test.ts` | Flow study: call/put-heavy classification + premium floor, close-to-close forward returns (incomplete horizons), surge vs median history, bucket stats vs all flow days, recent one-sided day list |
 | `frontend/src/__tests__/lib/performance.test.ts` | Equity chart curve merge (by date, null skip, numeric strings), leg descriptions (single, spread, shares), $/% formatters |
 | `backend/src/__tests__/backtest/units.test.ts` | normCdf, Black-Scholes (textbook value, parity, expiry), expiry choice, contract selection (single, spread 2:1, skip reasons, liquidity, bearish put + bear put spread), payoff, earnings dates/windows/exit timing, Book A/B/C signals and exits, ATR, drawdown, profit factor, losing streak, SPY return, trading-day ranges |
+| `backend/src/__tests__/fundamentals/parse.test.ts` | US ticker format, `classifyFiler` (10-Q/10-K eligible, 20-F/40-F excluded, former 20-F filer, pending IPO), `parseQuarters` (quarter durations, restatement wins with first-filed fy/fp, non-periodic forms ignored, derived Q4, missing-quarter guard, FY->Q4 label, largest revenue tag, CostsAndExpenses fallback) |
+| `backend/src/__tests__/fundamentals/leverage.test.ts` | `leverageFor` (AVGO reference row, numeric strings, DOL n/m on loss / thin base, falling revenue, no year-ago quarter, missing values, stale cutoff, derived/computed flags), `rankLeverage` (incremental-margin rank, op income order, tie-break) |
+| `backend/src/__tests__/fundamentals/plan.test.ts` | `planSync` (suffix / non-SEC exclusions, new vs daily modes, re-added and removed tickers, dedupe), `needsFacts` (new filing, never fetched, full resync, excluded) |
+| `frontend/src/__tests__/lib/fundamentals.test.ts` | `fmtMoney`, `fmtRatioPct`, `fmtMargin`, `sortLeverage` (directions, rank order, missing values last, margin change, no mutation) |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |
 | `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |
 

@@ -1,4 +1,4 @@
-import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings, BacktestRunsResponse, BacktestRunDetail, BookId, ReplayJob, FlowStudyResponse } from '../types/market';
+import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings, BacktestRunsResponse, BacktestRunDetail, BookId, ReplayJob, FlowStudyResponse, LeverageResponse, FundamentalsSync } from '../types/market';
 import type { UnusualFlowResponse } from '../types/stock';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
@@ -121,4 +121,21 @@ export async function fetchFlowStudy(share: number): Promise<FlowStudyResponse> 
   const res = await fetch(`${BASE}/api/backtest/flow-study?share=${share}`);
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
   return res.json() as Promise<FlowStudyResponse>;
+}
+
+export async function fetchLeverage(): Promise<LeverageResponse> {
+  const res = await fetch(`${BASE}/api/fundamentals/leverage`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+  return res.json() as Promise<LeverageResponse>;
+}
+
+export async function startFundamentalsSync(mode: 'daily' | 'full', accessToken: string | null): Promise<FundamentalsSync> {
+  const res = await fetch(`${BASE}/api/fundamentals/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(accessToken) },
+    body: JSON.stringify({ mode }),
+  });
+  const body = await res.json().catch(() => ({})) as { error?: string; sync?: FundamentalsSync };
+  if (!res.ok) throw new Error(body.error ?? `API ${res.status}`);
+  return body.sync!;
 }

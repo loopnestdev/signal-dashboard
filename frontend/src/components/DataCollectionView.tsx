@@ -16,6 +16,7 @@ const JOB_LABELS: Record<string, string> = {
   'signa-scan': 'Signa scan',
   scanner: 'Flow scanner',
   earnings: 'Earnings calendar',
+  fundamentals: 'SEC fundamentals',
 };
 
 const JOB_TIPS: Record<string, string> = {
@@ -30,6 +31,7 @@ const JOB_TIPS: Record<string, string> = {
   'signa-scan': "Signa's ranked bullish and bearish technical scan, recorded once a day as a cross-check for the scanner.",
   scanner: 'Scores every ticker in the large-print feed with the Radon formula and promotes the best into data collection.',
   earnings: 'Upcoming earnings dates for every US-listed company over the next 30 days, from the free Nasdaq calendar. Used by the earnings rules (no new options trades within 10 trading days of a report; close before it). Uses no Signa calls.',
+  fundamentals: "Checks each moat-finder ticker's newest SEC filing and, when a new 10-Q or 10-K appeared, downloads its quarterly revenue and operating income for the Fundamentals view. Free; spaced to about 4 SEC requests per second. Uses no Signa calls.",
 };
 
 const COLUMN_TIPS = {
@@ -53,6 +55,7 @@ const DATASET_TIPS: Record<string, string> = {
   raw_flow: 'Market-wide large options prints ($250K+), the scanner\'s discovery feed.',
   scanner_candidates: 'Every ticker the scanner scored each day, with its score breakdown, so promotion thresholds can be backtested.',
   earnings_calendar: 'Upcoming earnings report dates and timing (before open / after close) for the next 30 days.',
+  sec_quarters: 'Quarterly revenue and operating income from SEC 10-Q/10-K filings for US moat-finder tickers. Kept permanently; Q4 is derived from the annual report.',
 };
 
 const STATUS_COLOR: Record<CollectorRun['status'], string> = {

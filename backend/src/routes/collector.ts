@@ -22,6 +22,7 @@ const DATASETS = [
   { table: 'raw_flow', label: 'Large prints (market-wide)' },
   { table: 'scanner_candidates', label: 'Scanner candidates' },
   { table: 'earnings_calendar', label: 'Earnings calendar (next 30 days)' },
+  { table: 'sec_quarters', label: 'SEC quarterly results (moat-finder tickers)' },
 ];
 
 interface RunRow {
