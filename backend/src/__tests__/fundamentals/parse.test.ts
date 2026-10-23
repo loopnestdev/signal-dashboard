@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyFiler, daysBetween, isUsTickerFormat, parseQuarters } from '../../fundamentals/parse.js';
+import { classifyFiler, daysBetween, factAccessions, isUsTickerFormat, mergeFacts, parseQuarters, periodicFilingsMissing } from '../../fundamentals/parse.js';
 
 const submissions = (rows: [form: string, filingDate: string, accession: string][]) => ({
   filings: { recent: { form: rows.map(r => r[0]), filingDate: rows.map(r => r[1]), accessionNumber: rows.map(r => r[2]) } },
@@ -127,5 +127,88 @@ describe('daysBetween', () => {
   it('counts calendar days', () => {
     expect(daysBetween('2025-08-02', '2026-08-02')).toBe(365);
     expect(daysBetween('2026-03-31', '2026-03-31')).toBe(0);
+  });
+});
+
+describe('parseQuarters operating income fallbacks', () => {
+  const p = { start: '2026-04-01', end: '2026-06-30' };
+  const one = (val: number) => [{ ...p, val }];
+
+  it('reads utility revenue tagged RegulatedAndUnregulatedOperatingRevenue (DTE)', () => {
+    const rows = parseQuarters(facts({ RegulatedAndUnregulatedOperatingRevenue: one(3419), OperatingIncomeLoss: one(427) }));
+    expect(rows[0]).toMatchObject({ revenue: 3419, operating_income: 427, op_computed: false });
+  });
+
+  it('uses gross profit minus operating expenses (CC)', () => {
+    const rows = parseQuarters(facts({ RevenueFromContractWithCustomerExcludingAssessedTax: one(1591), GrossProfit: one(286), OperatingExpenses: one(499) }));
+    expect(rows[0]).toMatchObject({ operating_income: -213, op_computed: true });
+  });
+
+  it('uses revenue minus cost of revenue minus operating expenses without a gross profit tag', () => {
+    const rows = parseQuarters(facts({ Revenues: one(100), CostOfGoodsAndServicesSold: one(60), OperatingExpenses: one(25) }));
+    expect(rows[0].operating_income).toBe(15);
+  });
+
+  it('uses revenue minus cost of revenue, SG&A and R&D when only income statement lines are tagged (ETN)', () => {
+    const rows = parseQuarters(facts({
+      RevenueFromContractWithCustomerExcludingAssessedTax: one(8531), CostOfRevenue: one(5676),
+      SellingGeneralAndAdministrativeExpense: one(1236), ResearchAndDevelopmentExpense: one(227),
+    }));
+    expect(rows[0]).toMatchObject({ operating_income: 1392, op_computed: true });
+  });
+
+  it('computes nothing from operating expenses alone, which may or may not include cost of sales', () => {
+    const rows = parseQuarters(facts({ Revenues: one(32), OperatingExpenses: one(329) }));
+    expect(rows[0]).toMatchObject({ revenue: 32, operating_income: null });
+  });
+});
+
+describe('companyfacts lag helpers', () => {
+  const cf = {
+    facts: {
+      dei: { EntityCommonStockSharesOutstanding: { units: { shares: [{ end: '2026-07-20', val: 1, accn: 'q2', form: '10-Q', filed: '2026-07-29' }] } } },
+      'us-gaap': {
+        Revenues: { units: { USD: [
+          { start: '2026-01-01', end: '2026-03-31', val: 10, accn: 'q1', form: '10-Q', filed: '2026-05-01' },
+          { start: '2026-01-01', end: '2026-03-31', val: 10, accn: 's8', form: 'S-8', filed: '2026-09-01' },
+        ] } },
+      },
+    },
+  };
+
+  it('collects accessions across taxonomies and the newest periodic filing date', () => {
+    const { accessions, latestFiled } = factAccessions(cf);
+    expect([...accessions].sort()).toEqual(['q1', 'q2', 's8']);
+    expect(latestFiled).toBe('2026-07-29');
+    expect(factAccessions(null)).toEqual({ accessions: new Set(), latestFiled: null });
+  });
+
+  it('lists original 10-Q/10-K filings missing from companyfacts, newest first', () => {
+    const subs = {
+      filings: { recent: {
+        form: ['10-Q', '8-K', '10-Q/A', '10-K', '10-Q', '10-Q'],
+        filingDate: ['2026-10-28', '2026-10-01', '2026-09-01', '2026-08-15', '2026-07-29', '2026-05-01'],
+        accessionNumber: ['q3', 'k8', 'qa', 'k1', 'q2', 'q1'],
+        primaryDocument: ['q3.htm', 'k8.htm', 'qa.htm', 'k1.htm', 'q2.htm', 'q1.htm'],
+      } },
+    };
+    const missing = periodicFilingsMissing(subs, new Set(['q1']), '2026-05-01');
+    expect(missing.map(m => m.accession)).toEqual(['q3', 'k1', 'q2']);
+    expect(missing[0]).toEqual({ accession: 'q3', form: '10-Q', filed: '2026-10-28', primaryDocument: 'q3.htm' });
+    expect(periodicFilingsMissing(subs, new Set(['q1', 'q2']), '2026-07-29').map(m => m.accession)).toEqual(['q3', 'k1']);
+    expect(periodicFilingsMissing(null, new Set(), null)).toEqual([]);
+  });
+
+  it('merges extra facts without mutating the original payload', () => {
+    const extra = { facts: { 'us-gaap': {
+      Revenues: { units: { USD: [{ start: '2026-04-01', end: '2026-06-30', val: 12, accn: 'q2', form: '10-Q', filed: '2026-07-29' }] } },
+      OperatingIncomeLoss: { units: { USD: [{ start: '2026-04-01', end: '2026-06-30', val: 3, accn: 'q2', form: '10-Q', filed: '2026-07-29' }] } },
+    } } };
+    const merged = mergeFacts(cf, extra);
+    expect(merged.facts!['us-gaap'].Revenues.units!.USD).toHaveLength(3);
+    expect(merged.facts!['us-gaap'].OperatingIncomeLoss.units!.USD).toHaveLength(1);
+    expect(merged.facts!.dei).toBe(cf.facts.dei);
+    expect(cf.facts['us-gaap'].Revenues.units.USD).toHaveLength(2);
+    expect(parseQuarters(merged).map(r => r.period_end)).toEqual(['2026-03-31', '2026-06-30']);
   });
 });

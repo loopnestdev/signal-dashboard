@@ -127,7 +127,8 @@ signal-dashboard/
 |   |   |   +-- cli.ts                 # npm run backtest -- --from --to [--book] [--save] [--trades]
 |   |   +-- fundamentals/
 |   |   |   +-- secClient.ts           # SEC EDGAR fetches (ticker map, submissions, companyfacts) through one ~4 req/s queue, SEC_USER_AGENT
-|   |   |   +-- parse.ts               # Pure: classifyFiler (10-Q/10-K vs 20-F/40-F), parseQuarters (quarters, derived Q4, revenue/op income tags)
+|   |   |   +-- parse.ts               # Pure: classifyFiler (10-Q/10-K vs 20-F/40-F), parseQuarters (quarters, derived Q4, revenue/op income tags + fallbacks), companyfacts lag helpers
+|   |   |   +-- instance.ts            # Pure: parseInstanceFacts - a filing's own XBRL instance (`*_htm.xml`) in companyfacts shape
 |   |   |   +-- plan.ts                # Pure: planSync (new/daily/full), needsFacts (download only on a new filing)
 |   |   |   +-- leverage.ts            # Pure: leverageFor (margins, YoY, incremental margin, DOL), rankLeverage
 |   |   |   +-- sync.ts                # syncFundamentals + one-at-a-time background job (collector, page, admin, CLI)
@@ -326,9 +327,10 @@ Records history that Signa cannot serve retroactively, so Radon-style strategies
 Universe = `moat.research_reports` tickers (read with the service role via `selectRowsIn('moat', ...)`), not the watchlist or tracked symbols.
 
 - **Classification (`sec_companies`):** exchange-suffixed tickers (`.KR`, `.AX`, ...) -> `non-US listing`; not in SEC's `company_tickers.json` -> excluded; latest periodic report 20-F/40-F -> excluded as ADR / foreign private issuer; no 10-Q/10-K yet -> pending. Re-evaluated on every daily run; a ticker dropped from moat-finder is marked `removed from moat-finder` but keeps its quarters.
-- **Quarters (`sec_quarters`, permanent history):** from `companyfacts`. Quarter = 75-105 day duration, latest filing wins (restatements), fy/fp from the earliest filing. Revenue = largest of the total-revenue tags per period; operating income = `OperatingIncomeLoss`, else revenue minus `CostsAndExpenses` (`op_computed`, shown as a dagger - COHR). Q4 = annual minus the three quarters inside it (`derived`, shown as Q4*).
+- **Quarters (`sec_quarters`, permanent history):** from `companyfacts`. Quarter = 75-105 day duration, latest filing wins (restatements), fy/fp from the earliest filing. Revenue = largest of the total-revenue tags per period (incl. `RegulatedAndUnregulatedOperatingRevenue` for utilities - DTE); operating income = `OperatingIncomeLoss`, else (flagged `op_computed`, shown as a dagger) revenue - `CostsAndExpenses` (COHR), `GrossProfit` - `OperatingExpenses` (CC), revenue - cost of revenue - `OperatingExpenses`, or revenue - cost of revenue - SG&A - R&D (ETN, Qnity). Nothing is computed without a cost-of-revenue figure (ASTS stays skipped). Q4 = annual minus the three quarters inside it (`derived`, shown as Q4*).
 - **Metrics (`leverage.ts`):** year-ago quarter = 350-380 days earlier. Incremental margin = change in op income / change in revenue (null when revenue fell). DOL = % op income change / % revenue change; n/m when last year's op income <= 0 or margin < 1%. Rank = incremental margin desc (ties: margin expansion), growing companies only. Latest quarter > 150 days old -> stale, listed as skipped rather than ranked. Verified against a third-party table: MU, AVGO, SNDK, MCHP, ADI, AMD, LITE, CRDO, MPWR, VIAV, MTSI, ALAB, AXTI match exactly.
-- **Updates:** collector job `fundamentals` at 07:00 ET (`daily`: one submissions request per ticker, `companyfacts` only when the newest 10-Q/10-K accession changed); page load (`new`: only unseen tickers); admin buttons / `npm run fundamentals -- daily|full`. One sync per process at a time. `last_accession` advances only after quarters are stored, so failures retry next run.
+- **Updates:** collector job `fundamentals` at 07:00 ET (`daily`: one submissions request per ticker, `companyfacts` only when the newest 10-Q/10-K accession changed); page load (`new`: only unseen tickers); admin buttons / `npm run fundamentals -- daily|full`. One sync per process at a time.
+- **companyfacts lag:** SEC's companyfacts API can miss a filing for months (CDNS's 2026-07-29 10-Q was still absent in late October) while the filing itself is on EDGAR. Each fact carries `accn`, so the sync checks whether the newest 10-Q/10-K is in companyfacts. If not: up to 2 missing filings are read from their XBRL instance (`<primary doc>_htm.xml`, else found via the filing's `index.json`) and merged in, and `last_accession` is set to null so every daily run downloads again until companyfacts catches up. On 2026-10-23 this applied to AEP, AMKR, CDNS, DTE, FE, ROG, SMTC, VICR.
 - **Rate limit:** SEC allows 10 req/s per IP and blocks ~10 min when exceeded. `secClient.ts` spaces every request 250 ms apart and backs off on 403/429/5xx. A full run is ~2 requests x ~100 filers.
 
 ### Replay engine (release 2 step 3)
@@ -410,7 +412,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 376 tests - one-shot
+cd backend && npm test          # 389 tests - one-shot
 cd frontend && npm test         # 79 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -444,7 +446,8 @@ cd frontend && npm run test:watch  # watch mode
 | `backend/src/__tests__/backtest/flowStudy.test.ts` | Flow study: call/put-heavy classification + premium floor, close-to-close forward returns (incomplete horizons), surge vs median history, bucket stats vs all flow days, recent one-sided day list |
 | `frontend/src/__tests__/lib/performance.test.ts` | Equity chart curve merge (by date, null skip, numeric strings), leg descriptions (single, spread, shares), $/% formatters |
 | `backend/src/__tests__/backtest/units.test.ts` | normCdf, Black-Scholes (textbook value, parity, expiry), expiry choice, contract selection (single, spread 2:1, skip reasons, liquidity, bearish put + bear put spread), payoff, earnings dates/windows/exit timing, Book A/B/C signals and exits, ATR, drawdown, profit factor, losing streak, SPY return, trading-day ranges |
-| `backend/src/__tests__/fundamentals/parse.test.ts` | US ticker format, `classifyFiler` (10-Q/10-K eligible, 20-F/40-F excluded, former 20-F filer, pending IPO), `parseQuarters` (quarter durations, restatement wins with first-filed fy/fp, non-periodic forms ignored, derived Q4, missing-quarter guard, FY->Q4 label, largest revenue tag, CostsAndExpenses fallback) |
+| `backend/src/__tests__/fundamentals/parse.test.ts` | US ticker format, `classifyFiler` (10-Q/10-K eligible, 20-F/40-F excluded, former 20-F filer, pending IPO), `parseQuarters` (quarter durations, restatement wins with first-filed fy/fp, non-periodic forms ignored, derived Q4, missing-quarter guard, FY->Q4 label, largest revenue tag, utility revenue tag, every operating income fallback, no fallback from OperatingExpenses alone), `factAccessions`, `periodicFilingsMissing` (amendments skipped, newest first), `mergeFacts` (no mutation) |
+| `backend/src/__tests__/fundamentals/instance.test.ts` | `parseInstanceFacts` (consolidated USD durations, filer-chosen unit ids, segment / instant / nil / per-share / share facts skipped, duplicates, dei fy/fp, no namespace), `instanceFileName` |
 | `backend/src/__tests__/fundamentals/leverage.test.ts` | `leverageFor` (AVGO reference row, numeric strings, DOL n/m on loss / thin base, falling revenue, no year-ago quarter, missing values, stale cutoff, derived/computed flags), `rankLeverage` (incremental-margin rank, op income order, tie-break) |
 | `backend/src/__tests__/fundamentals/plan.test.ts` | `planSync` (suffix / non-SEC exclusions, new vs daily modes, re-added and removed tickers, dedupe), `needsFacts` (new filing, never fetched, full resync, excluded) |
 | `frontend/src/__tests__/lib/fundamentals.test.ts` | `fmtMoney`, `fmtRatioPct`, `fmtMargin`, `sortLeverage` (directions, rank order, missing values last, margin change, no mutation) |

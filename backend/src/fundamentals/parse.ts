@@ -65,14 +65,20 @@ export interface QuarterRow {
   filed: string | null;
 }
 
-interface Fact {
+export interface Fact {
   start?: string;
   end: string;
   val: number;
+  accn?: string;
   fy?: number;
   fp?: string;
   form?: string;
   filed?: string;
+}
+
+// Only the parts of SEC's companyfacts payload this module reads: taxonomy -> concept -> unit -> facts.
+export interface CompanyFacts {
+  facts?: Record<string, Record<string, { units?: Record<string, Fact[]> }>>;
 }
 
 // Total-revenue tags; companies switch tags over the years (ASC 606 in 2018) and some report a contract-revenue subtotal
@@ -83,11 +89,20 @@ export const REVENUE_CONCEPTS = [
   'RevenueFromContractWithCustomerIncludingAssessedTax',
   'SalesRevenueNet',
   'SalesRevenueGoodsNet',
+  'RegulatedAndUnregulatedOperatingRevenue',   // utilities (DTE)
 ];
 export const OPERATING_INCOME_CONCEPTS = ['OperatingIncomeLoss'];
-// Some filers moved operating income to a company-specific tag, which companyfacts does not carry (COHR since 2024);
-// revenue minus total costs and expenses stands in for those periods and is flagged op_computed.
-export const TOTAL_COSTS_CONCEPTS = ['CostsAndExpenses'];
+// Fallback inputs for filers without an OperatingIncomeLoss tag (COHR, ETN, CC, Qnity): see computedOperatingIncome.
+export const COST_CONCEPTS = {
+  totalCosts: ['CostsAndExpenses'],
+  grossProfit: ['GrossProfit'],
+  operatingExpenses: ['OperatingExpenses'],
+  costOfRevenue: ['CostOfRevenue', 'CostOfGoodsAndServicesSold'],
+  sga: ['SellingGeneralAndAdministrativeExpense'],
+  rnd: ['ResearchAndDevelopmentExpense'],
+};
+// Every us-gaap concept the parser reads; the filing-instance fallback extracts only these.
+export const USED_CONCEPTS = [...REVENUE_CONCEPTS, ...OPERATING_INCOME_CONCEPTS, ...Object.values(COST_CONCEPTS).flat()];
 
 const DAY = 86_400_000;
 export const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
@@ -131,8 +146,7 @@ function periodsOf(facts: Fact[], keep: (f: Fact) => boolean): Map<string, Perio
 }
 
 function conceptFacts(facts: unknown, concept: string): Fact[] {
-  const usd = (facts as { facts?: { 'us-gaap'?: Record<string, { units?: { USD?: Fact[] } }> } } | null)
-    ?.facts?.['us-gaap']?.[concept]?.units?.USD;
+  const usd = (facts as CompanyFacts | null)?.facts?.['us-gaap']?.[concept]?.units?.USD;
   return Array.isArray(usd) ? usd : [];
 }
 
@@ -174,16 +188,40 @@ function quartersFor(facts: unknown, concepts: string[]): Map<string, Period> {
   return byEnd;
 }
 
+type QuarterMaps = Record<keyof typeof COST_CONCEPTS, Map<string, Period>>;
+
+// computedOperatingIncome, first match wins (all flagged op_computed):
+//   - revenue - CostsAndExpenses (total costs; COHR)
+//   - GrossProfit - OperatingExpenses (OperatingExpenses here excludes cost of sales; CC, DGXX)
+//   - revenue - cost of revenue - OperatingExpenses
+//   - revenue - cost of revenue - SG&A - R&D (filers that tag only the income statement lines; ETN, Qnity)
+// Without a cost-of-revenue figure nothing is computed, since OperatingExpenses alone may or may not include it.
+function computedOperatingIncome(end: string, rev: Period | undefined, m: QuarterMaps): Period | undefined {
+  const at = (k: keyof QuarterMaps) => m[k].get(end);
+  const total = at('totalCosts');
+  if (rev && total) return { ...total, val: rev.val - total.val };
+  const gp = at('grossProfit');
+  const opex = at('operatingExpenses');
+  if (gp && opex) return { ...opex, val: gp.val - opex.val };
+  const cor = at('costOfRevenue');
+  if (!rev || !cor) return undefined;
+  if (opex) return { ...opex, val: rev.val - cor.val - opex.val };
+  const sga = at('sga');
+  if (sga) return { ...sga, val: rev.val - cor.val - sga.val - (at('rnd')?.val ?? 0) };
+  return undefined;
+}
+
 export function parseQuarters(companyFacts: unknown): QuarterRow[] {
   const rev = quartersFor(companyFacts, REVENUE_CONCEPTS);
   const op = quartersFor(companyFacts, OPERATING_INCOME_CONCEPTS);
-  const costs = quartersFor(companyFacts, TOTAL_COSTS_CONCEPTS);
+  const costMaps = Object.fromEntries(
+    Object.entries(COST_CONCEPTS).map(([k, concepts]) => [k, quartersFor(companyFacts, concepts)]),
+  ) as QuarterMaps;
   const ends = [...new Set([...rev.keys(), ...op.keys()])].sort();
   return ends.map(end => {
     const r = rev.get(end);
     const reported = op.get(end);
-    const c = costs.get(end);
-    const o = reported ?? (r && c ? { ...c, val: r.val - c.val } : undefined);
+    const o = reported ?? computedOperatingIncome(end, r, costMaps);
     const base = r ?? o!;
     return {
       period_start: base.start,
@@ -198,4 +236,62 @@ export function parseQuarters(companyFacts: unknown): QuarterRow[] {
       filed: [r?.filed, o?.filed].filter(Boolean).sort().pop() ?? null,
     };
   });
+}
+
+// factAccessions:
+//   - Every accession number that contributed any fact, in any taxonomy (dei cover facts included)
+//   - latestFiled is the newest 10-Q/10-K filing date present; later 8-K or S-8 cover facts do not count
+export function factAccessions(companyFacts: unknown): { accessions: Set<string>; latestFiled: string | null } {
+  const accessions = new Set<string>();
+  let latestFiled: string | null = null;
+  for (const concepts of Object.values((companyFacts as CompanyFacts | null)?.facts ?? {})) {
+    for (const concept of Object.values(concepts)) {
+      for (const list of Object.values(concept.units ?? {})) {
+        for (const f of list) {
+          if (f.accn) accessions.add(f.accn);
+          if (f.filed && f.form && QUARTERLY_FORMS.has(f.form) && (!latestFiled || f.filed > latestFiled)) latestFiled = f.filed;
+        }
+      }
+    }
+  }
+  return { accessions, latestFiled };
+}
+
+export interface PeriodicFiling {
+  accession: string;
+  form: string;
+  filed: string;
+  primaryDocument: string;
+}
+
+// periodicFilingsMissing:
+//   - 10-Q / 10-K filings (originals, not amendments) whose data is not in companyfacts yet, newest first
+//   - SEC's companyfacts API can lag a filing by months (CDNS's July 2026 10-Q), while the filing's own XBRL is on EDGAR
+export function periodicFilingsMissing(submissions: unknown, have: Set<string>, latestFiled: string | null): PeriodicFiling[] {
+  const recent = ((submissions as { filings?: { recent?: RecentFilings & { primaryDocument?: string[] } } } | null)?.filings?.recent) ?? {};
+  const out: PeriodicFiling[] = [];
+  (recent.form ?? []).forEach((form, i) => {
+    const accession = recent.accessionNumber?.[i];
+    const filed = recent.filingDate?.[i];
+    const primaryDocument = recent.primaryDocument?.[i];
+    if ((form !== '10-Q' && form !== '10-K') || !accession || !filed || !primaryDocument) return;
+    if (have.has(accession) || (latestFiled && filed < latestFiled)) return;
+    out.push({ accession, form, filed, primaryDocument });
+  });
+  return out.sort((a, b) => b.filed.localeCompare(a.filed));
+}
+
+// Appends extra facts (from a filing's own XBRL) to a companyfacts payload without mutating either.
+export function mergeFacts(base: unknown, extra: CompanyFacts): CompanyFacts {
+  const out: CompanyFacts = { ...(base as CompanyFacts | null), facts: { ...((base as CompanyFacts | null)?.facts ?? {}) } };
+  for (const [ns, concepts] of Object.entries(extra.facts ?? {})) {
+    const target = { ...(out.facts![ns] ?? {}) };
+    for (const [name, concept] of Object.entries(concepts)) {
+      const units = { ...(target[name]?.units ?? {}) };
+      for (const [unit, list] of Object.entries(concept.units ?? {})) units[unit] = [...(units[unit] ?? []), ...list];
+      target[name] = { ...target[name], units };
+    }
+    out.facts![ns] = target;
+  }
+  return out;
 }

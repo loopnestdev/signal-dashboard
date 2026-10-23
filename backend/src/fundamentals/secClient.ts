@@ -1,4 +1,5 @@
 import { recordApiCall } from '../lib/apiUsage.js';
+import { instanceFileName } from './instance.js';
 
 // SEC EDGAR fair-access policy:
 //   - At most 10 requests per second per IP; going over blocks the IP for about 10 minutes
@@ -8,6 +9,10 @@ const MIN_GAP_MS = 250;
 const RETRY_DELAYS_MS = [2_000, 10_000];
 
 let nextSlot = 0;
+let requests = 0;
+
+// Requests made by this process so far; a sync reports the difference as its SEC call count.
+export const secRequestCount = () => requests;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export function secUserAgent(): string | null {
@@ -22,17 +27,18 @@ async function throttle(): Promise<void> {
   if (wait) await sleep(wait);
 }
 
-async function secGet(url: string): Promise<unknown> {
+async function secGet(url: string, as: 'json' | 'text' = 'json'): Promise<unknown> {
   const ua = secUserAgent();
   if (!ua) throw new Error('SEC_USER_AGENT is not set (format: "<app name> <contact email>")');
   for (let attempt = 0; ; attempt++) {
     await throttle();
     recordApiCall('sec');
+    requests++;
     const res = await fetch(url, {
-      headers: { 'User-Agent': ua, Accept: 'application/json', 'Accept-Encoding': 'gzip, deflate' },
+      headers: { 'User-Agent': ua, Accept: as === 'json' ? 'application/json' : '*/*', 'Accept-Encoding': 'gzip, deflate' },
       signal: AbortSignal.timeout(30_000),
     });
-    if (res.ok) return res.json();
+    if (res.ok) return as === 'json' ? res.json() : res.text();
     if (res.status === 404) return null;
     // 403/429 mean SEC is throttling this IP; back off instead of hammering it.
     if ((res.status === 403 || res.status === 429 || res.status >= 500) && attempt < RETRY_DELAYS_MS.length) {
@@ -56,3 +62,18 @@ export async function fetchTickerMap(): Promise<Map<string, { cik: number; name:
 export const fetchSubmissions = (cik: number) => secGet(`https://data.sec.gov/submissions/CIK${pad(cik)}.json`);
 
 export const fetchCompanyFacts = (cik: number) => secGet(`https://data.sec.gov/api/xbrl/companyfacts/CIK${pad(cik)}.json`);
+
+// fetchFilingInstance:
+//   - The filing's XBRL instance from the EDGAR archive, for filings SEC's companyfacts API has not ingested yet
+//   - Tries the name derived from the primary document first, then the filing index (1 extra request)
+export async function fetchFilingInstance(cik: number, accession: string, primaryDocument: string): Promise<string | null> {
+  const base = `https://www.sec.gov/Archives/edgar/data/${cik}/${accession.replace(/-/g, '')}`;
+  const guess = instanceFileName(primaryDocument);
+  if (guess) {
+    const xml = (await secGet(`${base}/${guess}`, 'text')) as string | null;
+    if (xml) return xml;
+  }
+  const index = (await secGet(`${base}/index.json`)) as { directory?: { item?: { name: string }[] } } | null;
+  const name = index?.directory?.item?.map(i => i.name).find(n => /_htm\.xml$/i.test(n));
+  return name ? ((await secGet(`${base}/${name}`, 'text')) as string | null) : null;
+}

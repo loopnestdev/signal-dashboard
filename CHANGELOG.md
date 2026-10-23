@@ -14,6 +14,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.8.1] - 2026-10-23
+
+### Fixed
+
+- Fundamentals: companies whose latest 10-Q SEC's companyfacts API had not picked up yet (CDNS, AMKR, AEP, DTE, FE, ROG, SMTC, VICR) were stuck on their March quarter, and the daily check marked the filing as done so it never retried. The figures are now read from the filing's own XBRL file on EDGAR until companyfacts catches up, and the filing is only marked done once companyfacts has it.
+- Fundamentals: DTE (utility revenue tag) and ETN, CC, Qnity (no operating income tag) were missing from the table. Operating income is now computed from gross profit, cost of revenue, operating expenses or SG&A + R&D when not tagged (marked † in the table). 92 of 122 moat-finder tickers are ranked (was 79); the rest are non-US listings, ADRs or have no usable revenue yet.
+
+---
+
 ## [1.8.0] - 2026-10-21
 
 ### Added
