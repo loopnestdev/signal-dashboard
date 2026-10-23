@@ -540,6 +540,8 @@ Copy this - you'll need it for Cloudflare Pages.
 | Build output directory | `dist` |
 | Node.js version | `20` |
 
+> **Deployed as a Worker (Workers Builds)?** The deploy command is `npx wrangler deploy` and the build variables live under **Settings --> Build --> Variables and secrets**. `frontend/wrangler.jsonc` must stay in the repo: without it, wrangler's auto-setup npm-installs `wrangler` + `@cloudflare/vite-plugin` and fails with `npm error Cannot read properties of null (reading 'edgesOut')` because of the `overrides` block in `frontend/package.json`.
+
 #### Step 3 - Environment variables
 
 In **Settings --> Environment Variables**, add:
