@@ -170,7 +170,7 @@ export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onA
                         {c.title}{sort.key === c.key ? (sort.asc ? ' ↑' : ' ↓') : ''}<InfoTip tip={c.tip} />
                       </th>
                     ))}
-                    <th style={th}>Quarter<InfoTip tip="Fiscal quarter and the date it ended. * = Q4 derived from the annual report. † = operating income computed as revenue minus total costs, because the company does not tag operating income in its filings." /></th>
+                    <th style={th}>Quarter<InfoTip tip="Fiscal quarter and the date it ended. * = Q4 derived from the annual report. † = operating income computed from the income statement lines (revenue minus cost of revenue and operating expenses), because the company does not tag operating income in its filings." /></th>
                   </tr>
                 </thead>
                 <tbody>
