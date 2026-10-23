@@ -85,6 +85,7 @@ signal-dashboard/
 |   |       +-- stock.ts               # StockResponse, SignaData, FibLevel, OptionsInsight, FundamentalsData, etc.
 |   +-- index.html
 |   +-- vite.config.ts                 # /api proxy to :3001
+|   +-- wrangler.jsonc                 # Cloudflare Workers Builds deploy (static dist, SPA fallback); without it wrangler's auto-setup crashes npm
 |   +-- package.json
 |
 +-- backend/
