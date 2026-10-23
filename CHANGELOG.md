@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.8.1] - 2026-10-23
+
+### Fixed
+
+- **Cloudflare frontend deploys** failed since 2026-10-22 with `npm error Cannot read properties of null (reading 'edgesOut')`. Newer wrangler (4.151) runs an auto-setup when the project has no wrangler config; that setup npm-installs `wrangler` + `@cloudflare/vite-plugin` and npm crashes on the `overrides` block in `frontend/package.json`. Added `frontend/wrangler.jsonc` (static assets from `dist`, single-page-app fallback) so `npx wrangler deploy` skips the setup.
+
+---
+
 ## [1.8.0] - 2026-10-21
 
 ### Added

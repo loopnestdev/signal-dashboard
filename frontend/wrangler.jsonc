@@ -1,0 +1,13 @@
+// Cloudflare Workers Builds deploy config (static assets only, no Worker script):
+//   - Without this file, `npx wrangler deploy` runs its auto-setup, which npm-installs wrangler + @cloudflare/vite-plugin and crashes on the `overrides` block in package.json (npm "edgesOut" error)
+//   - SPA fallback serves index.html for unknown paths; public/_headers (CSP etc.) is still applied
+{
+  "$schema": "https://unpkg.com/wrangler@4.151.3/config-schema.json",
+  "name": "signal-dashboard",
+  "compatibility_date": "2026-10-19",
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
