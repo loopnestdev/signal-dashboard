@@ -1,6 +1,6 @@
-# LEAPS Book - Trading Rules - v1.2
+# LEAPS Book - Trading Rules - v1.3
 
-Status: **approved 2026-10-25 (v1.0); v1.1 the same day changes only the backtest's price model (section 9); v1.2 (later the same day) adds the index book IX (section 6b), T-bill interest on idle cash and the daily LEAPS quote grid (section 10) - see the change log.** Thresholds marked *(proposed)* were suggested and accepted as written. The rules are frozen in code (`LEAPS_RULES_VERSION`) and versioned like `docs/release2-trading-rules.md`: any later change gets a new version and is re-tested.
+Status: **approved 2026-10-25 (v1.0); v1.1 the same day changes only the backtest's price model (section 9); v1.2 (later the same day) adds the index book (section 6b), T-bill interest on idle cash and the daily LEAPS quote grid (section 10); v1.3 splits the index book into IS (SPY) and IQ (QQQ) - see the change log.** Thresholds marked *(proposed)* were suggested and accepted as written. The rules are frozen in code (`LEAPS_RULES_VERSION`) and versioned like `docs/release2-trading-rules.md`: any later change gets a new version and is re-tested.
 
 **Idea:** buy long-dated calls (LEAPS) on high-quality large caps only when the market is down, take half off at +100%, and let the rest run.
 
@@ -83,15 +83,21 @@ You weren't sure which strike to use, so the backtest runs the same entries thro
 
 ---
 
-## 6b. Index book IX - SPY + QQQ, always held (v1.2)
+## 6b. Index books IS (SPY) and IQ (QQQ), always held (v1.2, split in v1.3)
 
-**Idea:** from the 2026-10-25 research (below), the only LEAPS approach that beat its own index at equal risk in both 2016-2021 and 2022-2026: hold deep ITM index calls all the time instead of picking stocks in dips.
+**Idea:** from the 2026-10-25 research (below), the only LEAPS approach that beat its own index at equal risk in both 2016-2021 and 2022-2026: hold deep ITM index calls all the time instead of picking stocks in dips. Two separate books, each with its own balance, so each is judged against its own index.
 
-- **Always invested:** one call on **SPY** and one on **QQQ**, each **15% of the book's equity** when bought; the other ~70% earns the 13-week T-bill rate.
+| Book | Holds | Compared with |
+| --- | --- | --- |
+| **IS** | one SPY LEAPS | SPY (total return) |
+| **IQ** | one QQQ LEAPS | QQQ (total return) |
+
+- **Always invested:** the book's one call is **30% of its equity** when bought; the other ~70% earns the 13-week T-bill rate.
 - **Contract:** first standard monthly expiry **500-900 days** out, delta nearest **0.85**. Spread <= 5% of mid; no open-interest floor (index options).
 - **Exit:** only the time exit - sold with **120 days** left and replaced in the same session (a roll). No half sale, no stop, no quality check, no market-state condition. 500+ days at purchase means every position is held more than 12 months (CGT discount).
-- **Size:** one 0.85-delta SPY or QQQ LEAPS costs ~$20,000, so 15% buys one whole contract only from a book of ~$130,000. Below that the paper book holds **fractional contracts** (tracked to 4 decimals) and the page shows the book size needed; a real account of $25-50k could not hold this book as specified.
-- **Research basis (modeled prices, SPY total return):** 2016-10 -> 2026-10 CAGR 17.8%, max drawdown 25%, vs SPY 15.3% / 34%. Against the same index mix leveraged to the same drawdown: +6.0 points a year in 2016-2021, +1.2 in 2022-2026. The edge is largest in crashes (a call cannot lose more than its premium) and small since 2022; it may be noise.
+- **Size:** one 0.85-delta SPY or QQQ LEAPS costs ~$20,000, so 30% buys one whole contract only from a book of ~$65,000-70,000. Below that the paper book holds **fractional contracts** (tracked to 4 decimals) and the page shows the book size needed; a real account of $25-50k could not hold this book as specified.
+- **Results (modeled prices, 2016-10 -> 2026-10, total return):** IS CAGR 14.8%, max drawdown 26%, vs SPY 15.3% / 34%. IQ CAGR 20.6% / 28% vs QQQ 20.3% / 35%. So: about the index's return with a drawdown ~8 points smaller. Against its own index leveraged to the same drawdown: SPY +5.5 / +0.9 points a year (2016-2021 / 2022-2026), QQQ +4.8 / +1.1. The edge is largest in crashes (a call cannot lose more than its premium) and small since 2022; it may be noise.
+- v1.2 held both indexes in one book (IX, 15% each); IX backtest runs stay readable but are no longer produced.
 
 ---
 
@@ -183,3 +189,4 @@ Same as release 2 section 6, plus: % of trades that reached the +100% half sale,
 | 1.0 | 2026-10-25 | Approved. Added section 8 (price levels). Before approval: IV check measured against VIX, net income for banks, backtest Pullback without the Market Quality Score. |
 | 1.1 | 2026-10-25 | Backtest price model only (section 9); no trading rule changed. The v1.0 model (IV = VIX x stock/SPY realized-vol ratio) priced LEAPS ~50% above real Cboe quotes even in a calm market, and far higher in panics, when 30-day VIX spikes but 18-month IV does not. Its volatility proxy also excluded names the live check accepts (MSFT). Replaced with the fitted model above. Found by checking the model against live quotes, not by tuning for results. |
 | 1.2 | 2026-10-25 | Added the index book IX (section 6b). Idle cash earns T-bill interest in the backtest and the paper books; SPY benchmark is total return; sells fill before buys in a session. Daily LEAPS quote grid for research. Stock books L1-L3 unchanged. |
+| 1.3 | 2026-10-25 | Index book IX split into IS (SPY only) and IQ (QQQ only), 30% of each book in its one LEAPS, same contract and roll rules; IQ is compared with QQQ, all other books with SPY. Stock books unchanged. |

@@ -2,7 +2,7 @@ import { getSettings } from '../lib/settings.js';
 import { insertRow, upsertRows } from '../lib/supabaseRest.js';
 import { runLeapsBacktest, summarizeLeaps, type LeapsBacktestResult, type LeapsSummary } from './backtest.js';
 import { loadLeapsHistory } from './data.js';
-import { LEAPS_BOOKS, LEAPS_RULES_VERSION, type LeapsBook } from './rules.js';
+import { benchmarkOf, LEAPS_BOOKS, LEAPS_RULES_VERSION, type LeapsBook } from './rules.js';
 
 // One LEAPS backtest of the three strike books over the same history; shared by the CLI and the API.
 
@@ -56,7 +56,8 @@ export async function replayLeaps(req: LeapsRunRequest, save: boolean, books: Le
   for (const book of books) {
     onStep?.(book);
     const result = runLeapsBacktest(history, book, settings.leaps.startingBalance, settings.costs.optionPerContract);
-    const summary = summarizeLeaps(result, history.spyTr);
+    const bench = benchmarkOf(book);
+    const summary = summarizeLeaps(result, history.spyTr, { symbol: bench, series: bench === 'QQQ' ? history.qqqTr : history.spyTr });
     const runId = save ? await saveLeapsRun(result, summary) : null;
     outcomes.push({ result, summary, runId });
   }

@@ -4,7 +4,7 @@ import { decideExit, sizePosition } from './exits.js';
 import { snapStrike, strikeForDelta } from './levels.js';
 import { marketState, offHighPct, rollingHigh, rollingVol } from './market.js';
 import { knownQuarters, profitCheck, qualityChecks, revenueCheck, type QuarterFacts } from './quality.js';
-import { BOOK_DELTA, daysBetween, INDEX_BOOK, RULES, yearsUntil, type LeapsBook, type MarketState } from './rules.js';
+import { BOOK_DELTA, daysBetween, INDEX_BOOK, isIndexBook, RULES, yearsUntil, type LeapsBook, type MarketState } from './rules.js';
 
 // LEAPS replay on modeled prices (docs/leaps-rules.md section 9). Pure: history comes in, trades and equity come out.
 //   - Decisions use a session's close; fills happen at the next session's close (buy at modeled ask, sell at bid)
@@ -12,7 +12,7 @@ import { BOOK_DELTA, daysBetween, INDEX_BOOK, RULES, yearsUntil, type LeapsBook,
 //   - The volatility check compares that realized vol with VIX, standing in for the live IV30 / VIX
 //   - Fractional contracts, so the books compare the strategy rather than the account size
 //   - Idle cash earns the 13-week T-bill rate (rules v1.2); the SPY benchmark is total return (dividends included)
-//   - Book IX holds SPY and QQQ LEAPS at all times (section 6b); the stock books buy only in down markets
+//   - Books IS / IQ hold a SPY / QQQ LEAPS at all times (section 6b); the stock books buy only in down markets
 
 export interface Series {
   dates: string[];
@@ -32,8 +32,9 @@ export interface LeapsHistory {
   vix6m: Map<string, number>;      // ^VIX6M: long-dated IV moves far less than 30-day VIX in a panic
   rate: Map<string, number>;       // risk-free rate, decimal
   stocks: StockHistory[];
-  index: StockHistory[];           // SPY, QQQ for book IX (no quarters)
+  index: StockHistory[];           // SPY, QQQ for books IS / IQ (no quarters)
   spyTr: Series;                   // SPY adjusted close (total return) for the benchmark
+  qqqTr: Series;                   // QQQ adjusted close, the benchmark for book IQ
 }
 
 export interface LeapsTrade {
@@ -187,8 +188,8 @@ export function marketStates(h: Pick<LeapsHistory, 'days' | 'spy' | 'vix'>): { s
 
 export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalance: number, commission: number): LeapsBacktestResult {
   const spy = prepare(h.spy);
-  const isIndex = book === 'IX';
-  const stocks: Prepared[] = (isIndex ? h.index : h.stocks).map(s => ({ ...s, ...prepare(s) }));
+  const isIndex = isIndexBook(book);
+  const stocks: Prepared[] = (isIndex ? h.index.filter(s => s.symbol === INDEX_BOOK.symbolOf[book]) : h.stocks).map(s => ({ ...s, ...prepare(s) }));
   const bySymbol = new Map(stocks.map(s => [s.symbol, s]));
   const { states, episodes } = marketStates(h);
   const skips: Record<string, number> = {};
@@ -316,7 +317,7 @@ export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalan
         if (iv == null || !expiry) { skip(s.symbol, iv == null ? 'no volatility history' : 'no LEAPS expiry', date); continue; }
         const years = yearsUntil(date, expiry);
         const spot = s.closes[i];
-        const strike = snapStrike(strikeForDelta(spot, years, iv, lastRate, BOOK_DELTA.IX), spot);
+        const strike = snapStrike(strikeForDelta(spot, years, iv, lastRate, BOOK_DELTA[book]), spot);
         // A position being rolled frees its value at the same fill, so size on equity, not on today's cash.
         const budget = eq * INDEX_BOOK.positionPct / 100;
         pendingEntries.push({ symbol: s.symbol, budget, expiry, strike, state: ms.state, episode: ms.episode });
@@ -390,6 +391,7 @@ export interface LeapsSummary {
   cagrPct: number | null;
   maxDrawdownPct: number;
   spyReturnPct: number | null;
+  benchmark: { symbol: string; returnPct: number | null; cagrPct: number | null; maxDrawdownPct: number | null };
   halfSaleRate: number | null;     // % of trades that reached +100%
   halfPnl: number;
   runnerPnl: number;
@@ -405,7 +407,19 @@ export interface LeapsSummary {
   interest: number;
 }
 
-export function summarizeLeaps(r: LeapsBacktestResult, spy: Series): LeapsSummary {
+// Total return, CAGR and max drawdown of a price series over the run's dates.
+function seriesStats(s: Series, from: string, to: string) {
+  const w = s.dates.map((d, i) => ({ d, c: s.closes[i] })).filter(x => x.d >= from && x.d <= to);
+  if (w.length < 2) return { returnPct: null, cagrPct: null, maxDrawdownPct: null };
+  const years = daysBetween(w[0].d, w.at(-1)!.d) / 365.25;
+  let peak = -Infinity;
+  let dd = 0;
+  for (const x of w) { peak = Math.max(peak, x.c); dd = Math.min(dd, x.c / peak - 1); }
+  const g = w.at(-1)!.c / w[0].c;
+  return { returnPct: round((g - 1) * 100), cagrPct: years >= 1 ? round((g ** (1 / years) - 1) * 100) : null, maxDrawdownPct: round(Math.abs(dd) * 100) };
+}
+
+export function summarizeLeaps(r: LeapsBacktestResult, spy: Series, bench: { symbol: string; series: Series } = { symbol: 'SPY', series: spy }): LeapsSummary {
   const t = r.trades;
   const wins = t.filter(x => x.pnl > 0);
   const final = r.equity.at(-1)?.equity ?? r.startingBalance;
@@ -430,6 +444,7 @@ export function summarizeLeaps(r: LeapsBacktestResult, spy: Series): LeapsSummar
     cagrPct: years >= 1 && final > 0 ? round(((final / r.startingBalance) ** (1 / years) - 1) * 100) : null,
     maxDrawdownPct: round(-dd * 100),
     spyReturnPct: spyIn.length >= 2 ? round((spyIn.at(-1)!.c / spyIn[0].c - 1) * 100) : null,
+    benchmark: { symbol: bench.symbol, ...seriesStats(bench.series, r.from, r.to) },
     halfSaleRate: t.length ? round(t.filter(x => x.halfDate).length / t.length * 100, 1) : null,
     halfPnl: round(t.reduce((s, x) => s + (x.halfPnl ?? 0), 0)),
     runnerPnl: round(t.reduce((s, x) => s + x.runnerPnl, 0)),

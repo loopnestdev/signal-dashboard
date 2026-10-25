@@ -1,6 +1,6 @@
 // LEAPS book (docs/leaps-rules.md): screen, paper positions and modeled-price backtests.
 
-export type LeapsBook = 'L1' | 'L2' | 'L3' | 'IX';
+export type LeapsBook = 'L1' | 'L2' | 'L3' | 'IS' | 'IQ';
 export type LeapsMarketState = 'correction' | 'pullback' | 'normal';
 
 export interface PriceLevels {
@@ -147,6 +147,7 @@ export interface LeapsSummary {
   cagrPct: number | null;
   maxDrawdownPct: number;
   spyReturnPct: number | null;
+  benchmark?: { symbol: string; returnPct: number | null; cagrPct: number | null; maxDrawdownPct: number | null };
   halfSaleRate: number | null;
   halfPnl: number;
   runnerPnl: number;
@@ -219,4 +220,5 @@ export interface LeapsRunDetail {
   trades: LeapsTradeRow[];
   equity: Array<{ date: string; equity: number; cash: number; open_positions: number }>;
   benchmark: Array<{ date: string; equity: number | null }>;
+  benchmarkSymbol?: 'SPY' | 'QQQ';
 }

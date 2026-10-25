@@ -12,9 +12,11 @@ const BOOKS: Record<LeapsBook, { name: string; short: string; color: string; tip
   L1: { name: 'L1 - Deep ITM (0.75 delta)', short: 'L1 deep ITM', color: C.primary, tip: 'Moves almost like the stock, little time decay. Needs a bigger stock move to reach +100%.' },
   L2: { name: 'L2 - At the money (0.50 delta)', short: 'L2 ATM', color: C.warn, tip: 'Balance of cost and leverage. +100% usually needs a ~25-35% stock rise.' },
   L3: { name: 'L3 - Out of the money (0.30 delta)', short: 'L3 OTM', color: C.inkSec, tip: 'Cheap with the most leverage. Reaches +100% fastest but expires worthless more often.' },
-  IX: { name: 'IX - SPY + QQQ index (0.85 delta)', short: 'IX index', color: C.bull, tip: 'Always holds one deep ITM LEAPS on SPY and one on QQQ (15% of the book each), rolled with 120 days left; the rest earns T-bill interest. Rules section 6b.' },
+  IS: { name: 'IS - SPY index (0.85 delta)', short: 'IS SPY', color: C.bull, tip: 'Always holds one deep ITM SPY LEAPS (30% of the book), rolled with 120 days left; the rest earns T-bill interest. Compared with SPY. Rules section 6b.' },
+  IQ: { name: 'IQ - QQQ index (0.85 delta)', short: 'IQ QQQ', color: C.primaryDeep, tip: 'Always holds one deep ITM QQQ LEAPS (30% of the book), rolled with 120 days left; the rest earns T-bill interest. Compared with QQQ. Rules section 6b.' },
 };
-const BOOK_IDS: LeapsBook[] = ['L1', 'L2', 'L3', 'IX'];
+const BOOK_IDS: LeapsBook[] = ['L1', 'L2', 'L3', 'IS', 'IQ'];
+const INDEX_BOOK_OF: Record<string, LeapsBook> = { SPY: 'IS', QQQ: 'IQ' };
 const STOCK_BOOK_IDS: LeapsBook[] = ['L1', 'L2', 'L3'];
 const INDEX_SYMBOLS = new Set(['SPY', 'QQQ']);
 
@@ -197,14 +199,14 @@ function ProposedTable({ rows, book, state, onAnalyze }: { rows: LeapsScreenRow[
 }
 
 function IndexCard({ rows, positionPct, startingBalance }: { rows: LeapsScreenRow[]; positionPct: number; startingBalance: number }) {
-  const idx = rows.filter(r => INDEX_SYMBOLS.has(r.symbol) && r.contracts?.IX);
+  const idx = rows.filter(r => INDEX_SYMBOLS.has(r.symbol) && r.contracts?.[INDEX_BOOK_OF[r.symbol]]);
   return (
-    <Card title="Index book IX - SPY + QQQ, always held" tip="LEAPS rules section 6b. One deep ITM (0.85 delta) call per index, expiry 500-900 days out, rolled with 120 days left so each is held over 12 months. 15% of the book each; the rest earns T-bill interest. No half sale, no stop. The contract below is what a new position or the next roll would buy today.">
+    <Card title="Index books IS (SPY) and IQ (QQQ) - always held" tip="LEAPS rules section 6b. Each book always holds one deep ITM (0.85 delta) call on its own index, expiry 500-900 days out, rolled with 120 days left so it is held over 12 months. 30% of that book; the rest earns T-bill interest. No half sale, no stop. The contract below is what a new position or the next roll would buy today.">
       {!idx.length ? <div style={{ fontSize: '13px', color: C.inkMute }}>No index quotes in the latest screen yet.</div> : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 900 }}>
             <thead><tr>
-              <th style={th}>Index</th>
+              <th style={th}>Book</th>
               <th style={th}>Contract</th>
               <th style={{ ...th, textAlign: 'right' }}>Ask</th>
               <th style={{ ...th, textAlign: 'right' }}>1 contract<InfoTip tip="Cost of one contract incl. commission." /></th>
@@ -213,12 +215,12 @@ function IndexCard({ rows, positionPct, startingBalance }: { rows: LeapsScreenRo
             </tr></thead>
             <tbody>
               {idx.map(r => {
-                const c = r.contracts!.IX!;
+                const c = r.contracts![INDEX_BOOK_OF[r.symbol]]!;
                 const unit = c.ask != null ? c.ask * 100 + 1 : null;
                 const need = unit != null ? unit / (positionPct / 100) : null;
                 return (
                   <tr key={r.symbol}>
-                    <td style={{ ...td, fontWeight: 700, color: C.ink }}>{r.symbol}<div style={sub}>{money(r.price)}</div></td>
+                    <td style={{ ...td, fontWeight: 700, color: BOOKS[INDEX_BOOK_OF[r.symbol]].color }}>{INDEX_BOOK_OF[r.symbol]} <span style={{ color: C.ink }}>{r.symbol}</span><div style={sub}>{money(r.price)}</div></td>
                     <td className="tnum" style={td}>
                       {c.strike != null ? `${c.strike}C ${c.expiry}` : (c.reason ?? '-')}
                       <div style={sub}>{c.delta != null ? `Δ ${c.delta.toFixed(2)}` : ''}{c.iv != null ? ` · IV ${(c.iv * 100).toFixed(0)}%` : ''}</div>
@@ -340,10 +342,14 @@ function UniverseTable({ rows }: { rows: LeapsScreenRow[] }) {
 function EquityChart({ details }: { details: Partial<Record<LeapsBook, LeapsRunDetail>> }) {
   const books = BOOK_IDS.filter(b => details[b]);
   const first = books.map(b => details[b]).find(Boolean);
+  // SPY (same start) from any stock or IS run; QQQ (same start) from the IQ run, so each index book has its own yardstick.
+  const spyBench = books.map(b => details[b]!).find(d => (d.benchmarkSymbol ?? 'SPY') === 'SPY')?.benchmark ?? first?.benchmark ?? [];
+  const qqqBench = details.IQ?.benchmarkSymbol === 'QQQ' ? details.IQ.benchmark : null;
   const rows = useMemo(() => mergeNamedCurves(
-    Object.fromEntries(books.map(b => [b, details[b]!.equity])),
-    first?.benchmark ?? [],
-  ), [details, books, first]);
+    { ...Object.fromEntries(books.map(b => [b, details[b]!.equity])), ...(qqqBench ? { QQQ: qqqBench } : {}) },
+    spyBench,
+  ), [details, books, spyBench, qqqBench]);
+  const label = (name: string) => (name === 'SPY' || name === 'QQQ' ? `${name} (same start)` : BOOKS[name as LeapsBook]?.short ?? name);
   if (!rows.length) return <div style={{ fontSize: '13px', color: C.inkMute }}>Loading curves...</div>;
   const axis = { fontSize: 11, fill: C.inkMute as string };
   return (
@@ -356,11 +362,12 @@ function EquityChart({ details }: { details: Partial<Record<LeapsBook, LeapsRunD
           <Tooltip
             contentStyle={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}
             labelStyle={{ color: C.ink, fontWeight: 600 }}
-            formatter={(v, name) => [fmtUsd(Number(v)), name === 'SPY' ? 'SPY (same start)' : BOOKS[name as LeapsBook]?.short ?? String(name)]}
+            formatter={(v, name) => [fmtUsd(Number(v)), label(String(name))]}
           />
-          <Legend wrapperStyle={{ fontSize: 12 }} formatter={(name: string) => (name === 'SPY' ? 'SPY (same start)' : BOOKS[name as LeapsBook]?.short ?? name)} />
+          <Legend wrapperStyle={{ fontSize: 12 }} formatter={(name: string) => label(name)} />
           {books.map(b => <Line key={b} type="monotone" dataKey={b} stroke={BOOKS[b].color} strokeWidth={2} dot={false} isAnimationActive={false} />)}
           <Line type="monotone" dataKey="SPY" stroke={C.inkMute} strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
+          {qqqBench && <Line type="monotone" dataKey="QQQ" stroke={C.primaryBorder} strokeWidth={1.5} strokeDasharray="2 3" dot={false} isAnimationActive={false} />}
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -418,7 +425,7 @@ function BacktestSection({ canRun }: { canRun: boolean }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card
         title="Backtest - modeled prices"
-        tip="LEAPS rules section 9. No historical LEAPS quotes exist, so prices are Black-Scholes with IV = VIX x (stock vol / SPY vol), a 2% half-spread on each fill, fractional contracts. Signa data is not part of the backtest (no history). Treat results as a sanity check across ~4-5 drawdowns, not proof."
+        tip="LEAPS rules section 9. No historical LEAPS quotes exist, so prices are Black-Scholes with IV fitted to real Cboe LEAPS quotes (0.07 + 0.75 x the stock's 1-year realized vol, scaled by 6-month VIX), a 2% half-spread on each fill, fractional contracts. Signa data is not part of the backtest (no history). Treat results as a sanity check across ~4-5 drawdowns, not proof."
         right={canRun && (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={input} />
@@ -446,7 +453,7 @@ function BacktestSection({ canRun }: { canRun: boolean }) {
                   <th style={th}>Book</th>
                   <th style={{ ...th, textAlign: 'right' }}>Return</th>
                   <th style={{ ...th, textAlign: 'right' }}>CAGR<InfoTip tip="Compound yearly growth of the book, open positions at their marked value." /></th>
-                  <th style={{ ...th, textAlign: 'right' }}>SPY<InfoTip tip="SPY total return over the same dates, dividends reinvested." /></th>
+                  <th style={{ ...th, textAlign: 'right' }}>Benchmark<InfoTip tip="The index this book competes with, total return over the same dates (dividends reinvested): QQQ for IQ, SPY for every other book. Its CAGR and max drawdown are shown below the return." /></th>
                   <th style={{ ...th, textAlign: 'right' }}>Max DD</th>
                   <th style={{ ...th, textAlign: 'right' }}>Trades</th>
                   <th style={{ ...th, textAlign: 'right' }}>Win rate</th>
@@ -466,7 +473,10 @@ function BacktestSection({ canRun }: { canRun: boolean }) {
                         <td style={{ ...td, color: BOOKS[b].color, fontWeight: 700 }}>{BOOKS[b].name}</td>
                         <td className="tnum" style={{ ...td, textAlign: 'right', color: pnlColor(x.returnPct), fontWeight: 600 }}>{fmtPct(x.returnPct)}</td>
                         <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtPct(x.cagrPct)}</td>
-                        <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtPct(x.spyReturnPct)}</td>
+                        <td className="tnum" style={{ ...td, textAlign: 'right' }}>
+                          {x.benchmark?.symbol ?? 'SPY'} {fmtPct(x.benchmark?.returnPct ?? x.spyReturnPct)}
+                          {x.benchmark && <div style={sub}>CAGR {fmtPct(x.benchmark.cagrPct)} · DD {x.benchmark.maxDrawdownPct ?? '-'}%</div>}
+                        </td>
                         <td className="tnum" style={{ ...td, textAlign: 'right', color: C.bear }}>{x.maxDrawdownPct}%</td>
                         <td className="tnum" style={{ ...td, textAlign: 'right' }}>{x.trades}{x.openAtEnd ? ` +${x.openAtEnd}` : ''}</td>
                         <td className="tnum" style={{ ...td, textAlign: 'right' }}>{x.winRate == null ? '-' : `${x.winRate}%`}</td>
@@ -587,7 +597,7 @@ export function LeapsView({ canRun, onAnalyze }: { canRun: boolean; onAnalyze: (
       {data && <IndexCard rows={data.screen} positionPct={data.indexPositionPct ?? 15} startingBalance={data.startingBalance} />}
 
       {data && (
-        <Card title="Paper positions" tip="LEAPS rules section 10. Filled at the next close: buy at ask, sell at bid. Stock books use whole contracts (at least 2); the index book IX uses fractional contracts. Idle cash earns T-bill interest. Break-even and +100% levels use the actual fill price.">
+        <Card title="Paper positions" tip="LEAPS rules section 10. Filled at the next close: buy at ask, sell at bid. Stock books use whole contracts (at least 2); the index books IS and IQ use fractional contracts. Idle cash earns T-bill interest. Break-even and +100% levels use the actual fill price.">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 14 }}>
             {data.books.map(b => (
               <div key={b.book} style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 14px' }}>

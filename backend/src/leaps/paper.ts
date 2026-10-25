@@ -1,10 +1,10 @@
 import { decideExit } from './exits.js';
-import type { LeapsBook } from './rules.js';
+import { isIndexBook, type LeapsBook } from './rules.js';
 
 // Paper LEAPS books (docs/leaps-rules.md section 10). Pure: one session's quotes move each position one step.
 //   - Orders decided after a close fill at the next session's close: buys at the ask, sells at the bid
 //   - Stock books: whole contracts, at least 2; half = floor(open / 2)
-//   - Index book IX: fractional contracts (one SPY/QQQ 0.85-delta LEAPS costs ~$20k), rolled by the time exit only
+//   - Index books IS / IQ: fractional contracts (one SPY/QQQ 0.85-delta LEAPS costs ~$20k), rolled by the time exit only
 
 export interface PaperPosition {
   id?: number;
@@ -90,7 +90,7 @@ export function stepPosition(p: PaperPosition, q: Quote | null, date: string, qu
     const unit = q?.ask && q.ask > 0 ? q.ask * 100 + commission : null;
     if (!unit) return { position: { ...pos, status: 'cancelled', exit_reason: 'no quote at fill', exit_date: date }, event: 'cancelled: no quote at fill' };
     const room = (cash + n(pos.meta.estCost)) / unit;
-    if (pos.book === 'IX') {
+    if (isIndexBook(pos.book)) {
       const qty = Math.floor(Math.min(n(pos.qty), room) * 1e4 + 1e-6) / 1e4;
       if (qty <= 0) return { position: { ...pos, status: 'cancelled', exit_reason: 'no cash at fill', exit_date: date }, event: 'cancelled: no cash at fill' };
       Object.assign(pos, {
@@ -139,7 +139,7 @@ export function stepPosition(p: PaperPosition, q: Quote | null, date: string, qu
     const d = decideExit({
       entryDate: pos.entry_date!, expiry: pos.expiry, entryPrice: n(pos.entry_price), halfSold: pos.half_date != null,
       peakSinceHalf: pos.peak_value, qualityOk,
-    }, date, n(pos.last_bid), pos.book === 'IX');
+    }, date, n(pos.last_bid), isIndexBook(pos.book));
     if (d) {
       pos.pending_action = d.action === 'half' ? 'half' : `close:${d.reason}`;
       event = [event, `decided: ${d.action === 'half' ? 'sell half' : d.reason}`].filter(Boolean).join('; ');

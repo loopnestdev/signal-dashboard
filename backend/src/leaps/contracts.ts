@@ -1,5 +1,5 @@
 import { isMonthlyExpiry } from '../collector/parsers.js';
-import { BOOK_DELTA, daysBetween, INDEX_BOOK, QUOTE_GRID, RULES, type LeapsBook } from './rules.js';
+import { BOOK_DELTA, daysBetween, INDEX_BOOK, isIndexBook, QUOTE_GRID, RULES, type LeapsBook } from './rules.js';
 
 // Contract choice (docs/leaps-rules.md section 4): first standard monthly expiry 15-27 months out, call nearest the
 // book's target delta, with the section 1 liquidity check on that contract.
@@ -12,7 +12,7 @@ export function pickLeapsExpiry(expiries: string[], date: string, minDays: numbe
 }
 
 export const expiryWindow = (book: LeapsBook): [number, number] =>
-  book === 'IX' ? [INDEX_BOOK.minExpiryDays, INDEX_BOOK.maxExpiryDays] : [RULES.minExpiryDays, RULES.maxExpiryDays];
+  isIndexBook(book) ? [INDEX_BOOK.minExpiryDays, INDEX_BOOK.maxExpiryDays] : [RULES.minExpiryDays, RULES.maxExpiryDays];
 
 const thirdFriday = (year: number, month: number): string => {
   const first = new Date(Date.UTC(year, month - 1, 1, 12));
@@ -74,7 +74,7 @@ export function pickContract(calls: ChainCall[], date: string, book: LeapsBook):
   if (!usable.length) return { call: null, liquid: false, reason: `no quoted calls for ${expiry}` };
   const call = usable.reduce((best, c) => (Math.abs(c.delta! - target) < Math.abs(best.delta! - target) ? c : best));
   // Index LEAPS (SPY/QQQ) trade in deep markets even where a single strike shows little open interest.
-  if (book !== 'IX' && (call.openInterest ?? 0) < RULES.minOpenInterest) {
+  if (!isIndexBook(book) && (call.openInterest ?? 0) < RULES.minOpenInterest) {
     return { call, liquid: false, reason: `illiquid: open interest ${call.openInterest ?? 0} < ${RULES.minOpenInterest}` };
   }
   if (call.bid == null || call.bid <= 0 || spreadPct(call.bid, call.ask!) > RULES.maxSpreadPct) {

@@ -25,7 +25,7 @@ if (missing.length) console.log(`no history (skipped): ${missing.join(', ')}`);
 console.log('');
 
 for (const { result, summary: s, runId } of outcomes) {
-  console.log(`== ${result.book}: ${s.trades} closed, ${s.openAtEnd} open | return ${s.returnPct}% (CAGR ${s.cagrPct ?? '-'}%, SPY ${s.spyReturnPct ?? '-'}%) | max DD ${s.maxDrawdownPct}%`);
+  console.log(`== ${result.book}: ${s.trades} closed, ${s.openAtEnd} open | return ${s.returnPct}% (CAGR ${s.cagrPct ?? '-'}%; ${s.benchmark.symbol} ${s.benchmark.returnPct ?? '-'}%, CAGR ${s.benchmark.cagrPct ?? '-'}%, max DD ${s.benchmark.maxDrawdownPct ?? '-'}%) | max DD ${s.maxDrawdownPct}%`);
   console.log(`   win rate ${s.winRate ?? '-'}% | reached +100% ${s.halfSaleRate ?? '-'}% | half P&L $${s.halfPnl} | runner P&L $${s.runnerPnl} | avg hold ${s.avgHoldDays ?? '-'} days | unrealized $${s.unrealizedPnl}`);
   console.log(`   exits: ${Object.entries(s.exitReasons).map(([r, c]) => `${r} x${c}`).join('; ') || '-'}`);
   for (const e of s.episodes) console.log(`   episode ${e.id}..${e.end} (SPY -${e.maxSpyOffHighPct}%): ${e.trades} trades, $${e.pnl}`);
