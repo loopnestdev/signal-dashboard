@@ -4,13 +4,15 @@ import { decideExit, sizePosition } from './exits.js';
 import { snapStrike, strikeForDelta } from './levels.js';
 import { marketState, offHighPct, rollingHigh, rollingVol } from './market.js';
 import { knownQuarters, profitCheck, qualityChecks, revenueCheck, type QuarterFacts } from './quality.js';
-import { BOOK_DELTA, daysBetween, RULES, yearsUntil, type LeapsBook, type MarketState } from './rules.js';
+import { BOOK_DELTA, daysBetween, INDEX_BOOK, RULES, yearsUntil, type LeapsBook, type MarketState } from './rules.js';
 
 // LEAPS replay on modeled prices (docs/leaps-rules.md section 9). Pure: history comes in, trades and equity come out.
 //   - Decisions use a session's close; fills happen at the next session's close (buy at modeled ask, sell at bid)
 //   - IV from the stock's 1-year realized vol, scaled by 6-month VIX (see modeledIv); Black-Scholes, no dividends
 //   - The volatility check compares that realized vol with VIX, standing in for the live IV30 / VIX
-//   - Fractional contracts, so the three strike books compare the strategy rather than the account size
+//   - Fractional contracts, so the books compare the strategy rather than the account size
+//   - Idle cash earns the 13-week T-bill rate (rules v1.2); the SPY benchmark is total return (dividends included)
+//   - Book IX holds SPY and QQQ LEAPS at all times (section 6b); the stock books buy only in down markets
 
 export interface Series {
   dates: string[];
@@ -30,6 +32,8 @@ export interface LeapsHistory {
   vix6m: Map<string, number>;      // ^VIX6M: long-dated IV moves far less than 30-day VIX in a panic
   rate: Map<string, number>;       // risk-free rate, decimal
   stocks: StockHistory[];
+  index: StockHistory[];           // SPY, QQQ for book IX (no quarters)
+  spyTr: Series;                   // SPY adjusted close (total return) for the benchmark
 }
 
 export interface LeapsTrade {
@@ -89,6 +93,7 @@ export interface LeapsBacktestResult {
   openAtEnd: LeapsOpen[];
   skips: Record<string, number>;
   episodes: Episode[];
+  interest: number;
 }
 
 interface Prepared extends StockHistory {
@@ -182,7 +187,8 @@ export function marketStates(h: Pick<LeapsHistory, 'days' | 'spy' | 'vix'>): { s
 
 export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalance: number, commission: number): LeapsBacktestResult {
   const spy = prepare(h.spy);
-  const stocks: Prepared[] = h.stocks.map(s => ({ ...s, ...prepare(s) }));
+  const isIndex = book === 'IX';
+  const stocks: Prepared[] = (isIndex ? h.index : h.stocks).map(s => ({ ...s, ...prepare(s) }));
   const bySymbol = new Map(stocks.map(s => [s.symbol, s]));
   const { states, episodes } = marketStates(h);
   const skips: Record<string, number> = {};
@@ -204,6 +210,7 @@ export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalan
   let lastVix: number | null = null;
   let lastVix6m: number | null = null;
   let lastRate = DEFAULT_RATE;
+  let interest = 0;
 
   const ivAt = (s: Prepared, i: number): number | null => (s.vol[i] == null ? null : modeledIv(s.vol[i]!, lastVix6m));
   const quoteFor = (s: Prepared, date: string, strike: number, expiry: string) => {
@@ -230,26 +237,16 @@ export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalan
   h.days.forEach((date, k) => {
     lastVix = h.vix.get(date) ?? lastVix;
     lastVix6m = h.vix6m.get(date) ?? lastVix6m;
-    lastRate = h.rate.get(date) ?? lastRate;
     const last = k === h.days.length - 1;
-
-    // 1. Fills decided yesterday
-    for (const e of pendingEntries) {
-      const s = bySymbol.get(e.symbol)!;
-      const q = quoteFor(s, date, e.strike, e.expiry);
-      if (!q) { skip(e.symbol, 'no price at fill', date); continue; }
-      const unit = q.ask * 100 + commission;
-      const qty = Math.min(e.budget, cash) / unit;
-      if (qty <= 0) { skip(e.symbol, 'no cash at fill', date); continue; }
-      const cost = qty * unit;
-      cash -= cost;
-      open.push({
-        id: nextId++, symbol: e.symbol, state: e.state, episode: e.episode, expiry: e.expiry, strike: e.strike, qty, qtyOpen: qty,
-        entryDate: date, entryPrice: q.ask, entrySpot: q.spot, cost, proceeds: 0, halfDate: null, halfPrice: null, halfPnl: null,
-        peak: null, lastBid: q.bid, pending: null,
-      });
+    // Overnight T-bill interest on idle cash, at the rate known at the previous close
+    if (k > 0 && cash > 0) {
+      const earned = cash * lastRate / 252;
+      cash += earned;
+      interest += earned;
     }
-    pendingEntries = [];
+    lastRate = h.rate.get(date) ?? lastRate;
+
+    // 1a. Sells decided yesterday
     for (const p of open) {
       if (!p.pending) continue;
       const q = quoteFor(bySymbol.get(p.symbol)!, date, p.strike, p.expiry);
@@ -270,6 +267,23 @@ export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalan
       p.pending = null;
     }
     open = open.filter(p => p.qtyOpen > 0);
+    // 1b. Buys decided yesterday (after the sells, so a roll's proceeds pay for its replacement)
+    for (const e of pendingEntries) {
+      const s = bySymbol.get(e.symbol)!;
+      const q = quoteFor(s, date, e.strike, e.expiry);
+      if (!q) { skip(e.symbol, 'no price at fill', date); continue; }
+      const unit = q.ask * 100 + commission;
+      const qty = Math.min(e.budget, cash) / unit;
+      if (qty <= 0) { skip(e.symbol, 'no cash at fill', date); continue; }
+      const cost = qty * unit;
+      cash -= cost;
+      open.push({
+        id: nextId++, symbol: e.symbol, state: e.state, episode: e.episode, expiry: e.expiry, strike: e.strike, qty, qtyOpen: qty,
+        entryDate: date, entryPrice: q.ask, entrySpot: q.spot, cost, proceeds: 0, halfDate: null, halfPrice: null, halfPnl: null,
+        peak: null, lastBid: q.bid, pending: null,
+      });
+    }
+    pendingEntries = [];
 
     // 2. Marks and the equity point
     for (const p of open) {
@@ -286,12 +300,29 @@ export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalan
     for (const p of open) {
       const s = bySymbol.get(p.symbol)!;
       const known = knownQuarters(s.quarters, date);
-      const qualityOk = profitCheck(known, date).pass && revenueCheck(known).pass;
-      p.pending = decideExit({ entryDate: p.entryDate, expiry: p.expiry, entryPrice: p.entryPrice, halfSold: p.halfDate != null, peakSinceHalf: p.peak, qualityOk }, date, p.lastBid);
+      const qualityOk = isIndex || (profitCheck(known, date).pass && revenueCheck(known).pass);
+      p.pending = decideExit({ entryDate: p.entryDate, expiry: p.expiry, entryPrice: p.entryPrice, halfSold: p.halfDate != null, peakSinceHalf: p.peak, qualityOk }, date, p.lastBid, isIndex);
     }
 
     // 4. Entry decisions (filled next session)
     const ms = states.get(date)!;
+    if (isIndex) {
+      // Always invested: re-buy an index as soon as its previous LEAPS is closed (a roll fills the next session).
+      for (const s of stocks) {
+        const i = s.idx.get(date);
+        if (i == null || open.some(p => p.symbol === s.symbol && !p.pending)) continue;
+        const iv = ivAt(s, i);
+        const expiry = pickLeapsExpiry(modeledLeapsExpiries(date), date, INDEX_BOOK.minExpiryDays, INDEX_BOOK.maxExpiryDays);
+        if (iv == null || !expiry) { skip(s.symbol, iv == null ? 'no volatility history' : 'no LEAPS expiry', date); continue; }
+        const years = yearsUntil(date, expiry);
+        const spot = s.closes[i];
+        const strike = snapStrike(strikeForDelta(spot, years, iv, lastRate, BOOK_DELTA.IX), spot);
+        // A position being rolled frees its value at the same fill, so size on equity, not on today's cash.
+        const budget = eq * INDEX_BOOK.positionPct / 100;
+        pendingEntries.push({ symbol: s.symbol, budget, expiry, strike, state: ms.state, episode: ms.episode });
+      }
+      return;
+    }
     if (ms.state === 'normal') return;
     const held = new Set(open.map(p => p.symbol));
     const candidates: { s: Prepared; i: number; off: number; iv: number }[] = [];
@@ -345,6 +376,7 @@ export function runLeapsBacktest(h: LeapsHistory, book: LeapsBook, startingBalan
     })),
     skips,
     episodes,
+    interest: round(interest),
   };
 }
 
@@ -370,6 +402,7 @@ export interface LeapsSummary {
   skips: Record<string, number>;
   openAtEnd: number;
   sessions: number;
+  interest: number;
 }
 
 export function summarizeLeaps(r: LeapsBacktestResult, spy: Series): LeapsSummary {
@@ -415,5 +448,6 @@ export function summarizeLeaps(r: LeapsBacktestResult, spy: Series): LeapsSummar
     skips: r.skips,
     openAtEnd: r.openAtEnd.length,
     sessions: r.equity.length,
+    interest: r.interest,
   };
 }

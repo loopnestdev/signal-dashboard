@@ -1,6 +1,6 @@
 // LEAPS book (docs/leaps-rules.md): screen, paper positions and modeled-price backtests.
 
-export type LeapsBook = 'L1' | 'L2' | 'L3';
+export type LeapsBook = 'L1' | 'L2' | 'L3' | 'IX';
 export type LeapsMarketState = 'correction' | 'pullback' | 'normal';
 
 export interface PriceLevels {
@@ -99,7 +99,7 @@ export interface LeapsPosition {
   commissions: number;
   pnl: number | null;
   confirmation: LeapsConfirmation | null;
-  meta: { estCost?: number; askAtSignal?: number; offHighPct?: number; affordable25k?: boolean | null };
+  meta: { estCost?: number; askAtSignal?: number; offHighPct?: number; affordable25k?: boolean | null; minBookForWhole?: number };
   levels: PriceLevels | null;
 }
 
@@ -113,6 +113,7 @@ export interface LeapsBookState {
   closed: number;
   wins: number;
   realizedPnl: number;
+  interest: number;
 }
 
 export interface LeapsResponse {
@@ -124,6 +125,7 @@ export interface LeapsResponse {
   rulesVersion: string;
   smallBook: number;
   startingBalance: number;
+  indexPositionPct: number;
 }
 
 export interface LeapsEpisode {
@@ -157,6 +159,7 @@ export interface LeapsSummary {
   skips: Record<string, number>;
   openAtEnd: number;
   sessions: number;
+  interest?: number;
 }
 
 export interface LeapsRunRow {

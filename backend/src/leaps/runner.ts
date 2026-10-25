@@ -56,7 +56,7 @@ export async function replayLeaps(req: LeapsRunRequest, save: boolean, books: Le
   for (const book of books) {
     onStep?.(book);
     const result = runLeapsBacktest(history, book, settings.leaps.startingBalance, settings.costs.optionPerContract);
-    const summary = summarizeLeaps(result, history.spy);
+    const summary = summarizeLeaps(result, history.spyTr);
     const runId = save ? await saveLeapsRun(result, summary) : null;
     outcomes.push({ result, summary, runId });
   }

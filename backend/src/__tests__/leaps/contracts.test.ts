@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { modeledLeapsExpiries, pickContract, pickLeapsExpiry, spreadPct, type ChainCall } from '../../leaps/contracts.js';
+import { expiryWindow, modeledLeapsExpiries, pickContract, pickLeapsExpiry, quoteGrid, spreadPct, type ChainCall } from '../../leaps/contracts.js';
 
 describe('pickLeapsExpiry', () => {
   it('takes the first standard monthly 15-27 months out', () => {
@@ -18,6 +18,17 @@ describe('modeledLeapsExpiries', () => {
     expect(e).toContain('2018-01-19');
     expect(e).toContain('2018-06-15');
     expect(pickLeapsExpiry(e, '2017-03-01')).toBe('2018-06-15');
+  });
+});
+
+describe('quoteGrid', () => {
+  const c = (strike: number, delta: number, expiry: string): ChainCall => ({ contract: `G${expiry}${strike}`, expiry, strike, bid: 1, ask: 1.1, iv: 0.3, delta, openInterest: 10 });
+  it('keeps the call nearest each grid delta on monthly expiries 270+ days out', () => {
+    const chain = [0.95, 0.85, 0.75, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1].map((d, i) => c(100 + i * 10, d, '2028-01-21'))
+      .concat([c(150, 0.5, '2027-01-15'), c(150, 0.5, '2028-02-25')]);   // too near; weekly
+    const grid = quoteGrid(chain, '2026-10-26');
+    expect(grid.every(g => g.expiry === '2028-01-21')).toBe(true);
+    expect(grid.map(g => g.delta).sort()).toEqual([0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 0.85]);
   });
 });
 
@@ -40,6 +51,13 @@ describe('pickContract', () => {
   it('explains a missing expiry or quote', () => {
     expect(pickContract([], '2026-10-26', 'L2').reason).toBe('no LEAPS expiry 15-27 months out');
     expect(pickContract([call(200, 0.5, { ask: null })], '2026-10-26', 'L2').reason).toContain('no quoted calls');
+  });
+  it('IX uses 500-900 day expiries, delta 0.85 and no open-interest floor', () => {
+    expect(expiryWindow('IX')).toEqual([500, 900]);
+    const ix = [call(150, 0.86, { expiry: '2028-06-16', openInterest: 20 }), call(150, 0.85, { expiry: '2028-01-21' })];
+    const pick = pickContract(ix, '2026-10-26', 'IX');
+    expect(pick.call!.expiry).toBe('2028-06-16');   // 2028-01-21 is 452 days out, under the 500-day floor
+    expect(pick.liquid).toBe(true);
   });
   it('measures the spread against the mid', () => {
     expect(spreadPct(9.5, 10.5)).toBeCloseTo(10, 10);

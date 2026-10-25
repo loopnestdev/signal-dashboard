@@ -41,6 +41,11 @@ const history = (): LeapsHistory => ({
     { symbol: 'AAA', dates, closes: path(N, 0.009, drift(1.6)), quarters, marketCapNow: 500e9 },
     { symbol: 'TINY', dates, closes: path(N, 0.009, drift(1.6)), quarters, marketCapNow: 20e9 },   // fails market cap
   ],
+  index: [
+    { symbol: 'SPY', ...spy, quarters: [], marketCapNow: null },
+    { symbol: 'QQQ', dates, closes: path(N, 0.008, drift(1.2)), quarters: [], marketCapNow: null },
+  ],
+  spyTr: spy,
 });
 
 describe('modeledQuote', () => {
@@ -94,7 +99,27 @@ describe('runLeapsBacktest', () => {
     const r = runLeapsBacktest(calm, 'L2', 50_000, 1);
     expect(r.trades).toHaveLength(0);
     expect(r.openAtEnd).toHaveLength(0);
-    expect(r.equity.at(-1)!.equity).toBe(50_000);
+  });
+
+  it('IX: holds SPY and QQQ from the first session, rolls with 120 days left and stays invested', () => {
+    const r = runLeapsBacktest(history(), 'IX', 50_000, 1);
+    expect(r.equity[1].openPositions).toBe(2);
+    expect(r.equity.slice(1).every(e => e.openPositions === 2)).toBe(true);
+    expect(r.trades.length).toBeGreaterThan(0);
+    expect(r.trades.every(t => t.exitReason.startsWith('time exit') && t.halfDate === null)).toBe(true);
+    // Each position starts at ~15% of equity, so ~70% sits in T-bills earning interest
+    expect(r.equity[1].cash / r.equity[1].equity).toBeGreaterThan(0.65);
+    expect(r.interest).toBeGreaterThan(0);
+    const first = r.trades.find(t => t.symbol === 'SPY')!;
+    const held = (Date.parse(first.exitDate) - Date.parse(first.entryDate)) / 864e5;
+    expect(held).toBeGreaterThan(365);   // 500+ day expiry, out at 120 days left
+  });
+
+  it('pays T-bill interest on idle cash', () => {
+    const calm = history();
+    calm.spy = { dates, closes: path(N, 0.006, () => 0.0005) };
+    const r = runLeapsBacktest(calm, 'L2', 50_000, 1);
+    expect(r.equity.at(-1)!.equity).toBeCloseTo(50_000 * (1 + 0.03 / 252) ** (r.equity.length - 1), 0);
   });
 
   it('summarises trades, the half sale split and episodes', () => {

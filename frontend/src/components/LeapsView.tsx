@@ -12,8 +12,11 @@ const BOOKS: Record<LeapsBook, { name: string; short: string; color: string; tip
   L1: { name: 'L1 - Deep ITM (0.75 delta)', short: 'L1 deep ITM', color: C.primary, tip: 'Moves almost like the stock, little time decay. Needs a bigger stock move to reach +100%.' },
   L2: { name: 'L2 - At the money (0.50 delta)', short: 'L2 ATM', color: C.warn, tip: 'Balance of cost and leverage. +100% usually needs a ~25-35% stock rise.' },
   L3: { name: 'L3 - Out of the money (0.30 delta)', short: 'L3 OTM', color: C.inkSec, tip: 'Cheap with the most leverage. Reaches +100% fastest but expires worthless more often.' },
+  IX: { name: 'IX - SPY + QQQ index (0.85 delta)', short: 'IX index', color: C.bull, tip: 'Always holds one deep ITM LEAPS on SPY and one on QQQ (15% of the book each), rolled with 120 days left; the rest earns T-bill interest. Rules section 6b.' },
 };
-const BOOK_IDS: LeapsBook[] = ['L1', 'L2', 'L3'];
+const BOOK_IDS: LeapsBook[] = ['L1', 'L2', 'L3', 'IX'];
+const STOCK_BOOK_IDS: LeapsBook[] = ['L1', 'L2', 'L3'];
+const INDEX_SYMBOLS = new Set(['SPY', 'QQQ']);
 
 const STATE: Record<LeapsMarketState, { label: string; color: string; note: string }> = {
   correction: { label: 'Correction - buying window', color: C.bull, note: 'SPY is 10%+ below its 52-week high: full-size entries (10% of the book each).' },
@@ -27,6 +30,7 @@ const td = { fontSize: '13px', color: C.inkSec, padding: '8px 10px', borderBotto
 const sub = { fontSize: '11px', color: C.inkMute, marginTop: 2 };
 const pnlColor = (n: number | null | undefined) => (n == null || n === 0 ? C.inkSec : n > 0 ? C.bull : C.bear);
 const money = (n: number | null | undefined) => (n == null ? '-' : `$${Number(n).toFixed(2)}`);
+const fmtQty = (n: number) => (Number.isInteger(Number(n)) ? String(Number(n)) : Number(n).toFixed(4));
 const token = async () => (supabase ? (await supabase.auth.getSession()).data.session?.access_token ?? null : null);
 
 function Card({ title, tip, right, children }: { title: string; tip?: string; right?: ReactNode; children: ReactNode }) {
@@ -53,7 +57,7 @@ function Stat({ name, value, color, tip }: { name: string; value: string; color?
 function BookTabs({ value, onChange }: { value: LeapsBook; onChange: (b: LeapsBook) => void }) {
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {BOOK_IDS.map(b => (
+      {STOCK_BOOK_IDS.map(b => (
         <button key={b} onClick={() => onChange(b)} title={BOOKS[b].tip} style={{
           borderRadius: 9999, padding: '4px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
           border: `1px solid ${value === b ? BOOKS[b].color : C.border}`, background: value === b ? C.canvasSoft : C.canvas,
@@ -124,7 +128,7 @@ const LEVEL_TIPS = {
 };
 
 function ProposedTable({ rows, book, state, onAnalyze }: { rows: LeapsScreenRow[]; book: LeapsBook; state: LeapsMarketState; onAnalyze: (t: string) => void }) {
-  const list = sortScreen(rows).filter(r => r.contracts?.[book]);
+  const list = sortScreen(rows).filter(r => r.contracts?.[book] && !INDEX_SYMBOLS.has(r.symbol));
   if (!list.length) {
     return <div style={{ fontSize: '13px', color: C.inkMute }}>No eligible name is 15%+ below its 52-week high right now.</div>;
   }
@@ -192,6 +196,48 @@ function ProposedTable({ rows, book, state, onAnalyze }: { rows: LeapsScreenRow[
   );
 }
 
+function IndexCard({ rows, positionPct, startingBalance }: { rows: LeapsScreenRow[]; positionPct: number; startingBalance: number }) {
+  const idx = rows.filter(r => INDEX_SYMBOLS.has(r.symbol) && r.contracts?.IX);
+  return (
+    <Card title="Index book IX - SPY + QQQ, always held" tip="LEAPS rules section 6b. One deep ITM (0.85 delta) call per index, expiry 500-900 days out, rolled with 120 days left so each is held over 12 months. 15% of the book each; the rest earns T-bill interest. No half sale, no stop. The contract below is what a new position or the next roll would buy today.">
+      {!idx.length ? <div style={{ fontSize: '13px', color: C.inkMute }}>No index quotes in the latest screen yet.</div> : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 900 }}>
+            <thead><tr>
+              <th style={th}>Index</th>
+              <th style={th}>Contract</th>
+              <th style={{ ...th, textAlign: 'right' }}>Ask</th>
+              <th style={{ ...th, textAlign: 'right' }}>1 contract<InfoTip tip="Cost of one contract incl. commission." /></th>
+              <th style={{ ...th, textAlign: 'right' }}>Book for 1 contract<InfoTip tip={`Book size at which ${positionPct}% buys one whole contract. Below it the paper book holds a fraction of a contract, which a real account cannot.`} /></th>
+              <th style={th}>Break-even<InfoTip tip={LEVEL_TIPS.be} /></th>
+            </tr></thead>
+            <tbody>
+              {idx.map(r => {
+                const c = r.contracts!.IX!;
+                const unit = c.ask != null ? c.ask * 100 + 1 : null;
+                const need = unit != null ? unit / (positionPct / 100) : null;
+                return (
+                  <tr key={r.symbol}>
+                    <td style={{ ...td, fontWeight: 700, color: C.ink }}>{r.symbol}<div style={sub}>{money(r.price)}</div></td>
+                    <td className="tnum" style={td}>
+                      {c.strike != null ? `${c.strike}C ${c.expiry}` : (c.reason ?? '-')}
+                      <div style={sub}>{c.delta != null ? `Δ ${c.delta.toFixed(2)}` : ''}{c.iv != null ? ` · IV ${(c.iv * 100).toFixed(0)}%` : ''}</div>
+                    </td>
+                    <td className="tnum" style={{ ...td, textAlign: 'right' }}>{money(c.ask)}</td>
+                    <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtUsd(unit)}</td>
+                    <td className="tnum" style={{ ...td, textAlign: 'right', color: need != null && need > startingBalance ? C.warn : C.inkSec }}>{fmtUsd(need)}</td>
+                    <td style={td}><LevelsCell levels={c.levels} price={r.price} kind="be" /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function PositionsTable({ positions, prices, onAnalyze }: { positions: LeapsPosition[]; prices: Map<string, number | null>; onAnalyze: (t: string) => void }) {
   if (!positions.length) return <div style={{ fontSize: '13px', color: C.inkMute }}>No paper LEAPS positions yet. Orders are placed after a close while the market is in a pullback or correction.</div>;
   return (
@@ -222,7 +268,7 @@ function PositionsTable({ positions, prices, onAnalyze }: { positions: LeapsPosi
                   {' '}{p.strike}C {p.expiry}
                   <div style={sub}>signal {p.signal_date} · {p.market_state}{p.entry_date ? ` · filled ${p.entry_date}` : ''}</div>
                 </td>
-                <td className="tnum" style={{ ...td, textAlign: 'right' }}>{p.qty_open}/{p.qty}</td>
+                <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtQty(p.qty_open)}/{fmtQty(p.qty)}</td>
                 <td className="tnum" style={{ ...td, textAlign: 'right' }}>{money(p.entry_price ?? p.meta.askAtSignal)} → {money(p.last_bid)}</td>
                 <td className="tnum" style={{ ...td, textAlign: 'right', color: pnlColor(ret), fontWeight: 600 }}>{fmtPct(ret)}</td>
                 <td style={td}><LevelsCell levels={p.levels} price={spot} kind="be" /></td>
@@ -400,7 +446,7 @@ function BacktestSection({ canRun }: { canRun: boolean }) {
                   <th style={th}>Book</th>
                   <th style={{ ...th, textAlign: 'right' }}>Return</th>
                   <th style={{ ...th, textAlign: 'right' }}>CAGR<InfoTip tip="Compound yearly growth of the book, open positions at their marked value." /></th>
-                  <th style={{ ...th, textAlign: 'right' }}>SPY</th>
+                  <th style={{ ...th, textAlign: 'right' }}>SPY<InfoTip tip="SPY total return over the same dates, dividends reinvested." /></th>
                   <th style={{ ...th, textAlign: 'right' }}>Max DD</th>
                   <th style={{ ...th, textAlign: 'right' }}>Trades</th>
                   <th style={{ ...th, textAlign: 'right' }}>Win rate</th>
@@ -408,6 +454,7 @@ function BacktestSection({ canRun }: { canRun: boolean }) {
                   <th style={{ ...th, textAlign: 'right' }}>Half P&L<InfoTip tip="Profit from the halves sold at +100%." /></th>
                   <th style={{ ...th, textAlign: 'right' }}>Runner P&L<InfoTip tip="Everything else: runners after the half sale plus positions that never reached +100%." /></th>
                   <th style={{ ...th, textAlign: 'right' }}>Avg hold</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Interest<InfoTip tip="T-bill interest earned on idle cash (rules v1.2)." /></th>
                 </tr></thead>
                 <tbody>
                   {BOOK_IDS.map(b => {
@@ -427,6 +474,7 @@ function BacktestSection({ canRun }: { canRun: boolean }) {
                         <td className="tnum" style={{ ...td, textAlign: 'right', color: pnlColor(x.halfPnl) }}>{fmtUsd(x.halfPnl, true)}</td>
                         <td className="tnum" style={{ ...td, textAlign: 'right', color: pnlColor(x.runnerPnl) }}>{fmtUsd(x.runnerPnl, true)}</td>
                         <td className="tnum" style={{ ...td, textAlign: 'right' }}>{x.avgHoldDays == null ? '-' : `${x.avgHoldDays}d`}</td>
+                        <td className="tnum" style={{ ...td, textAlign: 'right' }}>{x.interest == null ? '-' : fmtUsd(x.interest)}</td>
                       </tr>
                     );
                   })}
@@ -504,7 +552,8 @@ export function LeapsView({ canRun, onAnalyze }: { canRun: boolean; onAnalyze: (
 
   const open = (data?.positions ?? []).filter(p => p.status === 'open' || p.status === 'pending');
   const closed = (data?.positions ?? []).filter(p => p.status === 'closed' || p.status === 'cancelled');
-  const eligible = (data?.screen ?? []).filter(r => r.eligible).length;
+  const stockRows = (data?.screen ?? []).filter(r => !INDEX_SYMBOLS.has(r.symbol));
+  const eligible = stockRows.filter(r => r.eligible).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -526,23 +575,25 @@ export function LeapsView({ canRun, onAnalyze }: { canRun: boolean; onAnalyze: (
         >
           <ProposedTable rows={data.screen} book={book} state={data.market?.state ?? 'normal'} onAnalyze={onAnalyze} />
           <div style={{ fontSize: '12px', color: C.inkMute, marginTop: 10 }}>
-            {eligible} of {data.screen.length} names pass the quality checks.{' '}
+            {eligible} of {stockRows.length} names pass the quality checks.{' '}
             <button onClick={() => setShowUniverse(v => !v)} style={{ background: 'none', border: 'none', padding: 0, color: C.primary, cursor: 'pointer', fontSize: '12px' }}>
               {showUniverse ? 'Hide' : 'Show'} all checks
             </button>
           </div>
-          {showUniverse && <div style={{ marginTop: 12 }}><UniverseTable rows={data.screen} /></div>}
+          {showUniverse && <div style={{ marginTop: 12 }}><UniverseTable rows={stockRows} /></div>}
         </Card>
       )}
 
+      {data && <IndexCard rows={data.screen} positionPct={data.indexPositionPct ?? 15} startingBalance={data.startingBalance} />}
+
       {data && (
-        <Card title="Paper positions" tip="LEAPS rules section 10. Whole contracts (at least 2), filled at the next close: buy at ask, sell at bid. Break-even and +100% levels use the actual fill price.">
+        <Card title="Paper positions" tip="LEAPS rules section 10. Filled at the next close: buy at ask, sell at bid. Stock books use whole contracts (at least 2); the index book IX uses fractional contracts. Idle cash earns T-bill interest. Break-even and +100% levels use the actual fill price.">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 14 }}>
             {data.books.map(b => (
               <div key={b.book} style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 14px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: BOOKS[b.book].color }}>{BOOKS[b.book].name}</div>
                 <div className="tnum" style={{ fontSize: '18px', fontWeight: 600, color: pnlColor(b.equity - b.startingBalance), marginTop: 4 }}>{fmtUsd(b.equity)}</div>
-                <div className="tnum" style={sub}>cash {fmtUsd(b.cash)} · {b.openCount} open · {b.closed} closed ({b.wins} won) · realized {fmtUsd(b.realizedPnl, true)}</div>
+                <div className="tnum" style={sub}>cash {fmtUsd(b.cash)} · interest {fmtUsd(b.interest)} · {b.openCount} open · {b.closed} closed ({b.wins} won) · realized {fmtUsd(b.realizedPnl, true)}</div>
               </div>
             ))}
           </div>

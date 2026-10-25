@@ -1,6 +1,6 @@
-# LEAPS Book - Trading Rules - v1.1
+# LEAPS Book - Trading Rules - v1.2
 
-Status: **approved 2026-10-25 (v1.0); v1.1 the same day changes only the backtest's price model (section 9) - see the change log.** Thresholds marked *(proposed)* were suggested and accepted as written. The rules are frozen in code (`LEAPS_RULES_VERSION`) and versioned like `docs/release2-trading-rules.md`: any later change gets a new version and is re-tested.
+Status: **approved 2026-10-25 (v1.0); v1.1 the same day changes only the backtest's price model (section 9); v1.2 (later the same day) adds the index book IX (section 6b), T-bill interest on idle cash and the daily LEAPS quote grid (section 10) - see the change log.** Thresholds marked *(proposed)* were suggested and accepted as written. The rules are frozen in code (`LEAPS_RULES_VERSION`) and versioned like `docs/release2-trading-rules.md`: any later change gets a new version and is re-tested.
 
 **Idea:** buy long-dated calls (LEAPS) on high-quality large caps only when the market is down, take half off at +100%, and let the rest run.
 
@@ -83,6 +83,18 @@ You weren't sure which strike to use, so the backtest runs the same entries thro
 
 ---
 
+## 6b. Index book IX - SPY + QQQ, always held (v1.2)
+
+**Idea:** from the 2026-10-25 research (below), the only LEAPS approach that beat its own index at equal risk in both 2016-2021 and 2022-2026: hold deep ITM index calls all the time instead of picking stocks in dips.
+
+- **Always invested:** one call on **SPY** and one on **QQQ**, each **15% of the book's equity** when bought; the other ~70% earns the 13-week T-bill rate.
+- **Contract:** first standard monthly expiry **500-900 days** out, delta nearest **0.85**. Spread <= 5% of mid; no open-interest floor (index options).
+- **Exit:** only the time exit - sold with **120 days** left and replaced in the same session (a roll). No half sale, no stop, no quality check, no market-state condition. 500+ days at purchase means every position is held more than 12 months (CGT discount).
+- **Size:** one 0.85-delta SPY or QQQ LEAPS costs ~$20,000, so 15% buys one whole contract only from a book of ~$130,000. Below that the paper book holds **fractional contracts** (tracked to 4 decimals) and the page shows the book size needed; a real account of $25-50k could not hold this book as specified.
+- **Research basis (modeled prices, SPY total return):** 2016-10 -> 2026-10 CAGR 17.8%, max drawdown 25%, vs SPY 15.3% / 34%. Against the same index mix leveraged to the same drawdown: +6.0 points a year in 2016-2021, +1.2 in 2022-2026. The edge is largest in crashes (a call cannot lose more than its premium) and small since 2022; it may be noise.
+
+---
+
 ## 7. Exits
 
 Checked daily after the close; fills at the next session's close bid.
@@ -123,7 +135,9 @@ The "today" levels move as time passes and IV changes, so they are recalculated 
   - half-spread of 2% of mid (min $0.05) on every fill
 - Volatility check (1.5) in the backtest: stock's 1-year realized vol / VIX <= 2.25, standing in for the live IV30 / VIX.
 - Market cap in the backtest: today's market cap scaled by the (split-adjusted) price, so buybacks and dilution are ignored.
-- Cash earns no interest in the backtest, which understates the book against SPY while it sits in cash.
+- Idle cash earns the 13-week T-bill rate (`^IRX`) every session (v1.2; v1.0-1.1 earned nothing).
+- Sells decided for a session fill before that session's buys, so a roll's proceeds pay for its replacement.
+- The SPY comparison is total return (dividends reinvested, Yahoo adjusted close); v1.0-1.1 compared against SPY's price only, about 1.3 points a year too low.
 - Strikes snapped to a realistic grid ($5 under $200, $10 above).
 - Backtest sizes in **fractional contracts** so the three books compare the strategy itself; paper trading (section 9) uses whole contracts.
 - Calibration: from now on the collector records real LEAPS quotes; the model's prices are compared against them and the error reported on the Performance page.
@@ -133,7 +147,9 @@ The "today" levels move as time passes and IV changes, so they are recalculated 
 ## 10. Paper (forward) trading
 
 - Same rules on live data: daily screener of eligible names in Correction/Pullback, Signa confirmation from section 3, real Cboe LEAPS quotes.
-- Collector job `leaps` at close + 45 min: one Cboe chain request per name that passes the SEC checks (or is held). Only the contract chosen for each book and every held contract are stored (`leaps_quotes`), not the whole chain. No Signa calls.
+- Collector job `leaps` at close + 45 min: one Cboe chain request per name in the candidate list plus SPY and QQQ (~125). No Signa calls.
+- Stored in `leaps_quotes`: the contract chosen for each book, every held contract, and the **research grid** (`grid = true`, from v1.2): on every standard monthly expiry 270+ days out, the call nearest each of deltas 0.20 / 0.30 / 0.40 / 0.50 / 0.60 / 0.75 / 0.85, with bid, ask, IV, delta, open interest and the stock price. About 4,000 rows a session (~1 million a year). Purpose: check and refit the backtest's LEAPS price model (section 9) against real quotes once they include stressed markets, and later backtest on real LEAPS prices.
+- Paper books' idle cash earns the T-bill rate for the calendar days between processed sessions (`leaps_interest`).
 
 ---
 
@@ -166,3 +182,4 @@ Same as release 2 section 6, plus: % of trades that reached the +100% half sale,
 | 0.1 | 2026-10-25 | Draft. |
 | 1.0 | 2026-10-25 | Approved. Added section 8 (price levels). Before approval: IV check measured against VIX, net income for banks, backtest Pullback without the Market Quality Score. |
 | 1.1 | 2026-10-25 | Backtest price model only (section 9); no trading rule changed. The v1.0 model (IV = VIX x stock/SPY realized-vol ratio) priced LEAPS ~50% above real Cboe quotes even in a calm market, and far higher in panics, when 30-day VIX spikes but 18-month IV does not. Its volatility proxy also excluded names the live check accepts (MSFT). Replaced with the fitted model above. Found by checking the model against live quotes, not by tuning for results. |
+| 1.2 | 2026-10-25 | Added the index book IX (section 6b). Idle cash earns T-bill interest in the backtest and the paper books; SPY benchmark is total return; sells fill before buys in a session. Daily LEAPS quote grid for research. Stock books L1-L3 unchanged. |

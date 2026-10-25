@@ -23,6 +23,11 @@ describe('decideExit', () => {
   it('closes on a quality break', () => {
     expect(decideExit(held({ qualityOk: false }), '2026-03-02', 40)).toEqual({ action: 'close', reason: EXIT_REASONS.quality });
   });
+  it('index book only rolls on the time exit', () => {
+    expect(decideExit(held(), '2026-03-02', 40, true)).toBeNull();
+    expect(decideExit(held({ qualityOk: false }), '2026-10-01', 5, true)).toBeNull();
+    expect(decideExit(held(), '2027-02-18', 60, true)).toEqual({ action: 'close', reason: EXIT_REASONS.time });
+  });
   it('trails the runner only after 6 months held', () => {
     const runner = held({ halfSold: true, peakSinceHalf: 60 });
     expect(decideExit(runner, '2026-05-01', 30)).toBeNull();

@@ -8,7 +8,8 @@ import { getDailyBarsWithSplits, type DailyBar } from '../lib/yahooClient.js';
 import { benchmarkCurve, lastCompleteSession } from '../backtest/report.js';
 import { priceLevels } from '../leaps/levels.js';
 import { bookState, type PaperPosition } from '../leaps/paper.js';
-import { addDays, LEAPS_BOOKS, LEAPS_RULES_VERSION, RULES, yearsUntil, type LeapsBook } from '../leaps/rules.js';
+import { bookInterest } from '../leaps/screen.js';
+import { addDays, INDEX_BOOK, LEAPS_BOOKS, LEAPS_RULES_VERSION, RULES, yearsUntil, type LeapsBook } from '../leaps/rules.js';
 import { currentLeapsJob, parseLeapsRunRequest, startLeapsJob } from '../leaps/runner.js';
 
 const router = Router();
@@ -53,10 +54,11 @@ router.get('/leaps', async (_req, res) => {
     const { settings } = await getSettings();
     const start = settings.leaps.startingBalance;
     const [market] = await selectRows<Record<string, unknown> & { trade_date: string }>('leaps_market', 'select=*&order=trade_date.desc&limit=1');
-    const [screen, positions, history] = await Promise.all([
+    const [screen, positions, history, interest] = await Promise.all([
       market ? selectAll<Record<string, unknown>>('leaps_screen', `select=*&trade_date=eq.${market.trade_date}&order=symbol`) : Promise.resolve([]),
       selectRows<PaperPosition>('leaps_positions', 'select=*&order=id.desc&limit=300'),
       selectRows<Record<string, unknown>>('leaps_market', 'select=trade_date,spy_off_high_pct,vix,market_score,state&order=trade_date.desc&limit=60'),
+      bookInterest(),
     ]);
     const today = market?.trade_date ?? toEtClock(new Date()).date;
     const withLevels = positions.map(p => ({
@@ -72,14 +74,14 @@ router.get('/leaps', async (_req, res) => {
       const mine = positions.filter(p => p.book === book);
       const closed = mine.filter(p => p.status === 'closed');
       return {
-        book, ...bookState(mine, start), startingBalance: start,
+        book, ...bookState(mine, start, interest.get(book)?.total ?? 0), startingBalance: start, interest: Math.round((interest.get(book)?.total ?? 0) * 100) / 100,
         closed: closed.length, wins: closed.filter(p => Number(p.pnl) > 0).length,
         realizedPnl: Math.round(closed.reduce((s, p) => s + Number(p.pnl), 0) * 100) / 100,
       };
     });
     res.json({
       market: market ?? null, history: history.reverse(), screen, positions: withLevels, books,
-      rulesVersion: LEAPS_RULES_VERSION, smallBook: RULES.smallBookBalance, startingBalance: start,
+      rulesVersion: LEAPS_RULES_VERSION, smallBook: RULES.smallBookBalance, startingBalance: start, indexPositionPct: INDEX_BOOK.positionPct,
     });
   } catch (err) {
     storageError(res, err);
@@ -114,7 +116,9 @@ router.get('/leaps/runs/:id', async (req, res) => {
     const key = `leaps-spy-${run.date_from}`;
     let spy = getFromCache<DailyBar[]>(key);
     if (!spy) {
-      spy = (await getDailyBarsWithSplits('SPY', { since: run.date_from }).catch(() => ({ bars: [] }))).bars;
+      // Total return (dividends reinvested), matching the backtest summary's SPY figure
+      spy = (await getDailyBarsWithSplits('SPY', { since: run.date_from }).catch(() => ({ bars: [] as DailyBar[] }))).bars
+        .map(b => ({ ...b, close: b.adjClose ?? b.close }));
       setToCache(key, spy, 3600);
     }
     res.json({ run, trades, equity, benchmark: benchmarkCurve(spy, equity.map(e => e.date), Number(run.starting_balance)) });

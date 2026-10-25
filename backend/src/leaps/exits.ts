@@ -23,8 +23,10 @@ export const EXIT_REASONS = {
 // decideExit, first match wins:
 //   - time exit, quality break and the halfway-and-down-50% stop close everything
 //   - +100% sells half once; the runner then closes on a 40% drop from its peak, but only after 6 months held
-export function decideExit(p: HeldLeaps, date: string, value: number): ExitDecision {
+//   - The index book (IX) only rolls: the time exit is its one rule
+export function decideExit(p: HeldLeaps, date: string, value: number, indexBook = false): ExitDecision {
   if (daysBetween(date, p.expiry) <= RULES.timeExitDays) return { action: 'close', reason: EXIT_REASONS.time };
+  if (indexBook) return null;
   if (!p.qualityOk) return { action: 'close', reason: EXIT_REASONS.quality };
   const elapsed = daysBetween(p.entryDate, date);
   const halfway = daysBetween(p.entryDate, p.expiry) / 2;
