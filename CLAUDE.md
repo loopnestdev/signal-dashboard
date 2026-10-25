@@ -137,11 +137,11 @@ signal-dashboard/
 |   |   |   +-- sync.ts                # syncFundamentals + one-at-a-time background job (collector, page, admin, CLI)
 |   |   |   +-- cli.ts                 # npm run fundamentals -- [new|daily|full]
 |   |   +-- leaps/                     # LEAPS book (docs/leaps-rules.md); everything but data/screen/runner is pure
-|   |   |   +-- rules.ts               # LEAPS_RULES_VERSION, RULES thresholds, book deltas (L1 0.75 / L2 0.50 / L3 0.30), date helpers
+|   |   |   +-- rules.ts               # LEAPS_RULES_VERSION, RULES thresholds, book deltas (L1 0.75 / L2 0.50 / L3 0.30 / IX 0.85), INDEX_BOOK, QUOTE_GRID, date helpers
 |   |   |   +-- universe.ts            # LEAPS_UNIVERSE: S&P 100 + other US large caps (update annually)
 |   |   |   +-- market.ts              # marketState (correction / pullback / normal), rollingHigh, rollingVol, splitFactorSince
 |   |   |   +-- quality.ts             # Point-in-time checks: market cap, 4 profitable quarters (net income for banks), revenue YoY, IV/VIX
-|   |   |   +-- contracts.ts           # pickLeapsExpiry (monthly 15-27 months), modeled Jan/Jun expiries, pickContract (delta + liquidity)
+|   |   |   +-- contracts.ts           # pickLeapsExpiry + expiryWindow (stocks 15-27 months, IX 500-900 days), modeled Jan/Jun expiries, pickContract, quoteGrid
 |   |   |   +-- levels.ts              # callDelta, invNorm, strikeForDelta, snapStrike, spotForValue, priceLevels (break-even / +100% / sell limit)
 |   |   |   +-- exits.ts               # decideExit (half at +100%, halfway-and-50% stop, runner trail, 120-day time exit, quality break), sizePosition
 |   |   |   +-- confirm.ts             # confirmationFor: dark pool / call flow / LEAPS print (recorded, never blocks)
@@ -173,7 +173,7 @@ signal-dashboard/
 |   +-- package.json
 |
 +-- docs/release2-trading-rules.md  # Paper-trading rules for release 2 (draft until approved; frozen once approved)
-+-- docs/leaps-rules.md             # LEAPS book rules (v1.1 approved; thresholds live in backend/src/leaps/rules.ts)
++-- docs/leaps-rules.md             # LEAPS book rules (v1.2: stock books L1-L3 + index book IX; thresholds live in backend/src/leaps/rules.ts)
 +-- supabase/migrations/            # SQL to run in the Supabase SQL editor (collector tables)
 +-- package.json     # Root: concurrently dev, install:all
 +-- DESIGN.md        # Stripe-inspired light design tokens (source of truth)
@@ -355,13 +355,16 @@ Universe = `moat.research_reports` tickers (read with the service role via `sele
 
 ### LEAPS book
 
-Rules: `docs/leaps-rules.md` v1.1; every threshold in `backend/src/leaps/rules.ts` (`LEAPS_RULES_VERSION` stored with every position and run). Starting balance per book: Settings `leaps.startingBalance` (default $50,000).
+Rules: `docs/leaps-rules.md` v1.2; every threshold in `backend/src/leaps/rules.ts` (`LEAPS_RULES_VERSION` stored with every position and run). Starting balance per book: Settings `leaps.startingBalance` (default $50,000).
 
 - **Screen (collector job `leaps`, close+45, `screen.ts`):** SPY 52-week high / VIX / Market Quality Score -> `leaps_market` state. For every `LEAPS_UNIVERSE` SEC filer: Yahoo bars (price, 52-week high, splits), market cap = newest filed share count x split factor x price, SEC profit/revenue checks; names passing those (or held) get one Cboe chain request for IV30 and calls. Per book: first monthly expiry 15-27 months out, delta nearest 0.75 / 0.50 / 0.30, liquidity, `priceLevels`, cost of 2 contracts and whether a $25k book could afford them -> `leaps_screen`. Only the chosen and held contracts go to `leaps_quotes`.
 - **Paper books (`paper.ts`):** pending buys fill at the next session's ask (cut to cash, cancelled below 2 contracts), half sales / closes at the bid; exit decisions queue `pending_action` for the next session. The job is idempotent per session (a re-run only refreshes the screen).
+- **Index book IX (rules 6b):** always one 0.85-delta LEAPS on SPY and on QQQ (15% of equity each, expiry 500-900 days, rolled at 120 days left), fractional contracts on paper (`leaps_positions.qty` is numeric), no OI floor. `indexOrders()` in `screen.ts` re-buys in the same session a position's roll is decided; sells fill before buys.
+- **Interest:** idle cash earns `^IRX` in the backtest (daily) and in the paper books (`leaps_interest`, one row per book per processed session; also the job's idempotency marker).
+- **Research quote grid:** every `leaps` run fetches a Cboe chain for every candidate plus SPY/QQQ and stores calls nearest deltas 0.20-0.85 on monthly expiries 270+ days out (`leaps_quotes.grid = true`, ~4k rows/session) to recheck the IV model later.
 - **Confirmation:** `dp_daily`, `flow_alerts`, `raw_flow` (no Signa calls); dark pool / flow alerts exist for tracked symbols only.
 - **Backtest (`backtest.ts`):** modeled prices - IV = (0.07 + 0.75 x 1-year realized vol) x clamp(sqrt(VIX6M / 22), 0.75, 2), fitted to real Cboe LEAPS IV on 2026-10-23; 2% half-spread; fractional contracts; next-close fills; market cap scaled by price from today's; volatility check = realized vol / VIX. Yahoo `range=max` returns quarterly bars, so histories are fetched by start date (`getDailyBarsWithSplits(symbol, { since })`).
-- **First full run (2016-10-25 -> 2026-10-23, $50k per book):** L1 +182% (CAGR 10.9%, max DD 37%), L2 +191% (11.3%, 39%), L3 +22% (2.0%, 54%) vs SPY +255%; the book sits in cash between dips (no interest modeled).
+- **Results (2016-10-25 -> 2026-10-23, $50k per book, v1.2):** IX CAGR 17.8% (max DD 25%), L1 12.8% (36%), L2 13.1% (38%), L3 3.9% (52%) vs SPY total return 15.3% (34%). Research (2026-10-25) found no stock-book variant that beat SPY at equal risk out of sample; only always-on index LEAPS held a (small since 2022) edge.
 
 ### Replay engine (release 2 step 3)
 
@@ -442,7 +445,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 467 tests - one-shot
+cd backend && npm test          # 475 tests - one-shot
 cd frontend && npm test         # 85 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -486,7 +489,7 @@ cd frontend && npm run test:watch  # watch mode
 | `backend/src/__tests__/leaps/exits.test.ts` | `decideExit` (half at +100%, no stop before halfway, halfway-and-50% stop, 120-day time exit first, quality break, runner trail after 6 months), `sizePosition` (correction / pullback size, 2-contract minimum, fractional, 8 positions, 60% deployed, cash), `affordableAt` |
 | `backend/src/__tests__/leaps/confirm.test.ts` | Confirmation: dark pool + flow, dark pool + long-dated call print (365-day and call filters), missing data as null |
 | `backend/src/__tests__/leaps/paper.test.ts` | `bookState` (open cost, marks, realized, pending reservations), `stepPosition` (fill at ask, cash cut / cancel, half sale at bid, P&L across both halves, waiting order, runner peak, quality-break decision) |
-| `backend/src/__tests__/leaps/backtest.test.ts` | `modeledQuote` spread, `modeledIv` (regime clamp), episodes from SPY drawdowns, each book buys the eligible name next session and sells half on the recovery, cash in a calm market, summary half/runner split |
+| `backend/src/__tests__/leaps/backtest.test.ts` | `modeledQuote` spread, `modeledIv` (regime clamp), episodes from SPY drawdowns, each stock book buys the eligible name next session and sells half on the recovery, IX always invested + rolls held > 12 months, T-bill interest on idle cash, summary half/runner split |
 | `backend/src/__tests__/leaps/runner.test.ts` | `parseLeapsRunRequest` (range, earliest start, future), `marketCapNow` (split scaling, no shares) |
 | `frontend/src/__tests__/lib/leaps.test.ts` | `pctTo` / `fmtLevel`, `fmtCap`, `sortScreen`, `positionReturnPct` (both halves), `positionStatus`, `mergeNamedCurves` |
 | `backend/src/__tests__/fundamentals/plan.test.ts` | `planSync` (suffix / non-SEC exclusions, new vs daily modes, re-added and removed tickers, dedupe), `needsFacts` (new filing, never fetched, full resync, excluded) |

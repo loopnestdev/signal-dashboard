@@ -1,10 +1,27 @@
 // Thresholds from docs/leaps-rules.md v1.0, fixed before any backtest result was looked at.
 // A change here is a new rules version (bump LEAPS_RULES_VERSION and the doc's change log).
-export const LEAPS_RULES_VERSION = '1.1';
+export const LEAPS_RULES_VERSION = '1.2';
 
-export type LeapsBook = 'L1' | 'L2' | 'L3';
-export const LEAPS_BOOKS: LeapsBook[] = ['L1', 'L2', 'L3'];
-export const BOOK_DELTA: Record<LeapsBook, number> = { L1: 0.75, L2: 0.5, L3: 0.3 };
+export type LeapsBook = 'L1' | 'L2' | 'L3' | 'IX';
+export const LEAPS_BOOKS: LeapsBook[] = ['L1', 'L2', 'L3', 'IX'];
+export const STOCK_BOOKS: LeapsBook[] = ['L1', 'L2', 'L3'];
+export const BOOK_DELTA: Record<LeapsBook, number> = { L1: 0.75, L2: 0.5, L3: 0.3, IX: 0.85 };
+
+// Index book IX (section 6b): always holds a deep ITM call on each index, rolled with 120 days left; the rest in T-bills.
+// Expiries 500-900 days out so a position is held more than 12 months before the roll (CGT discount).
+export const INDEX_BOOK = {
+  symbols: ['SPY', 'QQQ'],
+  positionPct: 15,
+  minExpiryDays: 500,
+  maxExpiryDays: 900,
+} as const;
+
+// Daily research grid (section 10): for every monthly expiry this far out or more, the call nearest each delta is stored,
+// so the price model can later be checked against real LEAPS through calm and stressed markets.
+export const QUOTE_GRID = {
+  minExpiryDays: 270,
+  deltas: [0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 0.85],
+} as const;
 
 export type MarketState = 'correction' | 'pullback' | 'normal';
 

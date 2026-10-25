@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.10.0] - 2026-10-25
+
+### Added
+
+- **Index book IX** on the LEAPS page (rules v1.2, section 6b): always holds one deep ITM (0.85 delta) LEAPS on SPY and one on QQQ, 15% of the book each, expiry 500-900 days out, rolled with 120 days left (each held over 12 months); the rest earns T-bill interest. Backtest 2016-10 -> 2026-10 on modeled prices: 17.8% a year, max drawdown 25%, vs SPY with dividends 15.3% / 34%. Paper trading uses fractional contracts; the page shows the book size needed for whole contracts (~$130k).
+- **Daily LEAPS quote grid** for future research: every collector `leaps` run stores, for every candidate-list name plus SPY and QQQ, the call nearest deltas 0.20-0.85 on each monthly expiry 9+ months out (`leaps_quotes.grid`, ~4,000 rows a session), so the price model can be checked against real LEAPS through stressed markets.
+- Migration `20261025_leaps_index_book.sql` (book IX, numeric contract counts, `grid` column, `leaps_interest`).
+
+### Changed
+
+- LEAPS backtest and paper books: idle cash earns the 13-week T-bill rate; the SPY comparison is total return (dividends included; it was price only, ~1.3 points a year too low); sells fill before buys in a session. With interest, L1 and L2 make ~13% a year (was ~11%).
+
+---
+
 ## [1.9.0] - 2026-10-25
 
 ### Added

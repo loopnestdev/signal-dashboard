@@ -31,6 +31,7 @@ interface ChartResult {
       close: (number | null)[];
       volume: (number | null)[];
     }>;
+    adjclose?: Array<{ adjclose: (number | null)[] }>;
   };
 }
 
@@ -131,6 +132,7 @@ export interface DailyBar {
   high: number;
   low: number;
   close: number;
+  adjClose?: number;  // dividend- and split-adjusted close (total return); only on daily-history requests
 }
 
 export interface Split {
@@ -152,7 +154,8 @@ export async function getDailyBarsWithSplits(symbol: string, range: Span): Promi
   r.timestamp.forEach((ts, i) => {
     const [open, high, low, close] = [q.open[i], q.high[i], q.low[i], q.close[i]];
     if (open == null || high == null || low == null || close == null) return;
-    bars.push({ date: fmt.format(new Date(ts * 1000)), open, high, low, close });
+    const adj = r.indicators.adjclose?.[0]?.adjclose[i];
+    bars.push({ date: fmt.format(new Date(ts * 1000)), open, high, low, close, ...(adj != null ? { adjClose: adj } : {}) });
   });
   const splits = Object.values(r.events?.splits ?? {})
     .filter(sp => sp.numerator > 0 && sp.denominator > 0)

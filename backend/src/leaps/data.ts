@@ -3,7 +3,7 @@ import { getDailyBarsWithSplits, type DailyBar, type Split } from '../lib/yahooC
 import type { LeapsHistory, Series, StockHistory } from './backtest.js';
 import { splitFactorSince } from './market.js';
 import type { QuarterFacts } from './quality.js';
-import { addDays, RULES } from './rules.js';
+import { addDays, INDEX_BOOK, RULES } from './rules.js';
 import { LEAPS_UNIVERSE } from './universe.js';
 
 // Loads the LEAPS backtest's inputs: daily bars from Yahoo (universe + SPY + VIX + 6-month VIX + 13-week T-bill) and SEC quarters.
@@ -55,7 +55,7 @@ export async function loadLeapsHistory(from: string, to: string): Promise<{ hist
   const symbols = await eligibleFilers();
   const quarters = await quartersFor(symbols);
   const fetchBars = (s: string) => getDailyBarsWithSplits(s, { since }).catch(() => ({ bars: [] as DailyBar[], splits: [] as Split[] }));
-  const [spy, vix, vix6m, irx] = await Promise.all(['SPY', '^VIX', '^VIX6M', '^IRX'].map(fetchBars));
+  const [spy, vix, vix6m, irx, ...indexBars] = await Promise.all(['SPY', '^VIX', '^VIX6M', '^IRX', ...INDEX_BOOK.symbols].map(fetchBars));
   const loaded = await mapLimit(symbols, 4, async s => ({ s, ...(await fetchBars(s)) }));
 
   const missing: string[] = [];
@@ -74,6 +74,8 @@ export async function loadLeapsHistory(from: string, to: string): Promise<{ hist
       vix6m: new Map(vix6m.bars.map(b => [b.date, b.close])),
       rate: new Map(irx.bars.map(b => [b.date, b.close / 100])),
       stocks,
+      index: INDEX_BOOK.symbols.map((symbol, i) => ({ symbol, ...toSeries(indexBars[i].bars), quarters: [], marketCapNow: null })),
+      spyTr: { dates: spy.bars.map(b => b.date), closes: spy.bars.map(b => b.adjClose ?? b.close) },
     },
     missing,
   };
