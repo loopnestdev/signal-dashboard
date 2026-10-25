@@ -1,20 +1,25 @@
 // Thresholds from docs/leaps-rules.md v1.0, fixed before any backtest result was looked at.
 // A change here is a new rules version (bump LEAPS_RULES_VERSION and the doc's change log).
-export const LEAPS_RULES_VERSION = '1.2';
+export const LEAPS_RULES_VERSION = '1.3';
 
-export type LeapsBook = 'L1' | 'L2' | 'L3' | 'IX';
-export const LEAPS_BOOKS: LeapsBook[] = ['L1', 'L2', 'L3', 'IX'];
+export type LeapsBook = 'L1' | 'L2' | 'L3' | 'IS' | 'IQ';
+export const LEAPS_BOOKS: LeapsBook[] = ['L1', 'L2', 'L3', 'IS', 'IQ'];
 export const STOCK_BOOKS: LeapsBook[] = ['L1', 'L2', 'L3'];
-export const BOOK_DELTA: Record<LeapsBook, number> = { L1: 0.75, L2: 0.5, L3: 0.3, IX: 0.85 };
+export const INDEX_BOOKS: LeapsBook[] = ['IS', 'IQ'];
+export const BOOK_DELTA: Record<LeapsBook, number> = { L1: 0.75, L2: 0.5, L3: 0.3, IS: 0.85, IQ: 0.85 };
 
-// Index book IX (section 6b): always holds a deep ITM call on each index, rolled with 120 days left; the rest in T-bills.
-// Expiries 500-900 days out so a position is held more than 12 months before the roll (CGT discount).
+// Index books IS (SPY) and IQ (QQQ), section 6b: each always holds one deep ITM call on its index, rolled with 120 days
+// left; the rest in T-bills. Expiries 500-900 days out so a position is held more than 12 months before the roll (CGT).
 export const INDEX_BOOK = {
-  symbols: ['SPY', 'QQQ'],
-  positionPct: 15,
+  symbolOf: { IS: 'SPY', IQ: 'QQQ' } as Partial<Record<LeapsBook, string>>,
+  positionPct: 30,
   minExpiryDays: 500,
   maxExpiryDays: 900,
 } as const;
+export const INDEX_SYMBOLS = ['SPY', 'QQQ'];
+export const isIndexBook = (book: string): boolean => book === 'IS' || book === 'IQ';
+// Each book is judged against the index it competes with: IQ against QQQ, everything else against SPY.
+export const benchmarkOf = (book: string): 'SPY' | 'QQQ' => (book === 'IQ' ? 'QQQ' : 'SPY');
 
 // Daily research grid (section 10): for every monthly expiry this far out or more, the call nearest each delta is stored,
 // so the price model can later be checked against real LEAPS through calm and stressed markets.

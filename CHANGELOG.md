@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.11.0] - 2026-10-25
+
+### Changed
+
+- **LEAPS index book split** (rules v1.3): IX (SPY + QQQ at 15% each) is now two books, **IS** (SPY only) and **IQ** (QQQ only), each holding 30% of its own book in one deep ITM LEAPS. Backtest 2016-10 -> 2026-10: IS 14.8% a year, max drawdown 26% (SPY 15.3% / 34%); IQ 20.6% / 28% (QQQ 20.3% / 35%).
+- Each book is compared with its own index: IQ against QQQ, every other book against SPY (table column and a QQQ line on the equity chart). Whole contracts need a book of ~$65-70k per index book (was ~$130k).
+- Migration `20261025_leaps_split_index_books.sql` (book ids IS / IQ).
+
+---
+
 ## [1.10.0] - 2026-10-25
 
 ### Added

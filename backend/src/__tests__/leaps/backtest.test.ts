@@ -46,6 +46,7 @@ const history = (): LeapsHistory => ({
     { symbol: 'QQQ', dates, closes: path(N, 0.008, drift(1.2)), quarters: [], marketCapNow: null },
   ],
   spyTr: spy,
+  qqqTr: spy,
 });
 
 describe('modeledQuote', () => {
@@ -101,16 +102,21 @@ describe('runLeapsBacktest', () => {
     expect(r.openAtEnd).toHaveLength(0);
   });
 
-  it('IX: holds SPY and QQQ from the first session, rolls with 120 days left and stays invested', () => {
-    const r = runLeapsBacktest(history(), 'IX', 50_000, 1);
-    expect(r.equity[1].openPositions).toBe(2);
-    expect(r.equity.slice(1).every(e => e.openPositions === 2)).toBe(true);
-    expect(r.trades.length).toBeGreaterThan(0);
-    expect(r.trades.every(t => t.exitReason.startsWith('time exit') && t.halfDate === null)).toBe(true);
-    // Each position starts at ~15% of equity, so ~70% sits in T-bills earning interest
-    expect(r.equity[1].cash / r.equity[1].equity).toBeGreaterThan(0.65);
-    expect(r.interest).toBeGreaterThan(0);
-    const first = r.trades.find(t => t.symbol === 'SPY')!;
+  for (const [book, symbol] of [['IS', 'SPY'], ['IQ', 'QQQ']] as const) {
+    it(`${book}: holds only ${symbol} from the first session, rolls with 120 days left and stays invested`, () => {
+      const r = runLeapsBacktest(history(), book, 50_000, 1);
+      expect(r.equity.slice(1).every(e => e.openPositions === 1)).toBe(true);
+      expect(r.trades.length).toBeGreaterThan(0);
+      expect(r.trades.every(t => t.symbol === symbol && t.exitReason.startsWith('time exit') && t.halfDate === null)).toBe(true);
+      // The position starts at ~30% of equity, so ~70% sits in T-bills earning interest
+      expect(r.equity[1].cash / r.equity[1].equity).toBeGreaterThan(0.65);
+      expect(r.interest).toBeGreaterThan(0);
+    });
+  }
+
+  it('index positions are held more than 12 months before the roll', () => {
+    const r = runLeapsBacktest(history(), 'IS', 50_000, 1);
+    const first = r.trades[0];
     const held = (Date.parse(first.exitDate) - Date.parse(first.entryDate)) / 864e5;
     expect(held).toBeGreaterThan(365);   // 500+ day expiry, out at 120 days left
   });
@@ -129,6 +135,22 @@ describe('runLeapsBacktest', () => {
     expect(s.episodes).toHaveLength(1);
     expect(s.halfPnl + s.runnerPnl).toBeCloseTo(s.totalPnl, 0);
     expect(s.spyReturnPct).not.toBeNull();
+    expect(s.benchmark.symbol).toBe('SPY');
+    expect(s.benchmark.returnPct).toBe(s.spyReturnPct);
+    expect(s.benchmark.maxDrawdownPct).toBeGreaterThan(10);
     expect(s.returnPct).toBeGreaterThan(0);
+  });
+});
+
+describe('summarizeLeaps benchmark', () => {
+  it('reports the book benchmark separately from SPY (IQ against QQQ)', () => {
+    const h = history();
+    const qqq = { dates, closes: dates.map((_, i) => 100 * 1.001 ** i) };
+    const r = runLeapsBacktest(h, 'IQ', 50_000, 1);
+    const s = summarizeLeaps(r, h.spyTr, { symbol: 'QQQ', series: qqq });
+    expect(s.benchmark.symbol).toBe('QQQ');
+    expect(s.benchmark.maxDrawdownPct).toBe(0);
+    expect(s.benchmark.returnPct).toBeCloseTo((1.001 ** (dates.indexOf(r.to) - dates.indexOf(r.from)) - 1) * 100, 1);
+    expect(s.benchmark.returnPct).not.toBe(s.spyReturnPct);
   });
 });

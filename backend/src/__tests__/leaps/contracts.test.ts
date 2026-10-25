@@ -52,10 +52,11 @@ describe('pickContract', () => {
     expect(pickContract([], '2026-10-26', 'L2').reason).toBe('no LEAPS expiry 15-27 months out');
     expect(pickContract([call(200, 0.5, { ask: null })], '2026-10-26', 'L2').reason).toContain('no quoted calls');
   });
-  it('IX uses 500-900 day expiries, delta 0.85 and no open-interest floor', () => {
-    expect(expiryWindow('IX')).toEqual([500, 900]);
+  it('index books IS / IQ use 500-900 day expiries, delta 0.85 and no open-interest floor', () => {
+    expect(expiryWindow('IS')).toEqual([500, 900]);
+    expect(expiryWindow('IQ')).toEqual([500, 900]);
     const ix = [call(150, 0.86, { expiry: '2028-06-16', openInterest: 20 }), call(150, 0.85, { expiry: '2028-01-21' })];
-    const pick = pickContract(ix, '2026-10-26', 'IX');
+    const pick = pickContract(ix, '2026-10-26', 'IQ');
     expect(pick.call!.expiry).toBe('2028-06-16');   // 2028-01-21 is 452 days out, under the 500-day floor
     expect(pick.liquid).toBe(true);
   });

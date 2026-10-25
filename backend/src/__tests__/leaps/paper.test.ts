@@ -57,15 +57,15 @@ describe('stepPosition', () => {
   });
 });
 
-describe('index book (IX) paper positions', () => {
-  const ix = pos({ book: 'IX', status: 'pending', qty: 0.3712, qty_open: 0.3712, entry_date: null, entry_price: null, last_bid: null, commissions: 0, meta: { estCost: 7_500 } });
+describe('index book (IS / IQ) paper positions', () => {
+  const ix = pos({ book: 'IS', status: 'pending', qty: 0.3712, qty_open: 0.3712, entry_date: null, entry_price: null, last_bid: null, commissions: 0, meta: { estCost: 7_500 } });
   it('fills fractional contracts at the ask, cut to cash', () => {
     const { position } = stepPosition(ix, { bid: 199, ask: 200, iv: 0.17 }, '2026-10-27', true, 1, 42_500);
     expect(position).toMatchObject({ status: 'open', qty: 0.3712, entry_price: 200, commissions: 1 });
     expect(stepPosition(ix, { bid: 199, ask: 200, iv: 0.17 }, '2026-10-27', true, 1, -3_500).position.qty).toBeCloseTo(0.1999, 4);
   });
   it('never sells half or stops out; only the time exit rolls it', () => {
-    const open = pos({ book: 'IX', expiry: '2028-06-16', entry_date: '2026-10-27', entry_price: 100, qty: 0.4, qty_open: 0.4 });
+    const open = pos({ book: 'IQ', expiry: '2028-06-16', entry_date: '2026-10-27', entry_price: 100, qty: 0.4, qty_open: 0.4 });
     expect(stepPosition(open, { bid: 250, ask: 251, iv: 0.17 }, '2027-03-01', true, 1, 0).position.pending_action).toBeNull();
     expect(stepPosition(open, { bid: 30, ask: 31, iv: 0.17 }, '2027-09-01', false, 1, 0).position.pending_action).toBeNull();
     expect(stepPosition(open, { bid: 150, ask: 151, iv: 0.17 }, '2028-02-17', true, 1, 0).position.pending_action).toBe(`close:${EXIT_REASONS.time}`);

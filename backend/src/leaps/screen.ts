@@ -14,7 +14,7 @@ import { priceLevels, type PriceLevels } from './levels.js';
 import { marketState, offHighPct, rollingHigh } from './market.js';
 import { bookState, stepPosition, type PaperPosition } from './paper.js';
 import { knownQuarters, offHighCheck, qualityChecks, type Check } from './quality.js';
-import { addDays, daysBetween, INDEX_BOOK, LEAPS_BOOKS, LEAPS_RULES_VERSION, RULES, STOCK_BOOKS, yearsUntil, type LeapsBook, type MarketState } from './rules.js';
+import { addDays, daysBetween, INDEX_BOOK, INDEX_BOOKS, INDEX_SYMBOLS, isIndexBook, LEAPS_BOOKS, LEAPS_RULES_VERSION, RULES, STOCK_BOOKS, yearsUntil, type LeapsBook, type MarketState } from './rules.js';
 
 // Collector job 'leaps' (after the close): market state, the "bulletproof" screen with one contract per book and its
 // price levels, real LEAPS quotes for those contracts and every held one, then the paper books' fills and decisions.
@@ -89,7 +89,7 @@ function contractView(calls: ChainCall[], tradeDate: string, book: LeapsBook, st
     contract: c?.contract ?? null, expiry: c?.expiry ?? null, strike: c?.strike ?? null, bid: c?.bid ?? null, ask: c?.ask ?? null,
     iv: c?.iv ?? null, delta: c?.delta ?? null, openInterest: c?.openInterest ?? null, liquid: pick.liquid, reason: pick.reason,
     costFor2: unit ? round(unit * 2) : null,
-    affordable25k: unit && book !== 'IX' ? affordableAt(RULES.smallBookBalance, state === 'normal' ? 'correction' : state, unit) : null,
+    affordable25k: unit && !isIndexBook(book) ? affordableAt(RULES.smallBookBalance, state === 'normal' ? 'correction' : state, unit) : null,
     levels: c?.ask ? priceLevels({ strike: c.strike, premium: c.ask, years, iv: c.iv, rate, commissionPerContract: commission }) : null,
   };
 }
@@ -135,7 +135,7 @@ export async function runLeapsScreen(tradeDate: string): Promise<{ status: 'ok' 
   const held = await selectRows<PaperPosition>('leaps_positions', 'select=*&status=in.(pending,open)&order=id');
   const symbols = await eligibleFilers();
   const heldSymbols = new Set(held.map(p => p.symbol));
-  const indexSymbols = new Set<string>(INDEX_BOOK.symbols);
+  const indexSymbols = new Set<string>(INDEX_SYMBOLS);
   const universe = [...new Set([...symbols, ...heldSymbols, ...indexSymbols])].sort();
   const quarters = await quartersFor(universe);
   const rows: ScreenRow[] = [];
@@ -161,7 +161,9 @@ export async function runLeapsScreen(tradeDate: string): Promise<{ status: 'ok' 
         rows.push({
           trade_date: tradeDate, symbol, price, high_52w: high, off_high_pct: round(off), market_cap: null, iv30, vol_ratio: null,
           checks: [], eligible: true, candidate: true, reason: null, confirmation: null,
-          contracts: price != null ? { IX: contractView(calls, tradeDate, 'IX', state, rate, commission) } : null,
+          contracts: price != null
+            ? Object.fromEntries(INDEX_BOOKS.filter(b => INDEX_BOOK.symbolOf[b] === symbol).map(b => [b, contractView(calls, tradeDate, b, state, rate, commission)]))
+            : null,
         });
         continue;
       }
@@ -264,8 +266,8 @@ async function runPaper(tradeDate: string, state: MarketState, rows: ScreenRow[]
     const amount = last && idle > 0 ? Math.round(idle * rate * daysBetween(last, tradeDate) / 365 * 100) / 100 : 0;
     await upsertRows('leaps_interest', [{ book, trade_date: tradeDate, amount }], 'merge', 'book,trade_date');
 
-    if (book === 'IX') {
-      events.push(...await indexOrders(positions, rows, tradeDate, state, startingBalance, earned + amount, commission));
+    if (isIndexBook(book)) {
+      events.push(...await indexOrders(book, positions, rows, tradeDate, state, startingBalance, earned + amount, commission));
       continue;
     }
     if (state === 'normal') continue;
@@ -294,28 +296,27 @@ async function runPaper(tradeDate: string, state: MarketState, rows: ScreenRow[]
   return events;
 }
 
-// Book IX: hold one LEAPS per index at all times. A position closing at the next fill (the 120-day roll) is replaced in
-// the same session, sized at 15% of the book's equity, in fractional contracts.
-async function indexOrders(positions: PaperPosition[], rows: ScreenRow[], tradeDate: string, state: MarketState, startingBalance: number, interest: number, commission: number): Promise<string[]> {
+// Books IS / IQ: hold one LEAPS on the book's index at all times. A position closing at the next fill (the 120-day roll)
+// is replaced in the same session, sized at 30% of the book's equity, in fractional contracts.
+async function indexOrders(book: LeapsBook, positions: PaperPosition[], rows: ScreenRow[], tradeDate: string, state: MarketState, startingBalance: number, interest: number, commission: number): Promise<string[]> {
   const events: string[] = [];
-  for (const symbol of INDEX_BOOK.symbols) {
-    const active = positions.some(p => p.symbol === symbol && (p.status === 'pending' || (p.status === 'open' && !p.pending_action?.startsWith('close:'))));
-    if (active) continue;
-    const c = rows.find(r => r.symbol === symbol)?.contracts?.IX;
-    if (!c?.contract || !c.ask || !c.liquid) { events.push(`IX ${symbol}: no contract (${c?.reason ?? 'no quote'})`); continue; }
-    const unit = c.ask * 100 + commission;
-    const budget = bookState(positions, startingBalance, interest).equity * INDEX_BOOK.positionPct / 100;
-    const qty = Math.floor(budget / unit * 1e4 + 1e-6) / 1e4;
-    const pos: PaperPosition = {
-      book: 'IX', rules_version: LEAPS_RULES_VERSION, symbol, contract_symbol: c.contract, expiry: c.expiry!, strike: c.strike!,
-      status: 'pending', signal_date: tradeDate, market_state: state, qty, qty_open: qty, entry_date: null, entry_price: null,
-      half_date: null, half_price: null, half_qty: null, exit_date: null, exit_price: null, exit_reason: null, pending_action: null,
-      peak_value: null, last_bid: null, last_iv: null, last_date: null, commissions: 0, pnl: null, confirmation: null,
-      // Book size at which this position would be at least one whole contract
-      meta: { estCost: Math.round(budget * 100) / 100, askAtSignal: c.ask, minBookForWhole: Math.round(unit / (INDEX_BOOK.positionPct / 100)) },
-    };
-    positions.push(await insertRow<PaperPosition>('leaps_positions', pos));
-    events.push(`IX ${symbol}: order ${qty}x ${c.contract}`);
-  }
+  const symbol = INDEX_BOOK.symbolOf[book]!;
+  const active = positions.some(p => p.symbol === symbol && (p.status === 'pending' || (p.status === 'open' && !p.pending_action?.startsWith('close:'))));
+  if (active) return events;
+  const c = rows.find(r => r.symbol === symbol)?.contracts?.[book];
+  if (!c?.contract || !c.ask || !c.liquid) { events.push(`${book} ${symbol}: no contract (${c?.reason ?? 'no quote'})`); return events; }
+  const unit = c.ask * 100 + commission;
+  const budget = bookState(positions, startingBalance, interest).equity * INDEX_BOOK.positionPct / 100;
+  const qty = Math.floor(budget / unit * 1e4 + 1e-6) / 1e4;
+  const pos: PaperPosition = {
+    book, rules_version: LEAPS_RULES_VERSION, symbol, contract_symbol: c.contract, expiry: c.expiry!, strike: c.strike!,
+    status: 'pending', signal_date: tradeDate, market_state: state, qty, qty_open: qty, entry_date: null, entry_price: null,
+    half_date: null, half_price: null, half_qty: null, exit_date: null, exit_price: null, exit_reason: null, pending_action: null,
+    peak_value: null, last_bid: null, last_iv: null, last_date: null, commissions: 0, pnl: null, confirmation: null,
+    // Book size at which this position would be at least one whole contract
+    meta: { estCost: Math.round(budget * 100) / 100, askAtSignal: c.ask, minBookForWhole: Math.round(unit / (INDEX_BOOK.positionPct / 100)) },
+  };
+  positions.push(await insertRow<PaperPosition>('leaps_positions', pos));
+  events.push(`${book} ${symbol}: order ${qty}x ${c.contract}`);
   return events;
 }

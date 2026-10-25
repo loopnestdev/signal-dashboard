@@ -9,7 +9,7 @@ import { benchmarkCurve, lastCompleteSession } from '../backtest/report.js';
 import { priceLevels } from '../leaps/levels.js';
 import { bookState, type PaperPosition } from '../leaps/paper.js';
 import { bookInterest } from '../leaps/screen.js';
-import { addDays, INDEX_BOOK, LEAPS_BOOKS, LEAPS_RULES_VERSION, RULES, yearsUntil, type LeapsBook } from '../leaps/rules.js';
+import { addDays, benchmarkOf, INDEX_BOOK, LEAPS_BOOKS, LEAPS_RULES_VERSION, RULES, yearsUntil, type LeapsBook } from '../leaps/rules.js';
 import { currentLeapsJob, parseLeapsRunRequest, startLeapsJob } from '../leaps/runner.js';
 
 const router = Router();
@@ -113,15 +113,16 @@ router.get('/leaps/runs/:id', async (req, res) => {
       selectAll<{ date: string; equity: number; cash: number; open_positions: number }>('leaps_equity', `select=date,equity,cash,open_positions&${id}&order=date`),
     ]);
     if (!run) return res.status(404).json({ error: 'run not found' });
-    const key = `leaps-spy-${run.date_from}`;
+    const symbol = benchmarkOf(run.book);
+    const key = `leaps-bench-${symbol}-${run.date_from}`;
     let spy = getFromCache<DailyBar[]>(key);
     if (!spy) {
       // Total return (dividends reinvested), matching the backtest summary's SPY figure
-      spy = (await getDailyBarsWithSplits('SPY', { since: run.date_from }).catch(() => ({ bars: [] as DailyBar[] }))).bars
+      spy = (await getDailyBarsWithSplits(symbol, { since: run.date_from }).catch(() => ({ bars: [] as DailyBar[] }))).bars
         .map(b => ({ ...b, close: b.adjClose ?? b.close }));
       setToCache(key, spy, 3600);
     }
-    res.json({ run, trades, equity, benchmark: benchmarkCurve(spy, equity.map(e => e.date), Number(run.starting_balance)) });
+    res.json({ run, trades, equity, benchmarkSymbol: symbol, benchmark: benchmarkCurve(spy, equity.map(e => e.date), Number(run.starting_balance)) });
   } catch (err) {
     storageError(res, err);
   }
