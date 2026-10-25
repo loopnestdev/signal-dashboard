@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.11.1] - 2026-10-25
+
+### Added
+
+- LEAPS backtest table: **SPY and QQQ buy-and-hold rows** (total return, CAGR, max drawdown over the same dates) under the books.
+- Index books card: **Action** column per book - *Buy now* (no position), *Order placed*, *Hold* with the roll date (120 days before expiry) and days left, or *Roll now* (sell the held call, buy the one shown). The paper books act on it automatically after each close; a real account follows the same steps by hand.
+
+---
+
 ## [1.11.0] - 2026-10-25
 
 ### Changed

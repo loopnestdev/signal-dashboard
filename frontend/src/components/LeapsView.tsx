@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { C } from '../lib/colors';
 import { fetchLeaps, fetchLeapsRun, fetchLeapsRuns, startLeapsBacktest } from '../lib/api';
-import { fmtCap, fmtLevel, mergeNamedCurves, positionReturnPct, positionStatus, sortScreen } from '../lib/leaps';
+import { buyAndHoldRows, fmtCap, fmtLevel, indexAction, mergeNamedCurves, positionReturnPct, positionStatus, sortScreen, type IndexAction } from '../lib/leaps';
 import { fmtPct, fmtUsd } from '../lib/performance';
 import { supabase } from '../lib/supabase';
 import type { LeapsBook, LeapsContract, LeapsMarketState, LeapsPosition, LeapsResponse, LeapsRunDetail, LeapsRunsResponse, LeapsScreenRow } from '../types/leaps';
@@ -198,15 +198,18 @@ function ProposedTable({ rows, book, state, onAnalyze }: { rows: LeapsScreenRow[
   );
 }
 
-function IndexCard({ rows, positionPct, startingBalance }: { rows: LeapsScreenRow[]; positionPct: number; startingBalance: number }) {
+const ACTION_COLOR: Record<IndexAction['action'], string> = { buy: C.bull, roll: C.warn, ordered: C.primary, hold: C.inkSec };
+
+function IndexCard({ rows, positions, today, positionPct, startingBalance }: { rows: LeapsScreenRow[]; positions: LeapsPosition[]; today: string; positionPct: number; startingBalance: number }) {
   const idx = rows.filter(r => INDEX_SYMBOLS.has(r.symbol) && r.contracts?.[INDEX_BOOK_OF[r.symbol]]);
   return (
-    <Card title="Index books IS (SPY) and IQ (QQQ) - always held" tip="LEAPS rules section 6b. Each book always holds one deep ITM (0.85 delta) call on its own index, expiry 500-900 days out, rolled with 120 days left so it is held over 12 months. 30% of that book; the rest earns T-bill interest. No half sale, no stop. The contract below is what a new position or the next roll would buy today.">
+    <Card title="Index books IS (SPY) and IQ (QQQ) - always held" tip="LEAPS rules section 6b. Each book always holds one deep ITM (0.85 delta) call on its own index, expiry 500-900 days out, rolled with 120 days left so it is held over 12 months. 30% of that book; the rest earns T-bill interest. No half sale, no stop. The Action column says what to do today; the contract is what a new position or the next roll buys.">
       {!idx.length ? <div style={{ fontSize: '13px', color: C.inkMute }}>No index quotes in the latest screen yet.</div> : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 900 }}>
             <thead><tr>
               <th style={th}>Book</th>
+              <th style={th}>Action<InfoTip tip="Buy now: the book has no position, buy the contract shown. Hold: nothing to do until the roll date (120 days before expiry). Roll now: sell the held call and buy the contract shown. The paper book does this itself after each close; a real account follows the same steps by hand." /></th>
               <th style={th}>Contract</th>
               <th style={{ ...th, textAlign: 'right' }}>Ask</th>
               <th style={{ ...th, textAlign: 'right' }}>1 contract<InfoTip tip="Cost of one contract incl. commission." /></th>
@@ -221,6 +224,12 @@ function IndexCard({ rows, positionPct, startingBalance }: { rows: LeapsScreenRo
                 return (
                   <tr key={r.symbol}>
                     <td style={{ ...td, fontWeight: 700, color: BOOKS[INDEX_BOOK_OF[r.symbol]].color }}>{INDEX_BOOK_OF[r.symbol]} <span style={{ color: C.ink }}>{r.symbol}</span><div style={sub}>{money(r.price)}</div></td>
+                    <td style={{ ...td, whiteSpace: 'normal', minWidth: 200 }}>
+                      {(() => {
+                        const a = indexAction(positions.filter(p => p.book === INDEX_BOOK_OF[r.symbol]), today);
+                        return <><span style={{ fontWeight: 700, color: ACTION_COLOR[a.action] }}>{a.label}</span><div style={sub}>{a.detail}</div></>;
+                      })()}
+                    </td>
                     <td className="tnum" style={td}>
                       {c.strike != null ? `${c.strike}C ${c.expiry}` : (c.reason ?? '-')}
                       <div style={sub}>{c.delta != null ? `Δ ${c.delta.toFixed(2)}` : ''}{c.iv != null ? ` · IV ${(c.iv * 100).toFixed(0)}%` : ''}</div>
@@ -488,6 +497,16 @@ function BacktestSection({ canRun }: { canRun: boolean }) {
                       </tr>
                     );
                   })}
+                  {buyAndHoldRows(latest.map(r => r.summary)).map(b => (
+                    <tr key={`bh-${b.symbol}`}>
+                      <td style={{ ...td, color: C.inkSec, fontWeight: 600 }}>{b.symbol} buy &amp; hold<InfoTip tip="The index itself over the same dates, dividends reinvested, no trading (and no tax until sold)." /></td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: pnlColor(b.returnPct), fontWeight: 600 }}>{fmtPct(b.returnPct)}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtPct(b.cagrPct)}</td>
+                      <td style={td} />
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: C.bear }}>{b.maxDrawdownPct ?? '-'}%</td>
+                      {Array.from({ length: 7 }, (_, i) => <td key={i} className="tnum" style={{ ...td, textAlign: 'right', color: C.inkMute }}>-</td>)}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -594,7 +613,7 @@ export function LeapsView({ canRun, onAnalyze }: { canRun: boolean; onAnalyze: (
         </Card>
       )}
 
-      {data && <IndexCard rows={data.screen} positionPct={data.indexPositionPct ?? 15} startingBalance={data.startingBalance} />}
+      {data && <IndexCard rows={data.screen} positions={data.positions} today={data.market?.trade_date ?? new Date().toISOString().slice(0, 10)} positionPct={data.indexPositionPct ?? 30} startingBalance={data.startingBalance} />}
 
       {data && (
         <Card title="Paper positions" tip="LEAPS rules section 10. Filled at the next close: buy at ask, sell at bid. Stock books use whole contracts (at least 2); the index books IS and IQ use fractional contracts. Idle cash earns T-bill interest. Break-even and +100% levels use the actual fill price.">

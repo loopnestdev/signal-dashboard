@@ -78,7 +78,7 @@ signal-dashboard/
 |   |   |   +-- priceLevels.ts         # validatePriceLevels() - stop/target directional validation
 |   |   |   +-- risk.ts                # riskPerTrade() mirror for the Settings live preview
 |   |   |   +-- fundamentals.ts        # fmtMoney/fmtRatioPct/fmtMargin, sortLeverage() for the leverage table
-|   |   |   +-- leaps.ts               # pctTo/fmtLevel, fmtCap, sortScreen, positionReturnPct, positionStatus, mergeNamedCurves
+|   |   |   +-- leaps.ts               # pctTo/fmtLevel, fmtCap, sortScreen, positionReturnPct, positionStatus, mergeNamedCurves, buyAndHoldRows, indexAction
 |   |   |   +-- performance.ts         # mergeCurves() for the equity chart, describeLegs(), $/% formatters
 |   |   |   +-- stockApi.ts            # Stock-specific API client
 |   |   |   +-- supabase.ts            # Typed Supabase client (null when unconfigured)
@@ -446,7 +446,7 @@ Run the test suite to catch regressions before committing:
 
 ```bash
 cd backend && npm test          # 478 tests - one-shot
-cd frontend && npm test         # 85 tests  - one-shot
+cd frontend && npm test         # 91 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
 cd frontend && npm run test:watch  # watch mode
@@ -491,7 +491,7 @@ cd frontend && npm run test:watch  # watch mode
 | `backend/src/__tests__/leaps/paper.test.ts` | `bookState` (open cost, marks, realized, pending reservations), `stepPosition` (fill at ask, cash cut / cancel, half sale at bid, P&L across both halves, waiting order, runner peak, quality-break decision) |
 | `backend/src/__tests__/leaps/backtest.test.ts` | `modeledQuote` spread, `modeledIv` (regime clamp), episodes from SPY drawdowns, each stock book buys the eligible name next session and sells half on the recovery, IS / IQ always invested in their own index + rolls held > 12 months, per-book benchmark (IQ vs QQQ), T-bill interest on idle cash, summary half/runner split |
 | `backend/src/__tests__/leaps/runner.test.ts` | `parseLeapsRunRequest` (range, earliest start, future), `marketCapNow` (split scaling, no shares) |
-| `frontend/src/__tests__/lib/leaps.test.ts` | `pctTo` / `fmtLevel`, `fmtCap`, `sortScreen`, `positionReturnPct` (both halves), `positionStatus`, `mergeNamedCurves` |
+| `frontend/src/__tests__/lib/leaps.test.ts` | `pctTo` / `fmtLevel`, `fmtCap`, `sortScreen`, `positionReturnPct` (both halves), `positionStatus`, `mergeNamedCurves`, `buyAndHoldRows` (SPY / QQQ from run benchmarks), `indexAction` (buy, ordered, hold until roll date, roll) |
 | `backend/src/__tests__/fundamentals/plan.test.ts` | `planSync` (suffix / non-SEC exclusions, new vs daily modes, re-added and removed tickers, dedupe), `needsFacts` (new filing, never fetched, full resync, excluded) |
 | `frontend/src/__tests__/lib/fundamentals.test.ts` | `fmtMoney`, `fmtRatioPct`, `fmtMargin`, `sortLeverage` (directions, rank order, missing values last, margin change, no mutation) |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |

@@ -1,4 +1,4 @@
-import type { LeapsPosition, LeapsScreenRow } from '../types/leaps';
+import type { LeapsPosition, LeapsScreenRow, LeapsSummary } from '../types/leaps';
 
 // Pure helpers for the LEAPS page.
 
@@ -60,4 +60,41 @@ export function mergeNamedCurves(curves: Record<string, CurvePoint[]>, spy: Curv
   for (const [k, v] of Object.entries(curves)) put(k, v);
   put('SPY', spy);
   return [...rows.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+// Buy-and-hold rows for the backtest table: SPY from any run benchmarked on SPY, QQQ from the IQ run.
+export function buyAndHoldRows(summaries: LeapsSummary[]): Array<{ symbol: string; returnPct: number | null; cagrPct: number | null; maxDrawdownPct: number | null }> {
+  const out = [];
+  for (const symbol of ['SPY', 'QQQ']) {
+    const b = summaries.find(s => s.benchmark?.symbol === symbol)?.benchmark;
+    if (b) out.push({ symbol, returnPct: b.returnPct, cagrPct: b.cagrPct, maxDrawdownPct: b.maxDrawdownPct });
+  }
+  return out;
+}
+
+const ROLL_DAYS_LEFT = 120;
+const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86_400_000);
+
+export interface IndexAction {
+  action: 'buy' | 'ordered' | 'hold' | 'roll';
+  label: string;
+  detail: string;
+}
+
+// What an index book (IS / IQ) wants done today, from its paper position: the same step applies to a real account.
+//   - no position: buy the contract shown; ordered: the paper order fills at the next close
+//   - holding: nothing to do until the roll date (expiry minus 120 days); roll: sell the held call, buy the one shown
+export function indexAction(positions: Pick<LeapsPosition, 'status' | 'expiry' | 'strike' | 'pending_action' | 'id'>[], today: string): IndexAction {
+  const live = positions.filter(p => p.status === 'open' || p.status === 'pending').sort((a, b) => b.id - a.id);
+  const open = live.find(p => p.status === 'open');
+  if (open?.pending_action?.startsWith('close:')) {
+    return { action: 'roll', label: 'Roll now', detail: `Sell the ${open.strike}C ${open.expiry} and buy the contract shown (paper: next close)` };
+  }
+  if (open) {
+    const roll = addDays(open.expiry, -ROLL_DAYS_LEFT);
+    return { action: 'hold', label: 'Hold', detail: `Holding ${open.strike}C ${open.expiry}; roll on ${roll} (${Math.max(0, daysBetween(today, roll))} days)` };
+  }
+  if (live.length) return { action: 'ordered', label: 'Order placed', detail: 'Paper order fills at the next close; buy the contract shown' };
+  return { action: 'buy', label: 'Buy now', detail: 'No position: buy the contract shown (the paper book orders after the close)' };
 }
