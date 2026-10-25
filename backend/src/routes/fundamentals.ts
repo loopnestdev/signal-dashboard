@@ -43,7 +43,10 @@ router.get('/fundamentals/leverage', async (_req, res) => {
   try {
     const moat = getFromCache<string[]>('fundamentals-moat') ?? await moatTickers();
     setToCache('fundamentals-moat', moat, 60);
-    const companies = await selectRows<CompanyRow>('sec_companies', 'select=ticker,name,status,reason,last_filed,last_form,checked_at&order=ticker');
+    const moatSet = new Set(moat.map(t => t.toUpperCase()));
+    // sec_companies also holds the LEAPS candidate list; this page shows moat-finder tickers only.
+    const companies = (await selectRows<CompanyRow>('sec_companies', 'select=ticker,name,status,reason,last_filed,last_form,checked_at&order=ticker'))
+      .filter(c => moatSet.has(c.ticker));
     const known = new Map(companies.map(c => [c.ticker, c]));
     const unseen = [...new Set(moat.map(t => t.toUpperCase()))].filter(t => !known.has(t) || known.get(t)!.reason === REMOVED_REASON);
     const last = currentSync();

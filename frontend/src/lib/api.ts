@@ -1,5 +1,6 @@
 import type { MarketResponse, MarketFlowResponse, MarketDpResponse, MarketScanResponse, GammaGexResponse, StockGexResponse, CollectorStatus, ScannerResponse, SettingsResponse, TradingSettings, BacktestRunsResponse, BacktestRunDetail, BookId, ReplayJob, FlowStudyResponse, LeverageResponse, FundamentalsSync } from '../types/market';
 import type { UnusualFlowResponse } from '../types/stock';
+import type { LeapsJob, LeapsResponse, LeapsRunDetail, LeapsRunsResponse } from '../types/leaps';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -138,4 +139,33 @@ export async function startFundamentalsSync(mode: 'daily' | 'full', accessToken:
   const body = await res.json().catch(() => ({})) as { error?: string; sync?: FundamentalsSync };
   if (!res.ok) throw new Error(body.error ?? `API ${res.status}`);
   return body.sync!;
+}
+
+export async function fetchLeaps(): Promise<LeapsResponse> {
+  const res = await fetch(`${BASE}/api/leaps`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+  return res.json() as Promise<LeapsResponse>;
+}
+
+export async function fetchLeapsRuns(): Promise<LeapsRunsResponse> {
+  const res = await fetch(`${BASE}/api/leaps/runs`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+  return res.json() as Promise<LeapsRunsResponse>;
+}
+
+export async function fetchLeapsRun(id: string): Promise<LeapsRunDetail> {
+  const res = await fetch(`${BASE}/api/leaps/runs/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API ${res.status}`);
+  return res.json() as Promise<LeapsRunDetail>;
+}
+
+export async function startLeapsBacktest(req: { from: string; to: string }, accessToken: string | null): Promise<LeapsJob> {
+  const res = await fetch(`${BASE}/api/leaps/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(accessToken) },
+    body: JSON.stringify(req),
+  });
+  const body = await res.json().catch(() => ({})) as { error?: string; job?: LeapsJob };
+  if (!res.ok) throw new Error(body.error ?? `API ${res.status}`);
+  return body.job!;
 }

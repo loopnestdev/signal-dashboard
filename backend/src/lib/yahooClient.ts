@@ -9,7 +9,9 @@ const HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-export type Range = '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y';
+export type Range = '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | '10y';
+// Yahoo returns quarterly bars for range=max, so long daily histories are asked for by start date instead.
+type Span = Range | { since: string };
 
 interface ChartResult {
   meta: {
@@ -20,6 +22,7 @@ interface ChartResult {
     symbol: string;
   };
   timestamp: number[];
+  events?: { splits?: Record<string, { date: number; numerator: number; denominator: number }> };
   indicators: {
     quote: Array<{
       open: (number | null)[];
@@ -31,9 +34,12 @@ interface ChartResult {
   };
 }
 
-async function fetchChart(symbol: string, range: Range, base = YF_BASE): Promise<ChartResult> {
+async function fetchChart(symbol: string, range: Span, base = YF_BASE): Promise<ChartResult> {
   const s = encodeURIComponent(symbol);
-  const url = `${base}/v8/finance/chart/${s}?interval=1d&range=${range}&includePrePost=false&events=div%2Csplits`;
+  const span = typeof range === 'string'
+    ? `range=${range}`
+    : `period1=${Math.floor(Date.parse(`${range.since}T00:00:00Z`) / 1000)}&period2=${Math.floor(Date.now() / 1000)}`;
+  const url = `${base}/v8/finance/chart/${s}?interval=1d&${span}&includePrePost=false&events=div%2Csplits`;
   const res = await fetch(url, { headers: HEADERS });
   if (!res.ok) throw new Error(`Yahoo [${res.status}] for ${symbol}`);
   const json = (await res.json()) as { chart: { result: ChartResult[]; error?: unknown } };
@@ -43,7 +49,7 @@ async function fetchChart(symbol: string, range: Range, base = YF_BASE): Promise
   return result;
 }
 
-async function fetchChartFallback(symbol: string, range: Range): Promise<ChartResult> {
+async function fetchChartFallback(symbol: string, range: Span): Promise<ChartResult> {
   try {
     return await fetchChart(symbol, range, YF_BASE);
   } catch {
@@ -127,8 +133,18 @@ export interface DailyBar {
   close: number;
 }
 
+export interface Split {
+  date: string;   // US/Eastern session date
+  ratio: number;  // new shares per old share (4 for a 4-for-1)
+}
+
 // Daily OHLC bars, oldest first. Sessions with any missing price are dropped rather than guessed.
 export async function getDailyBars(symbol: string, range: Range): Promise<DailyBar[]> {
+  return (await getDailyBarsWithSplits(symbol, range)).bars;
+}
+
+// Bars are split-adjusted by Yahoo; the split events let SEC share counts filed before a split be scaled to match.
+export async function getDailyBarsWithSplits(symbol: string, range: Span): Promise<{ bars: DailyBar[]; splits: Split[] }> {
   const r = await fetchChartFallback(symbol, range);
   const q = r.indicators.quote[0];
   const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -138,5 +154,9 @@ export async function getDailyBars(symbol: string, range: Range): Promise<DailyB
     if (open == null || high == null || low == null || close == null) return;
     bars.push({ date: fmt.format(new Date(ts * 1000)), open, high, low, close });
   });
-  return bars;
+  const splits = Object.values(r.events?.splits ?? {})
+    .filter(sp => sp.numerator > 0 && sp.denominator > 0)
+    .map(sp => ({ date: fmt.format(new Date(sp.date * 1000)), ratio: sp.numerator / sp.denominator }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return { bars, splits };
 }

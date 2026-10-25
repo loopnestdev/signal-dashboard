@@ -75,6 +75,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Flow Scanner | Port of Radon's discovery scorer: large options prints + dark pool --> 0-100 score; tradeable names scoring 45+ are added to data collection automatically for 14 days (capped at 12), alongside a permanent core of index ETFs and large caps |
 | Data collection | Scheduled recorder (US trading days, ET) storing dark pool prints, UW options flow alerts, curated flow, GEX levels, Signa signals and option quotes to Supabase for later backtesting; Data Collection view shows job health and Signa API usage vs the daily quota |
 | Fundamentals (operating leverage) | For every US-listed stock researched in moat-finder: latest quarter's operating income, operating margin vs a year ago, revenue growth, incremental margin, degree of operating leverage (DOL) and a leverage rank, from SEC 10-Q/10-K filings. New moat-finder research is added when the page is opened; new filings are picked up daily at 07:00 ET. Non-US listings and ADRs (20-F/40-F filers) are left out |
+| LEAPS | Long-dated calls (15-27 months) on large, profitable US companies, bought only when SPY is in a pullback or correction (`docs/leaps-rules.md`). Daily screen with the contract each strike book would buy (deep ITM / ATM / OTM), its break-even and +100% stock prices (today, in 6 months, at expiry) and the sell-limit price for the half sale; Signa dark pool / flow / LEAPS-print confirmation; three paper books; 10-year backtest on modeled prices compared against SPY |
 | Performance | Saved replays of the three paper books: equity curves vs SPY, win rate, average R, profit factor, drawdown, go-live checklist, trade list, skipped-signal reasons; admins can run a new replay from the page |
 
 ---
@@ -413,6 +414,8 @@ Then run [`supabase/migrations/20261007_backtest_runs.sql`](supabase/migrations/
 
 Then run [`supabase/migrations/20261021_sec_fundamentals.sql`](supabase/migrations/20261021_sec_fundamentals.sql): `sec_companies` (each moat-finder ticker's SEC classification and newest filing) and `sec_quarters` (permanent quarterly revenue + operating income history) behind the **Fundamentals** view. Load everything once with `cd backend && npm run fundamentals -- full` (about 200 SEC requests, ~1 minute) or the page's **Re-download all** button (admins).
 
+Then run [`supabase/migrations/20261025_leaps.sql`](supabase/migrations/20261025_leaps.sql): the **LEAPS** view's tables (`leaps_market`, `leaps_screen`, `leaps_quotes`, `leaps_positions`, `leaps_runs`, `leaps_trades`, `leaps_equity`) plus `net_income` and `diluted_shares` columns on `sec_quarters`. The SEC sync now also covers the LEAPS candidate list (`backend/src/leaps/universe.ts`, ~120 large caps), so run `npm run fundamentals -- full` once more to load their history and the new columns. The collector's `leaps` job (close + 45 min) screens the list, records real Cboe LEAPS quotes and runs the paper books; run it by hand with `npm run collect -- leaps`. Backtest: `npm run leaps -- [--from 2016-10-25] [--to YYYY-MM-DD] [--book L1|L2|L3|all] [--save] [--trades]`, or **Run backtest** on the LEAPS page (admins).
+
 Then run [`supabase/migrations/20261007_earnings_calendar.sql`](supabase/migrations/20261007_earnings_calendar.sql): the `earnings_calendar` table, refreshed daily at 08:30 ET from the free Nasdaq earnings calendar.
 
 To change the permanent core later, edit `signal.tracked_symbols` rows with `source = 'core'` (set `active = false` to pause a symbol). Rows with `source = 'scanner'` are managed by the scanner.
@@ -714,6 +717,14 @@ Operating leverage table for the Fundamentals view, read only from the stored `s
 ### `POST /api/fundamentals/sync` (admin)
 
 Body `{ "mode": "daily" | "full" }`. `daily` re-checks every moat-finder ticker's newest SEC filing and downloads figures only where a new 10-Q/10-K appeared; `full` re-downloads every company's history. Runs in the background (202); 409 while a sync is running. SEC requests are spaced ~250 ms apart (about 4 per second, under SEC's 10 per second limit).
+
+### `GET /api/leaps`
+
+Latest LEAPS screen: market state (SPY off its 52-week high, VIX, Market Quality Score), every candidate-list name with its quality checks, the contract each book would buy with break-even / +100% stock prices and sell limit, Signa confirmation; paper positions (with price levels from their actual fill) and each book's cash and equity. 503 without the service role key or migration `20261025_leaps.sql`.
+
+### `GET /api/leaps/runs`, `GET /api/leaps/runs/:id`, `POST /api/leaps/run` (admin), `DELETE /api/leaps/runs/:id` (admin)
+
+Saved LEAPS backtests (the newest set of L1/L2/L3 runs, the running job), one run's trades, equity curve and SPY benchmark; start a background backtest with `{ "from", "to" }` (202; 409 while one runs; from 2012 onward).
 
 ### `GET /health`
 

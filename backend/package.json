@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "collect": "tsx src/collector/cli.ts",
     "backtest": "tsx src/backtest/cli.ts",
-    "fundamentals": "tsx src/fundamentals/cli.ts"
+    "fundamentals": "tsx src/fundamentals/cli.ts",
+    "leaps": "tsx src/leaps/cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

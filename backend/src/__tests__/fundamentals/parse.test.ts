@@ -212,3 +212,58 @@ describe('companyfacts lag helpers', () => {
     expect(parseQuarters(merged).map(r => r.period_end)).toEqual(['2026-03-31', '2026-06-30']);
   });
 });
+
+describe('parseQuarters - net income and diluted shares (LEAPS universe)', () => {
+  const withShares = (base: ReturnType<typeof facts>, list: F[]) => {
+    base.facts['us-gaap'].WeightedAverageNumberOfDilutedSharesOutstanding = { units: { shares: list.map(f => ({ form: '10-Q', filed: '2026-01-01', ...f })) } } as never;
+    return base;
+  };
+
+  it('reads net income and the quarter\'s diluted share count', () => {
+    const rows = parseQuarters(withShares(facts({
+      Revenues: [{ start: '2026-01-01', end: '2026-03-31', val: 100, fy: 2026, fp: 'Q1' }],
+      OperatingIncomeLoss: [{ start: '2026-01-01', end: '2026-03-31', val: 20, fy: 2026, fp: 'Q1' }],
+      NetIncomeLoss: [{ start: '2026-01-01', end: '2026-03-31', val: 15, fy: 2026, fp: 'Q1' }],
+    }), [{ start: '2026-01-01', end: '2026-03-31', val: 7.4e9 }]));
+    expect(rows[0]).toMatchObject({ net_income: 15, diluted_shares: 7.4e9 });
+  });
+
+  it('keeps bank quarters that have net income but no operating income line', () => {
+    const rows = parseQuarters(facts({
+      RevenuesNetOfInterestExpense: [{ start: '2026-01-01', end: '2026-03-31', val: 45_000, fy: 2026, fp: 'Q1' }],
+      NetIncomeLoss: [{ start: '2026-01-01', end: '2026-03-31', val: 14_000, fy: 2026, fp: 'Q1' }],
+    }));
+    expect(rows[0]).toMatchObject({ revenue: 45_000, operating_income: null, net_income: 14_000, op_computed: false });
+  });
+
+  it('uses the fiscal-year average share count for Q4 instead of subtracting averages', () => {
+    const q = (s: string, e: string, fp: string) => ({ start: s, end: e, val: 10, fy: 2026, fp });
+    const rows = parseQuarters(withShares(facts({
+      Revenues: [q('2026-01-01', '2026-03-31', 'Q1'), q('2026-04-01', '2026-06-30', 'Q2'), q('2026-07-01', '2026-09-30', 'Q3'),
+        { start: '2026-01-01', end: '2026-12-31', val: 50, fy: 2026, fp: 'FY', form: '10-K' }],
+    }), [{ start: '2026-01-01', end: '2026-12-31', val: 3e9, form: '10-K' }]));
+    expect(rows.find(r => r.period_end === '2026-12-31')).toMatchObject({ revenue: 20, derived: true, diluted_shares: 3e9 });
+  });
+});
+
+describe('parseQuarters - share count fallbacks', () => {
+  const sharesFacts = (concepts: Record<string, Array<{ start?: string; end: string; val: number }>>) => {
+    const base = facts({ Revenues: [{ start: '2026-01-01', end: '2026-03-31', val: 100, fy: 2026, fp: 'Q1' }] });
+    for (const [k, list] of Object.entries(concepts)) {
+      base.facts['us-gaap'][k] = { units: { shares: list.map(f => ({ form: '10-Q', filed: '2026-05-01', ...f })) } } as never;
+    }
+    return base;
+  };
+  it('falls back to basic weighted shares (XOM)', () => {
+    const rows = parseQuarters(sharesFacts({ WeightedAverageNumberOfSharesOutstandingBasic: [{ start: '2026-01-01', end: '2026-03-31', val: 4.2e9 }] }));
+    expect(rows[0].diluted_shares).toBe(4.2e9);
+  });
+  it('falls back to period-end shares outstanding (KKR)', () => {
+    const rows = parseQuarters(sharesFacts({ CommonStockSharesOutstanding: [{ end: '2026-03-31', val: 8.9e8 }] }));
+    expect(rows[0].diluted_shares).toBe(8.9e8);
+  });
+  it('scales share counts tagged in millions (MCD)', () => {
+    const rows = parseQuarters(sharesFacts({ WeightedAverageNumberOfDilutedSharesOutstanding: [{ start: '2026-01-01', end: '2026-03-31', val: 716.4 }] }));
+    expect(rows[0].diluted_shares).toBeCloseTo(716.4e6, 0);
+  });
+});

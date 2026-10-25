@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.9.0] - 2026-10-25
+
+### Added
+
+- **LEAPS view** (sidebar) and rules `docs/leaps-rules.md` v1.1: long-dated calls (15-27 months) on large, profitable US companies, bought only while SPY is in a pullback (5-10% off its high with VIX > 20 or a weak market score, half size) or a correction (10%+ off, full size); the stock itself must be 15%+ below its own high. Sell half at +100%, let the rest run at least 6 months, stop only after half the time has passed and -50%, close everything 120 days before expiry or when the company reports a loss or shrinking revenue.
+- Quality checks: market cap >= $100B, 4 profitable quarters (net income for banks), revenue up year on year, stock IV30 <= 2.25x VIX, LEAPS open interest >= 500 and spread <= 5%. Candidate list: S&P 100 plus other US large caps (`backend/src/leaps/universe.ts`).
+- Three strike books compared side by side: L1 deep ITM (0.75 delta), L2 ATM (0.50), L3 OTM (0.30).
+- Every proposed trade and open position shows its break-even stock price (today and at expiry), the stock price for +100% (today, in 6 months, at expiry) and the option sell-limit price for the half sale.
+- Signa confirmation recorded with each entry (dark pool buying, call-heavy flow, $250k+ long-dated call prints); it does not block entries.
+- Paper books with whole contracts (at least 2), filled at the next close; starting balance in Settings (default $50,000).
+- 10-year backtest on modeled prices (Black-Scholes; IV fitted to real Cboe LEAPS quotes from the stock's realized volatility, scaled by 6-month VIX), equity vs SPY, results per drawdown episode, exits and skips. CLI `npm run leaps`.
+- Collector job `leaps` at close + 45 min (no Signa calls); real LEAPS quotes are stored for the chosen and held contracts only. Migration `20261025_leaps.sql`. API: `GET /api/leaps`, `GET/POST/DELETE /api/leaps/runs...`.
+
+### Changed
+
+- SEC sync covers the LEAPS candidate list as well as moat-finder tickers (the Fundamentals page still lists moat-finder tickers only), and stores net income and share counts per quarter.
+- Yahoo client: daily history by start date (Yahoo returns quarterly bars for `range=max`) and stock-split events.
+
+---
+
 ## [1.8.1] - 2026-10-23
 
 ### Fixed

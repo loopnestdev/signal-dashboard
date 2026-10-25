@@ -30,6 +30,9 @@ export interface TradingSettings {
     optionPerContract: number;
     sharePerOrder: number;
   };
+  leaps: {
+    startingBalance: number;     // LEAPS paper books L1-L3 (docs/leaps-rules.md section 5)
+  };
   ai: { provider: AiProvider };
 }
 
@@ -39,6 +42,7 @@ export const DEFAULT_SETTINGS: TradingSettings = {
   optionsLimits: { maxOpenTrades: 5, maxOpenRiskPct: 50, maxPerTicker: 1 },
   shares: { riskPct: 1, maxPositionPct: 20, maxOpenPositions: 8 },
   costs: { optionPerContract: 1, sharePerOrder: 1 },
+  leaps: { startingBalance: 50_000 },
   ai: { provider: 'gemini' },
 };
 
@@ -59,6 +63,7 @@ const BOUNDS: Record<string, [number, number, boolean?]> = {
   'shares.maxOpenPositions': [1, 30, true],
   'costs.optionPerContract': [0, 20],
   'costs.sharePerOrder': [0, 20],
+  'leaps.startingBalance': [5_000, 10_000_000],
 };
 
 const PROVIDERS: AiProvider[] = ['gemini', 'claude', 'none'];
