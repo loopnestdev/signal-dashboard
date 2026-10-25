@@ -2,12 +2,12 @@ import { useState, type KeyboardEvent } from 'react';
 import {
   LayoutDashboard, TrendingUp, Activity, BarChart2, Eye, Map,
   Plus, X, ChevronRight, LogOut, LogIn, Search, BookOpen,
-  Sun, Moon, Pencil, Database, Radar, Settings, LineChart, Building2,
+  Sun, Moon, Pencil, Database, Radar, Settings, LineChart, Building2, Hourglass,
 } from 'lucide-react';
 import { C } from '../../lib/colors';
 import type { WatchlistGroup } from '../../hooks/useWatchlist';
 
-export type View = 'dashboard' | 'market' | 'sector-map' | 'options-flow' | 'gamma' | 'dark-pool' | 'market-scan' | 'playbook' | 'flow-scanner' | 'fundamentals' | 'data-collection' | 'performance' | 'settings';
+export type View = 'dashboard' | 'market' | 'sector-map' | 'options-flow' | 'gamma' | 'dark-pool' | 'market-scan' | 'playbook' | 'flow-scanner' | 'fundamentals' | 'leaps' | 'data-collection' | 'performance' | 'settings';
 
 const NAV = [
   { id: 'dashboard' as View,    label: 'Dashboard',       Icon: LayoutDashboard },
@@ -19,6 +19,7 @@ const NAV = [
   { id: 'market-scan' as View,  label: 'Market Scanner',  Icon: Search },
   { id: 'flow-scanner' as View, label: 'Flow Scanner',    Icon: Radar },
   { id: 'fundamentals' as View, label: 'Fundamentals',    Icon: Building2 },
+  { id: 'leaps' as View,        label: 'LEAPS',           Icon: Hourglass },
   { id: 'performance' as View,  label: 'Performance',     Icon: LineChart },
   { id: 'playbook' as View,     label: 'Playbook',         Icon: BookOpen },
   { id: 'data-collection' as View, label: 'Data Collection', Icon: Database },

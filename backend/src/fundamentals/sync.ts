@@ -2,6 +2,7 @@ import { selectRows, selectRowsIn, updateRows, upsertRows } from '../lib/supabas
 import { parseInstanceFacts } from './instance.js';
 import { classifyFiler, factAccessions, mergeFacts, parseQuarters, periodicFilingsMissing, USED_CONCEPTS } from './parse.js';
 import { needsFacts, planSync, REMOVED_REASON, type CompanyState, type SyncMode } from './plan.js';
+import { LEAPS_UNIVERSE } from '../leaps/universe.js';
 import { fetchCompanyFacts, fetchFilingInstance, fetchSubmissions, fetchTickerMap, secRequestCount } from './secClient.js';
 
 export interface SyncResult {
@@ -21,6 +22,11 @@ export async function moatTickers(): Promise<string[]> {
   return rows.map(r => r.ticker_symbol);
 }
 
+// Companies the SEC sync covers: moat-finder research tickers (Fundamentals page) plus the LEAPS candidate list.
+export async function universeTickers(): Promise<string[]> {
+  return [...new Set([...(await moatTickers()).map(t => t.toUpperCase()), ...LEAPS_UNIVERSE])].sort();
+}
+
 export const knownCompanies = () =>
   selectRows<CompanyState>('sec_companies', 'select=ticker,status,reason,last_accession,facts_fetched_at&order=ticker');
 
@@ -32,11 +38,11 @@ const MAX_INSTANCE_FILLS = 2;
 //   - last_accession only advances once companyfacts contains that filing, so a failed download or SEC's companyfacts lag is retried next run
 //   - While companyfacts lags, the missing 10-Q/10-K figures are read from the filing's own XBRL instance on EDGAR
 async function syncFundamentals(mode: SyncMode, onProgress?: (done: number, total: number, ticker: string) => void): Promise<SyncResult> {
-  const [moat, known] = await Promise.all([moatTickers(), knownCompanies()]);
+  const [moat, known] = await Promise.all([universeTickers(), knownCompanies()]);
   const knownBy = new Map(known.map(k => [k.ticker, k]));
   const needsMap = mode !== 'new' || moat.some(t => !knownBy.has(t.toUpperCase()) || knownBy.get(t.toUpperCase())!.reason === REMOVED_REASON);
   if (!needsMap) {
-    return { status: 'ok', secCalls: 0, checked: 0, factsFetched: [], lagging: [], quarterRows: 0, added: [], failed: [], message: 'no new moat-finder tickers' };
+    return { status: 'ok', secCalls: 0, checked: 0, factsFetched: [], lagging: [], quarterRows: 0, added: [], failed: [], message: 'no new tickers' };
   }
   const startRequests = secRequestCount();
   const secTickers = await fetchTickerMap();

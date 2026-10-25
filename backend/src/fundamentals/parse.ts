@@ -61,6 +61,8 @@ export interface QuarterRow {
   operating_income: number | null;
   derived: boolean;
   op_computed: boolean;
+  net_income: number | null;
+  diluted_shares: number | null;
   form: string | null;
   filed: string | null;
 }
@@ -90,8 +92,23 @@ export const REVENUE_CONCEPTS = [
   'SalesRevenueNet',
   'SalesRevenueGoodsNet',
   'RegulatedAndUnregulatedOperatingRevenue',   // utilities (DTE)
+  'RevenuesNetOfInterestExpense',              // banks
 ];
 export const OPERATING_INCOME_CONCEPTS = ['OperatingIncomeLoss'];
+// Profit check for banks and insurers, which file no operating income line (LEAPS universe, docs/leaps-rules.md 1.3).
+export const NET_INCOME_CONCEPTS = ['NetIncomeLoss'];
+// Share counts for market cap, first with a value per period wins:
+//   - weighted diluted / basic averages cover every share class (GOOGL, META), unlike the dei cover-page count
+//   - XOM stopped tagging diluted shares in 2014 (basic only); KKR tags only period-end shares outstanding
+//   - V tags shares per class only (dimensional, absent from companyfacts), so it has no count here
+export const SHARES_CONCEPTS = [
+  'WeightedAverageNumberOfDilutedSharesOutstanding',
+  'WeightedAverageNumberOfShareOutstandingBasicAndDiluted',
+  'WeightedAverageNumberOfSharesOutstandingBasic',
+];
+export const SHARES_INSTANT_CONCEPTS = ['CommonStockSharesOutstanding'];
+// A few filers (MCD) tag share counts in millions; no company in the LEAPS list has under 100k shares.
+const MILLIONS_BELOW = 100_000;
 // Fallback inputs for filers without an OperatingIncomeLoss tag (COHR, ETN, CC, Qnity): see computedOperatingIncome.
 export const COST_CONCEPTS = {
   totalCosts: ['CostsAndExpenses'],
@@ -102,7 +119,7 @@ export const COST_CONCEPTS = {
   rnd: ['ResearchAndDevelopmentExpense'],
 };
 // Every us-gaap concept the parser reads; the filing-instance fallback extracts only these.
-export const USED_CONCEPTS = [...REVENUE_CONCEPTS, ...OPERATING_INCOME_CONCEPTS, ...Object.values(COST_CONCEPTS).flat()];
+export const USED_CONCEPTS = [...REVENUE_CONCEPTS, ...OPERATING_INCOME_CONCEPTS, ...NET_INCOME_CONCEPTS, ...Object.values(COST_CONCEPTS).flat()];
 
 const DAY = 86_400_000;
 export const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
@@ -145,9 +162,9 @@ function periodsOf(facts: Fact[], keep: (f: Fact) => boolean): Map<string, Perio
   return out;
 }
 
-function conceptFacts(facts: unknown, concept: string): Fact[] {
-  const usd = (facts as CompanyFacts | null)?.facts?.['us-gaap']?.[concept]?.units?.USD;
-  return Array.isArray(usd) ? usd : [];
+function conceptFacts(facts: unknown, concept: string, unit = 'USD'): Fact[] {
+  const list = (facts as CompanyFacts | null)?.facts?.['us-gaap']?.[concept]?.units?.[unit];
+  return Array.isArray(list) ? list : [];
 }
 
 const keepLarger = (map: Map<string, Period>, p: Period) => {
@@ -188,6 +205,30 @@ function quartersFor(facts: unknown, concepts: string[]): Map<string, Period> {
   return byEnd;
 }
 
+// sharesFor:
+//   - Share counts are averages, so a Q4 cannot be derived by subtraction; the fiscal-year average stands in for Q4
+//   - First concept with a value for a period wins
+function sharesFor(facts: unknown): Map<string, number> {
+  const out = new Map<string, number>();
+  const put = (end: string, val: number) => { if (!out.has(end) && val > 0) out.set(end, val < MILLIONS_BELOW ? val * 1e6 : val); };
+  for (const concept of SHARES_CONCEPTS) {
+    const list = conceptFacts(facts, concept, 'shares');
+    for (const p of periodsOf(list, isQuarter).values()) put(p.end, p.val);
+    for (const p of periodsOf(list, isAnnual).values()) put(p.end, p.val);
+  }
+  for (const concept of SHARES_INSTANT_CONCEPTS) {
+    // Balance-sheet instants have no start date; the latest filing per period end wins.
+    const latest = new Map<string, Fact>();
+    for (const f of conceptFacts(facts, concept, 'shares')) {
+      if (f.start || !f.form || !QUARTERLY_FORMS.has(f.form)) continue;
+      const cur = latest.get(f.end);
+      if (!cur || (f.filed ?? '') > (cur.filed ?? '')) latest.set(f.end, f);
+    }
+    for (const f of latest.values()) put(f.end, f.val);
+  }
+  return out;
+}
+
 type QuarterMaps = Record<keyof typeof COST_CONCEPTS, Map<string, Period>>;
 
 // computedOperatingIncome, first match wins (all flagged op_computed):
@@ -217,12 +258,15 @@ export function parseQuarters(companyFacts: unknown): QuarterRow[] {
   const costMaps = Object.fromEntries(
     Object.entries(COST_CONCEPTS).map(([k, concepts]) => [k, quartersFor(companyFacts, concepts)]),
   ) as QuarterMaps;
-  const ends = [...new Set([...rev.keys(), ...op.keys()])].sort();
+  const ni = quartersFor(companyFacts, NET_INCOME_CONCEPTS);
+  const shares = sharesFor(companyFacts);
+  const ends = [...new Set([...rev.keys(), ...op.keys(), ...ni.keys()])].sort();
   return ends.map(end => {
     const r = rev.get(end);
     const reported = op.get(end);
     const o = reported ?? computedOperatingIncome(end, r, costMaps);
-    const base = r ?? o!;
+    const n = ni.get(end);
+    const base = r ?? o ?? n!;
     return {
       period_start: base.start,
       period_end: end,
@@ -230,10 +274,12 @@ export function parseQuarters(companyFacts: unknown): QuarterRow[] {
       fiscal_period: base.fp,
       revenue: r?.val ?? null,
       operating_income: o?.val ?? null,
-      derived: Boolean(r?.derived || o?.derived),
+      derived: Boolean(r?.derived || o?.derived || (!r && !o && n?.derived)),
       op_computed: !reported && o != null,
+      net_income: n?.val ?? null,
+      diluted_shares: shares.get(end) ?? null,
       form: base.form,
-      filed: [r?.filed, o?.filed].filter(Boolean).sort().pop() ?? null,
+      filed: [r?.filed, o?.filed, n?.filed].filter(Boolean).sort().pop() ?? null,
     };
   });
 }

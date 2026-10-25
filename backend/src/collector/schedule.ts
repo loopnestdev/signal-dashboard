@@ -12,11 +12,12 @@ export type JobName =
   | 'signa-scan'     // Signa 30-model scan, bullish + bearish (technical cross-check)
   | 'scanner'        // Radon discover scoring + promote/expire scanner symbols
   | 'earnings'       // Nasdaq earnings calendar, next 30 days (no Signa calls)
-  | 'fundamentals';  // SEC 10-Q/10-K revenue + operating income for moat-finder tickers (no Signa calls)
+  | 'fundamentals'   // SEC 10-Q/10-K revenue + operating income for moat-finder + LEAPS tickers (no Signa calls)
+  | 'leaps';         // LEAPS screen, Cboe LEAPS quotes and paper books (no Signa calls)
 
 export const JOB_NAMES: JobName[] = [
   'signals', 'signa-scan', 'raw-flow', 'darkpool', 'flow-alerts', 'curated-flow',
-  'scanner', 'option-chain', 'gex', 'rollup', 'earnings', 'fundamentals',
+  'scanner', 'option-chain', 'gex', 'rollup', 'earnings', 'fundamentals', 'leaps',
 ];
 
 // Signa calls per run: per-symbol jobs scale with the universe, market-wide jobs cost a fixed count,
@@ -34,6 +35,7 @@ export const SIGNA_CALLS_PER_RUN: Record<JobName, 'per-symbol' | 'scanner' | num
   scanner: 'scanner',
   earnings: 0,
   fundamentals: 0,
+  leaps: 0,
 };
 
 const hm = (h: number, m: number) => h * 60 + m;
@@ -57,6 +59,8 @@ export function jobSlots(job: JobName, date: string): number[] {
     case 'option-chain': return [close + 25];
     case 'gex':          return [close + 20];
     case 'rollup':       return [close + 40];
+    // After the dark pool rollup, so the Signa confirmation sees today's dp_daily.
+    case 'leaps':        return [close + 45];
     case 'signa-scan':   return [hm(9, 15)];
     // 200 prints >= $250k span ~5 hours (~40/hour, bursts of 60), so hourly deduped pulls stay under the cap.
     case 'raw-flow':     return [...inSession([hm(10, 15), hm(11, 15), hm(12, 15), hm(13, 15), hm(14, 15), hm(15, 15)]), close + 5];

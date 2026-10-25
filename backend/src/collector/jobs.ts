@@ -7,6 +7,7 @@ import {
   earningsWindow, parseCboeChain, parseNasdaqEarnings, parseOptionChain, parseRawFlow, parseSignalSnapshot, parseSignaScan, pickSwingExpiries,
 } from './parsers.js';
 import { fetchCboeChain } from './cboeOptions.js';
+import { runLeapsScreen } from '../leaps/screen.js';
 import { fetchNasdaqEarnings } from './nasdaqEarnings.js';
 import {
   aggregateFlow, analyzeDpMulti, buildCandidate, INDEX_SYMBOLS, planPromotions, rejectReason, scannerConfig,
@@ -349,6 +350,8 @@ export async function runJob(job: JobName, tradeDate: string): Promise<JobResult
       result = await runEarnings(tradeDate, symbols);
     } else if (job === 'fundamentals') {
       result = await runFundamentals();
+    } else if (job === 'leaps') {
+      result = { ...(await runLeapsScreen(tradeDate)), apiCalls: 0 };
     } else {
       result = await runRollup(tradeDate);
     }

@@ -75,6 +75,13 @@ const SECTIONS: Array<{ title: string; tip: string; fields: FieldSpec[] }> = [
       { path: 'costs.sharePerOrder', label: 'Shares commission', prefix: 'US$', suffix: 'per order', step: 0.5, tip: 'Charged on entry and on exit.' },
     ],
   },
+  {
+    title: 'LEAPS books (LEAPS rules 5)',
+    tip: 'The three LEAPS paper books (deep ITM, ATM, OTM) and their backtests each start with this balance. Position size, limits and exits are fixed by the LEAPS rules.',
+    fields: [
+      { path: 'leaps.startingBalance', label: 'Starting balance per LEAPS book', prefix: '$', step: 5000, tip: 'Each position is up to 10% of the book (5% in a pullback) and needs at least 2 contracts, so this decides which strikes are affordable. You planned $25k-$50k.' },
+    ],
+  },
 ];
 
 const ALL_FIELDS = SECTIONS.flatMap(s => s.fields);

@@ -269,6 +269,7 @@ export interface TradingSettings {
   optionsLimits: { maxOpenTrades: number; maxOpenRiskPct: number; maxPerTicker: number };
   shares: { riskPct: number; maxPositionPct: number; maxOpenPositions: number };
   costs: { optionPerContract: number; sharePerOrder: number };
+  leaps: { startingBalance: number };
   ai: { provider: AiProvider };
 }
 
