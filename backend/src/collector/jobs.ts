@@ -3,7 +3,7 @@ import { callsToday } from '../lib/apiUsage.js';
 import { isTradingDay, recentTradingDays } from '../lib/marketCalendar.js';
 import { deleteRows, insertRow, rpc, selectRows, updateRows, upsertRows } from '../lib/supabaseRest.js';
 import {
-  parseCuratedFlow, parseDpPrints, parseFlowAlerts, parseGexSnapshot,
+  parseCuratedFlow, parseDpPrints, parseFlowAlerts, gexSessionDate, parseGexSnapshot,
   earningsWindow, parseCboeChain, parseNasdaqEarnings, parseOptionChain, parseRawFlow, parseSignalSnapshot, parseSignaScan, pickSwingExpiries,
 } from './parsers.js';
 import { fetchCboeChain } from './cboeOptions.js';
@@ -86,6 +86,8 @@ async function runSignaJob(job: JobName, tradeDate: string, symbols: string[]): 
         upsertRows('flow_alerts', parseFlowAlerts(p), 'merge'));
     case 'gex':
       return forEachSymbol(symbols, s => callMcpTool('get_gex', { symbol: s }), async (s, p) => {
+        const session = gexSessionDate(p);
+        if (session && session !== tradeDate) throw new Error(`GEX snapshot is from ${session}, not ${tradeDate}`);
         const row = parseGexSnapshot(p, s, tradeDate);
         return row ? upsertRows('gex_daily', [row], 'merge', 'symbol,trade_date') : 0;
       });

@@ -36,6 +36,7 @@ export interface DpPrintRow {
   nbbo_ask: number | null;
   day_volume: number | null;
   side: 1 | -1 | 0;
+  is_ext_hours?: boolean;
 }
 
 // Radon analyze_darkpool: at/above the NBBO midpoint = buy, below = sell, no NBBO = unclassified.
@@ -64,11 +65,14 @@ export function parseDpPrints(payload: unknown): DpPrintRow[] {
       trade_date: etDateOf(executedAt),
       price,
       size: Math.round(size),
-      premium: num(item.premium) ?? price * size,
+      premium: num(item.premium ?? item.notional) ?? price * size,
       nbbo_bid: bid,
       nbbo_ask: ask,
-      day_volume: num(item.volume),
+      // Signa 2026-10: `volume` becomes the print's own size (deprecated) and `day_volume` carries the day's running total.
+      day_volume: 'day_volume' in item ? num(item.day_volume) : num(item.volume),
       side: classifyDpSide(price, bid, ask),
+      // Only sent once Signa ships the field, so older payloads never write a column the table may not have yet.
+      ...(typeof item.is_ext_hours === 'boolean' ? { is_ext_hours: item.is_ext_hours } : {}),
     });
   }
   return dedupeById(rows);
@@ -195,6 +199,12 @@ export interface GexSnapshotRow {
 }
 
 const STRIKE_BAND = 0.3;
+
+// Session the GEX levels belong to (Signa `snapshot.session_date`, added 2026-10); null on older payloads.
+export function gexSessionDate(payload: unknown): string | null {
+  const snapshot = (payload as Raw | null)?.snapshot as Raw | undefined;
+  return str(snapshot?.session_date) ?? null;
+}
 
 export function parseGexSnapshot(payload: unknown, symbol: string, tradeDate: string, now = new Date()): GexSnapshotRow | null {
   const raw = payload as Raw | null;

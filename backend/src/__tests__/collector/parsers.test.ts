@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   classifyDpSide, dedupeById, parseCuratedFlow, parseDpPrints, parseFlowAlerts,
-  parseGexSnapshot, parseOptionChain, parseSignalSnapshot, pickSwingExpiries, rowId,
+  gexSessionDate, parseGexSnapshot, parseOptionChain, parseSignalSnapshot, pickSwingExpiries, rowId,
   parseCboeChain, parseOccSymbol, parseNasdaqEarnings, earningsWindow, isMonthlyExpiry,
 } from '../../collector/parsers.js';
 import { isTradingDay } from '../../lib/marketCalendar.js';
@@ -47,6 +47,15 @@ describe('parseDpPrints', () => {
       symbol: 'MU', price: 1069.111, size: 150, premium: 160366.65, day_volume: 27336532,
       nbbo_bid: 1069.11, nbbo_ask: 1069.15, side: -1, trade_date: '2026-10-02',
     });
+  });
+
+  it('reads the day total from day_volume once Signa sends it, not the per-print volume', () => {
+    const [row] = parseDpPrints({ prints: [{ ...print, volume: 150, day_volume: 27336532, notional: '160366.650', premium: undefined, is_ext_hours: true }] });
+    expect(row).toMatchObject({ size: 150, day_volume: 27336532, premium: 160366.65, is_ext_hours: true });
+  });
+
+  it('leaves is_ext_hours out of older payloads', () => {
+    expect(parseDpPrints({ prints: [print] })[0]).not.toHaveProperty('is_ext_hours');
   });
 
   it('assigns a print after 8 PM ET to the ET calendar date, not the UTC date', () => {
@@ -115,6 +124,14 @@ describe('parseCuratedFlow', () => {
       contradicts_signal: null, trade_date: '2026-10-02',
     });
     expect(row.payload).toBe(ev);
+  });
+});
+
+describe('gexSessionDate', () => {
+  it('reads snapshot.session_date and is null on older payloads', () => {
+    expect(gexSessionDate({ snapshot: { asOf: '2026-10-23T23:59:00.000Z', stale: true, stale_reason: 'market_closed', session_date: '2026-10-23' } })).toBe('2026-10-23');
+    expect(gexSessionDate({ ok: true })).toBeNull();
+    expect(gexSessionDate(null)).toBeNull();
   });
 });
 

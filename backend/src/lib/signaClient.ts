@@ -958,7 +958,7 @@ export async function getMarketDarkPool(limit = 50): Promise<MarketDpResponse | 
           ticker:      String(p.ticker ?? ''),
           price,
           size,
-          volume:      Number(p.volume ?? 0),
+          volume:      Number(p.day_volume ?? p.volume ?? 0),
           premium,
           executed_at: String(p.executed_at ?? ''),
           nbbo_bid,
