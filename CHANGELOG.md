@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.11.3] - 2026-10-26
+
+### Removed
+
+- The stock endpoint no longer calls Signa's REST `/options`, `/darkpool` and `/gamma` paths. They return 404 (not in Signa's API reference), and their combined `optionsInsight` was not shown anywhere since the Options tab dropped `OptionsPanel` in June. Saves 3 Signa requests per stock page load. Removed the unused `OptionsPanel` component, `synthesizeOptionsInsight` and its tests, and the related types.
+
+---
+
 ## [1.11.2] - 2026-10-26
 
 ### Fixed - Signa API changes (dark pool, GEX)

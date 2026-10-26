@@ -268,7 +268,7 @@ In addition to `computeStockTechnicalScore`, `computeSectorETFScore`, `getStockD
 - `getSignaWeeklySignal(symbol)` - tf=1W; returns `{ direction, grade, confidence }`; 15 min cache
 - `getSignaAnalysis(symbol)` - `/api/v1/analysis`; returns `{ actionCard, sentiment }`; 15 min cache
 - `getSignaNews(symbol)` - `/api/v1/news`; returns `SignaNewsArticle[]`; 30 min cache
-- `getOptionsFlow`, `getDarkpool`, `getGammaExposure`, `getFundamentals` - existing endpoints
+- `getFundamentals` - existing endpoint (flow, dark pool and GEX come from MCP tools; Signa's REST `/options`, `/darkpool`, `/gamma` paths 404)
 
 `getStockDecision()` in `stockScoring.ts` accepts `BULLISH`/`BEARISH` (engine) and `LONG`/`SHORT` (data) - both are valid.
 
@@ -525,7 +525,7 @@ Layout (no library, pure inline styles):
 6. Inside `isApproved` branch:
    a. `<AdminPanel>` - only when `isAdmin && pendingUsers.length > 0`
    b. `<AlertBanner>` (conditional)
-   c. `<StockSearch>` + `<StockPanel>` + `<OptionsPanel>` + `<FundamentalsPanel>`
+   c. `<StockSearch>` + `<StockPanel>` + `<FundamentalsPanel>`
    d. Sector timeframe toggle buttons + `<SectorHeatmap>` or skeleton
    e. `<TerminalAnalysis>`
    f. Footer: "Data via Yahoo Finance - Not financial advice" + cache/timestamp status

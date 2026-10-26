@@ -126,81 +126,6 @@ export interface MovingAverages {
   signaEma200: number | null;
 }
 
-// ── Options flow ──────────────────────────────────────────────────────────────
-export interface OptionsFlowItem {
-  time: string;
-  expiry: string;
-  strike: number;
-  type: 'CALL' | 'PUT';
-  premium: number;
-  size: number;
-  openInterest: number;
-  impliedVolatility: number;
-  sentiment: 'bullish' | 'bearish' | 'neutral';
-  unusual: boolean;
-}
-
-export interface OptionsFlowData {
-  ticker: string;
-  items: OptionsFlowItem[];
-  callPutRatio: number;
-  bullishPremium: number;
-  bearishPremium: number;
-  unusualCount: number;
-  direction: 'bullish' | 'bearish' | 'neutral';
-  summary: string;
-}
-
-export interface DarkpoolTrade {
-  time: string;
-  price: number;
-  size: number;
-  premium: number;
-  exchange: string;
-  sentiment: 'bullish' | 'bearish' | 'neutral';
-}
-
-export interface DarkpoolData {
-  ticker: string;
-  trades: DarkpoolTrade[];
-  totalVolume: number;
-  darkpoolPercent: number;
-  avgPrice: number;
-  bullishVolume: number;
-  bearishVolume: number;
-  direction: 'bullish' | 'bearish' | 'neutral';
-  summary: string;
-}
-
-export interface GammaLevel {
-  strike: number;
-  gamma: number;
-  callGamma: number;
-  putGamma: number;
-  netGamma: number;
-}
-
-export interface GammaData {
-  ticker: string;
-  currentPrice: number;
-  netGamma: number;
-  gammaFlipPoint: number | null;
-  keyLevels: GammaLevel[];
-  dominantFlow: 'call' | 'put' | 'neutral';
-  pinRisk: boolean;
-  direction: 'bullish' | 'bearish' | 'neutral';
-  summary: string;
-}
-
-export interface OptionsInsight {
-  flow: OptionsFlowData | null;
-  darkpool: DarkpoolData | null;
-  gamma: GammaData | null;
-  overallDirection: 'bullish' | 'bearish' | 'neutral';
-  confidence: 'high' | 'medium' | 'low';
-  summary: string;
-  keyPoints: string[];
-}
 
 // ── Fundamentals ──────────────────────────────────────────────────────────────
 export interface FundamentalsData {
@@ -317,7 +242,6 @@ export interface StockResponse {
   signa: SignaData | null;
   fibonacci: FibLevel[] | null;
   movingAverages: MovingAverages | null;
-  optionsInsight: OptionsInsight | null;
   fundamentals: FundamentalsData | null;
   timestamp: string;
 }
