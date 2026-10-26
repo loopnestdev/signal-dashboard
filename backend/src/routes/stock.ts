@@ -8,11 +8,7 @@ import {
   getSignaThesis,
   getSignaNews,
   getSignaCongress,
-  getOptionsFlow,
-  getDarkpool,
-  getGammaExposure,
   getFundamentals,
-  synthesizeOptionsInsight,
   type SignaData,
 } from '../lib/signaClient.js';
 import {
@@ -45,7 +41,7 @@ router.get('/stock/:ticker', async (req, res) => {
   const symbol = ticker.toUpperCase();
 
   try {
-    const [stockData, profile, signaData, signaWeekly, signaAnalysis, signaThesis, signaNews, signaCongress, optionsFlow, darkpoolData, gammaData, fundamentalsData] = await Promise.all([
+    const [stockData, profile, signaData, signaWeekly, signaAnalysis, signaThesis, signaNews, signaCongress, fundamentalsData] = await Promise.all([
       getHistoryAndQuote(symbol, '1y'),
       getStockProfile(symbol),
       getSignaSignal(symbol),
@@ -54,9 +50,6 @@ router.get('/stock/:ticker', async (req, res) => {
       getSignaThesis(symbol),
       getSignaNews(symbol),
       getSignaCongress(symbol),
-      getOptionsFlow(symbol),
-      getDarkpool(symbol),
-      getGammaExposure(symbol),
       getFundamentals(symbol),
     ]);
 
@@ -117,7 +110,6 @@ router.get('/stock/:ticker', async (req, res) => {
 
     const fibonacci = computeFibonacci(stockData.history);
     const movingAverages = computeMovingAverages(stockData.history, signaData);
-    const optionsInsight = synthesizeOptionsInsight(optionsFlow, darkpoolData, gammaData, stockData.price, symbol);
 
     return res.json({
       symbol,
@@ -138,7 +130,6 @@ router.get('/stock/:ticker', async (req, res) => {
       signa: enrichedSigna,
       fibonacci,
       movingAverages,
-      optionsInsight,
       fundamentals: fundamentalsData,
       timestamp: new Date().toISOString(),
     });

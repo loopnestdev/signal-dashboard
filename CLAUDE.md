@@ -55,7 +55,6 @@ signal-dashboard/
 |   |   |   +-- PerformanceView.tsx    # Performance view: saved replays per book, equity vs SPY, go-live checklist, trades, skips, Run replay (admin)
 |   |   |   +-- MoatPanel.tsx          # Moat research: peer chart (Recharts), table, scenarios
 |   |   |   +-- OptionsFlowView.tsx    # Options Flow view: market-wide unusual flow feed
-|   |   |   +-- OptionsPanel.tsx       # Options flow + dark pool + gamma exposure
 |   |   |   +-- ScoringBreakdown.tsx   # (legacy - not used in layout, kept for reference)
 |   |   |   +-- SectorHeatmap.tsx      # Sectors + accordion sub-sectors (incl. TAN, FCG)
 |   |   |   +-- SignaCard.tsx          # Signa.ai signal: entry/stop/target/triggers
@@ -445,7 +444,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 481 tests - one-shot
+cd backend && npm test          # 462 tests - one-shot
 cd frontend && npm test         # 91 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -463,7 +462,6 @@ cd frontend && npm run test:watch  # watch mode
 | --- | --- |
 | `backend/src/__tests__/lib/technical.test.ts` | All 7 functions in `technical.ts` - edge cases, boundary values, known arithmetic |
 | `backend/src/__tests__/services/stockScoring.test.ts` | `getStockDecision` (both BULLISH/BEARISH + LONG/SHORT vocabularies), `computeStockTechnicalScore`, `computeSectorETFScore`, `computeFibonacci`, `computeMovingAverages`, `SECTOR_TO_ETF` |
-| `backend/src/__tests__/lib/signaInsight.test.ts` | `synthesizeOptionsInsight` - null data, single source, agreement, mixed signals, key points, summary |
 | `backend/src/__tests__/services/scoring.test.ts` | `scoreVolatility`, `scoreTrend`, `computeMarketQualityScore`, `getDecision` - each weight verified |
 | `frontend/src/__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` - direction detection, entryRef fallback, LONG/SHORT level validation, **ASTS regression** |
 | `frontend/src/__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path - add/remove, groups CRUD, persistence, legacy migration, **page-refresh regression** |
@@ -582,10 +580,9 @@ The Signa API `/api/v1/signal` response contains **three distinct signal sources
 | `/api/v1/signal?sym={sym}&tf=1W` | `getSignaWeeklySignal()` | 15 min |
 | `/api/v1/analysis?sym={sym}` | `getSignaAnalysis()` | 15 min |
 | `/api/v1/news?sym={sym}` | `getSignaNews()` | 30 min |
-| `/api/v1/options?sym={sym}` | `getOptionsFlow()` | 5 min |
-| `/api/v1/darkpool?sym={sym}` | `getDarkpool()` | 5 min |
-| `/api/v1/gamma?sym={sym}` | `getGammaExposure()` | 15 min |
 | `/api/v1/fundamentals?sym={sym}` | `getFundamentals()` | 60 min |
+
+Signa's REST `/options`, `/darkpool` and `/gamma` paths return 404 (checked 2026-10-26; not in Signa's API reference). Flow, dark pool and GEX come from MCP tools (`get_options_flow`, `get_dark_pool`, `get_gex`) instead.
 
 ---
 

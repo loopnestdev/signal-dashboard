@@ -135,7 +135,6 @@ signal-dashboard/
 |   |   |   +-- AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
 |   |   |   +-- FundamentalsPanel.tsx  # Valuation/growth/margins section
 |   |   |   +-- FundamentalsView.tsx   # SEC operating leverage table for moat-finder tickers
-|   |   |   +-- OptionsPanel.tsx       # Options flow + dark pool + gamma
 |   |   |   +-- SectorHeatmap.tsx      # Sectors + accordion sub-sectors
 |   |   |   +-- SignaCard.tsx          # Signa.ai signal card
 |   |   |   +-- Skeleton.tsx           # Loading shimmer skeletons
@@ -659,7 +658,6 @@ Test files live alongside source under `src/__tests__/`:
 | --- | --- | --- |
 | backend | `__tests__/lib/technical.test.ts` | `sma`, `ema`, `rsi`, `pctReturn`, `linearSlope`, `percentileRank`, `clamp` |
 | backend | `__tests__/services/stockScoring.test.ts` | `getStockDecision` (both BULLISH/LONG vocabs), `computeStockTechnicalScore`, `computeSectorETFScore`, `computeFibonacci`, `computeMovingAverages` |
-| backend | `__tests__/lib/signaInsight.test.ts` | `synthesizeOptionsInsight` - all direction combinations, key point content |
 | backend | `__tests__/services/scoring.test.ts` | `scoreVolatility`, `scoreTrend`, `computeMarketQualityScore`, `getDecision` - all weights |
 | frontend | `__tests__/lib/priceLevels.test.ts` | `validatePriceLevels` - LONG/SHORT validation, ASTS inverted-level regression |
 | frontend | `__tests__/hooks/useWatchlist.test.ts` | `useWatchlist` localStorage path - all CRUD operations, persistence, migration |
