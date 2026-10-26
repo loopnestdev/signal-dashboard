@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.11.2] - 2026-10-26
+
+### Fixed - Signa API changes (dark pool, GEX)
+
+- **Dark pool:** Signa is changing `volume` on dark pool prints from the day's running total to the print's own size, adding `day_volume` for the total. The collector now reads `day_volume` when present (falling back to `volume` only on the old payload), so `dp_prints.day_volume` and the daily rollup's `day_volume` stay correct through the switch. Print size was already read from `size`. `notional` backs up `premium`.
+- **Dark pool:** stores Signa's new `is_ext_hours` flag in `dp_prints.is_ext_hours` once Signa sends it (migration `20261026_dp_ext_hours.sql`), for the mid-November review of whether extended-hours prints belong in the daily rollup.
+- **GEX:** the collector refuses a GEX payload whose new `snapshot.session_date` is not the session being recorded, so stale levels are never stored under the wrong date.
+
+---
+
 ## [1.11.1] - 2026-10-25
 
 ### Added
