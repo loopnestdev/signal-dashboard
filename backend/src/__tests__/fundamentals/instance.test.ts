@@ -51,11 +51,14 @@ describe('parseInstanceFacts', () => {
     ]);
   });
 
-  it('skips nil values, per-share and share units, and instant contexts', () => {
+  it('skips nil values, per-share and share units', () => {
     expect(out.OperatingExpenses).toBeUndefined();
     expect(out.EarningsPerShareBasic).toBeUndefined();
     expect(out.CostOfRevenue).toBeUndefined();
-    expect(out.GrossProfit).toBeUndefined();
+  });
+
+  it('reads instant contexts (balance sheet) without a start date', () => {
+    expect(out.GrossProfit.units!.USD).toEqual([{ end: '2026-06-30', val: 7, accn: filing.accession, fy: 2026, fp: 'Q2', form: '10-Q', filed: '2026-07-29' }]);
   });
 
   it('returns no facts when the document has no us-gaap namespace', () => {

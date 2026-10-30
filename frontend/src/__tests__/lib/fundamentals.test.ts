@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fmtMargin, fmtMoney, fmtRatioPct, sortLeverage } from '../../lib/fundamentals';
-import type { LeverageRow } from '../../types/market';
+import { fmtMargin, fmtMoney, fmtRatioPct, growingFcf, sortFcf, sortLeverage } from '../../lib/fundamentals';
+import type { FcfRow, LeverageRow } from '../../types/market';
 
 const row = (ticker: string, extra: Partial<LeverageRow> = {}): LeverageRow => ({
   ticker, name: null, periodEnd: '2026-06-30', periodLabel: null, derived: false, opComputed: false,
@@ -64,5 +64,38 @@ describe('sortLeverage', () => {
     const copy = [...rows];
     sortLeverage(rows, 'dol');
     expect(rows).toEqual(copy);
+  });
+});
+
+const fcfRow = (ticker: string, extra: Partial<FcfRow> = {}): FcfRow => ({
+  ticker, name: null, periodEnd: '2026-06-30', periodLabel: null, fcf: 100, fcfPrev: 80, qoq: 0.25, yoy: 0.1,
+  growing: true, streak: 1, fcfMargin: 0.2, cash: 1000, noCapex: false, stale: false, history: [],
+  ...extra,
+});
+
+describe('sortFcf', () => {
+  const rows = [fcfRow('B', { qoq: 0.1, cash: 500 }), fcfRow('A', { qoq: null, cash: 2000 }), fcfRow('C', { qoq: 0.5, cash: null })];
+
+  it('sorts by QoQ % descending with missing values last', () => {
+    expect(sortFcf(rows, 'qoq').map(r => r.ticker)).toEqual(['C', 'B', 'A']);
+    expect(sortFcf(rows, 'qoq', true).map(r => r.ticker)).toEqual(['B', 'C', 'A']);
+  });
+
+  it('sorts by cash and by ticker', () => {
+    expect(sortFcf(rows, 'cash').map(r => r.ticker)).toEqual(['A', 'B', 'C']);
+    expect(sortFcf(rows, 'ticker', true).map(r => r.ticker)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('does not mutate the input', () => {
+    sortFcf(rows, 'cash');
+    expect(rows.map(r => r.ticker)).toEqual(['B', 'A', 'C']);
+  });
+});
+
+describe('growingFcf', () => {
+  it('keeps growing rows with at least the given streak', () => {
+    const rows = [fcfRow('A', { streak: 3 }), fcfRow('B', { streak: 1 }), fcfRow('C', { growing: false, streak: 0 })];
+    expect(growingFcf(rows).map(r => r.ticker)).toEqual(['A', 'B']);
+    expect(growingFcf(rows, 2).map(r => r.ticker)).toEqual(['A']);
   });
 });

@@ -1,9 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { C } from '../lib/colors';
 import { fetchLeverage, startFundamentalsSync } from '../lib/api';
-import { fmtMargin, fmtMoney, fmtRatioPct, sortLeverage, type LeverageSortKey } from '../lib/fundamentals';
+import { fmtMargin, fmtMoney, fmtRatioPct, growingFcf, sortFcf, sortLeverage, type FcfSortKey, type LeverageSortKey } from '../lib/fundamentals';
 import { supabase } from '../lib/supabase';
-import type { LeverageResponse, LeverageRow } from '../types/market';
+import type { FcfRow, LeverageResponse, LeverageRow } from '../types/market';
 import { InfoTip } from './InfoTip';
 
 const label = { fontSize: '11px', letterSpacing: '0.08em', fontWeight: 600, color: C.inkMute, textTransform: 'uppercase' as const };
@@ -82,11 +82,138 @@ function SyncControls({ data, onStarted }: { data: LeverageResponse; onStarted: 
   );
 }
 
+type Tab = 'leverage' | 'fcf';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'leverage', label: 'Operating leverage' },
+  { id: 'fcf', label: 'Free cash flow' },
+];
+
+const FCF_COLUMNS: { key: FcfSortKey; title: string; tip: string; align?: 'right' }[] = [
+  { key: 'ticker', title: 'Ticker', tip: 'US-listed moat-finder tickers that file 10-Q/10-K with the SEC. Click a ticker to open it on the Dashboard; click the row for its last 8 quarters.' },
+  { key: 'fcf', title: 'FCF', tip: 'Free cash flow of the latest reported quarter: cash from operations minus capital expenditure (purchases of property and equipment).', align: 'right' },
+  { key: 'fcfPrev', title: 'Prev quarter', tip: 'Free cash flow of the quarter just before.', align: 'right' },
+  { key: 'qoq', title: 'QoQ', tip: 'Change in free cash flow vs the previous quarter. n/m when the previous quarter was zero or negative (the % is meaningless; the row still counts as growing if FCF went up).', align: 'right' },
+  { key: 'yoy', title: 'YoY', tip: 'Change vs the same quarter a year earlier. Quarter-on-quarter cash flow is seasonal for many companies (bonuses, tax payments, inventory builds), so this is the steadier read.', align: 'right' },
+  { key: 'streak', title: 'Streak', tip: 'How many quarters in a row free cash flow has risen, ending with the latest quarter.', align: 'right' },
+  { key: 'fcfMargin', title: 'FCF margin', tip: 'Free cash flow as a share of revenue in the same quarter.', align: 'right' },
+  { key: 'cash', title: 'Cash & equiv.', tip: 'Cash and cash equivalents on the balance sheet at the end of the latest quarter (excludes longer-dated marketable securities).', align: 'right' },
+];
+
+const FILTERS: { min: number; label: string }[] = [
+  { min: 1, label: 'Growing QoQ' },
+  { min: 2, label: '2+ quarters' },
+  { min: 3, label: '3+ quarters' },
+  { min: 0, label: 'All' },
+];
+
+function FcfHistory({ row }: { row: FcfRow }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '4px 0' }}>
+      {row.history.map(q => (
+        <div key={q.end} style={{ minWidth: 112, background: C.canvas, borderRadius: 10, padding: '8px 10px' }}>
+          <div style={{ fontSize: '11px', color: C.inkMute }}>{q.label ?? q.end}</div>
+          <div className="tnum" style={{ fontSize: '13px', fontWeight: 600, color: signColor(q.fcf) }}>FCF {fmtMoney(q.fcf)}</div>
+          <div className="tnum" style={{ fontSize: '12px', color: C.inkSec, marginTop: 2 }}>OCF {fmtMoney(q.operatingCashFlow)}</div>
+          <div className="tnum" style={{ fontSize: '12px', color: C.inkSec }}>Capex {q.capex == null ? '-' : fmtMoney(q.capex)}</div>
+          <div className="tnum" style={{ fontSize: '12px', color: C.inkMute }}>Cash {q.cash == null ? '-' : fmtMoney(q.cash)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FcfTable({ data, canSync, onAnalyze }: { data: LeverageResponse; canSync: boolean; onAnalyze: (ticker: string) => void }) {
+  const [sort, setSort] = useState<{ key: FcfSortKey; asc: boolean }>({ key: 'qoq', asc: false });
+  const [minStreak, setMinStreak] = useState(1);
+  const [open, setOpen] = useState<string | null>(null);
+  const all = data.fcf ?? [];
+  const rows = useMemo(() => sortFcf(minStreak ? growingFcf(all, minStreak) : all, sort.key, sort.asc), [all, minStreak, sort]);
+  const clickSort = (key: FcfSortKey) => setSort(s => (s.key === key ? { key, asc: !s.asc } : { key, asc: key === 'ticker' }));
+  const pill = (active: boolean) => ({
+    padding: '4px 12px', borderRadius: 9999, fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+    border: `1px solid ${active ? C.primary : C.border}`, background: active ? C.primary : C.canvas, color: active ? C.onPrimary : C.inkSec,
+  });
+
+  return (
+    <Card
+      title="Free cash flow"
+      tip="Free cash flow = cash from operations minus capital expenditure, from the cash flow statement in SEC filings. Filings report cash flow year to date, so each quarter is the difference between two year-to-date totals (Q4 = full year minus nine months)."
+      right={
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {FILTERS.map(f => <button key={f.min} onClick={() => setMinStreak(f.min)} style={pill(minStreak === f.min)}>{f.label}</button>)}
+        </div>
+      }
+    >
+      {data.fcfError ? (
+        <div style={{ fontSize: '13px', color: C.warn }}>{data.fcfError}</div>
+      ) : all.length === 0 ? (
+        <div style={{ fontSize: '13px', color: C.inkSec }}>
+          No cash flow figures stored yet.{canSync ? ' Use "Re-download all" once to load them for every company.' : ''}
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: '12px', color: C.inkMute, marginBottom: 8 }}>
+            {rows.length} of {all.length} companies{minStreak ? ` with free cash flow up ${minStreak > 1 ? `${minStreak}+ quarters in a row` : 'vs the previous quarter'}` : ''}
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={th}>#</th>
+                  {FCF_COLUMNS.map(c => (
+                    <th key={c.key} style={{ ...th, textAlign: c.align ?? 'left', cursor: 'pointer', color: sort.key === c.key ? C.ink : C.inkMute }} onClick={() => clickSort(c.key)}>
+                      {c.title}{sort.key === c.key ? (sort.asc ? ' ↑' : ' ↓') : ''}<InfoTip tip={c.tip} />
+                    </th>
+                  ))}
+                  <th style={th}>Quarter<InfoTip tip="Fiscal quarter and the date it ended. ‡ = the company tags no capital expenditure, so free cash flow equals operating cash flow." /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <Fragment key={r.ticker}>
+                    <tr onClick={() => setOpen(o => (o === r.ticker ? null : r.ticker))} style={{ cursor: 'pointer', background: open === r.ticker ? C.canvasSoft : undefined }}>
+                      <td className="tnum" style={{ ...td, color: C.inkMute }}>{i + 1}</td>
+                      <td style={td} title={r.name ?? undefined}>
+                        <button onClick={e => { e.stopPropagation(); onAnalyze(r.ticker); }} style={{ background: 'none', border: 'none', padding: 0, color: C.primary, fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          {r.ticker}
+                        </button>
+                      </td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: signColor(r.fcf) }}>{fmtMoney(r.fcf)}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right' }}>{r.fcfPrev == null ? '-' : fmtMoney(r.fcfPrev)}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: signColor(r.qoq ?? (r.growing ? 1 : null)), fontWeight: 600 }}>
+                        {r.qoq != null ? fmtRatioPct(r.qoq, true) : r.fcfPrev != null ? 'n/m' : '-'}
+                      </td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: signColor(r.yoy) }}>{fmtRatioPct(r.yoy, true)}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: r.streak >= 2 ? C.ink : C.inkSec, fontWeight: r.streak >= 2 ? 700 : 400 }}>{r.streak}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtMargin(r.fcfMargin)}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: C.ink }}>{r.cash == null ? '-' : fmtMoney(r.cash)}</td>
+                      <td className="tnum" style={{ ...td, color: C.inkMute, fontSize: '12px' }}>{r.periodLabel ?? ''}{r.noCapex ? '‡' : ''} · {r.periodEnd}</td>
+                    </tr>
+                    {open === r.ticker && (
+                      <tr>
+                        <td colSpan={FCF_COLUMNS.length + 2} style={{ ...td, whiteSpace: 'normal', background: C.canvasSoft }}>
+                          <div style={{ fontSize: '12px', color: C.inkMute, marginBottom: 6 }}>{r.name} · last {r.history.length} quarters (free cash flow, operating cash flow, capex, cash)</div>
+                          <FcfHistory row={r} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onAnalyze: (ticker: string) => void }) {
   const [data, setData] = useState<LeverageResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: LeverageSortKey; asc: boolean }>({ key: 'operatingIncome', asc: false });
   const [open, setOpen] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('leverage');
 
   const load = useCallback(async () => {
     try {
@@ -123,7 +250,7 @@ export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onA
       <div>
         <h2 style={{ fontSize: '20px', fontWeight: 600, color: C.ink, margin: 0, letterSpacing: '-0.02em' }}>Fundamentals</h2>
         <p style={{ fontSize: '13px', color: C.inkMute, marginTop: 3, marginBottom: 0 }}>
-          Operating leverage of the stocks researched in moat-finder: how much of each company's revenue growth turned into operating profit in its latest quarter, from SEC filings.
+          SEC filings of the stocks researched in moat-finder: operating leverage (how much revenue growth turned into operating profit) and free cash flow growth, latest quarter.
         </p>
       </div>
 
@@ -151,6 +278,24 @@ export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onA
       {!running && sync?.state === 'failed' && <div style={{ fontSize: '13px', color: C.bear }}>Last sync failed: {sync.error}</div>}
 
       {data && (
+        <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, overflowX: 'auto' }}>
+          {TABS.map(t => {
+            const active = t.id === tab;
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{
+                padding: '9px 16px', border: 'none', borderBottom: `2px solid ${active ? C.primary : 'transparent'}`, background: 'none',
+                color: active ? C.primary : C.inkMute, fontSize: '13px', fontWeight: active ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              }}>
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {data && tab === 'fcf' && <FcfTable data={data} canSync={canSync} onAnalyze={onAnalyze} />}
+
+      {data && tab === 'leverage' && (
         <Card
           title="Operating leverage"
           tip="Latest reported quarter vs the same quarter a year earlier. Companies report on different fiscal calendars, so the Quarter column shows which period each row is. Q4 is not filed on its own, so it is the annual report minus the first three quarters (marked Q4*)."
@@ -217,7 +362,7 @@ export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onA
         </Card>
       )}
 
-      {data && skippedByReason.length > 0 && (
+      {data && tab === 'leverage' && skippedByReason.length > 0 && (
         <Card title={`Not in the table (${data.skipped.length})`} tip="Moat-finder tickers that cannot be ranked. Non-US listings and ADRs (companies filing 20-F/40-F instead of 10-Q) are left out on purpose. The rest are re-checked every day and join the table once they file usable numbers.">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {skippedByReason.map(([reason, tickers]) => (

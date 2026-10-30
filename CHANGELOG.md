@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.12.0] - 2026-10-31
+
+### Added - Fundamentals: Free cash flow tab
+
+- The Fundamentals view now has two tabs. **Free cash flow** lists each moat-finder company's latest quarter: free cash flow (operating cash flow minus capex), the quarter before, QoQ and YoY change, how many quarters in a row FCF has risen, FCF margin, and cash & equivalents at quarter end. Filters: growing QoQ (default), 2+ or 3+ quarters in a row, or all. Every column sorts; a row expands to its last 8 quarters.
+- The SEC sync now stores `operating_cash_flow`, `capex` and `cash` on `sec_quarters` (migration `20261031_sec_cash_flow.sql`). Cash flow statements are filed year to date, so each quarter is the difference of two year-to-date totals (Q4 = full year minus nine months). The filing-instance fallback (for filings companyfacts has not caught up with) now reads balance-sheet instants too.
+- After running the migration, load the new figures once with **Re-download all** or `npm run fundamentals -- full`. Before the migration the tab shows a hint and the leverage tab and daily sync keep working.
+
+---
+
 ## [1.11.3] - 2026-10-26
 
 ### Removed

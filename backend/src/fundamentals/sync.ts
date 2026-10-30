@@ -30,6 +30,19 @@ export async function universeTickers(): Promise<string[]> {
 export const knownCompanies = () =>
   selectRows<CompanyState>('sec_companies', 'select=ticker,status,reason,last_accession,facts_fetched_at&order=ticker');
 
+// upsertQuarters:
+//   - Before migration 20261031_sec_cash_flow.sql runs, PostgREST rejects the cash flow columns (PGRST204)
+//   - Retries without them so revenue / operating income keep updating; the cash flow figures arrive with the next full download
+async function upsertQuarters(rows: Record<string, unknown>[]): Promise<number> {
+  try {
+    return await upsertRows('sec_quarters', rows, 'merge', 'ticker,period_end');
+  } catch (err) {
+    if (!(err instanceof Error && err.message.includes('PGRST204'))) throw err;
+    const stripped = rows.map(({ operating_cash_flow: _o, capex: _c, cash: _h, ...rest }) => rest);
+    return upsertRows('sec_quarters', stripped, 'merge', 'ticker,period_end');
+  }
+}
+
 // Newest filings missing from companyfacts that are read from EDGAR directly per company per run.
 const MAX_INSTANCE_FILLS = 2;
 
@@ -88,7 +101,7 @@ async function syncFundamentals(mode: SyncMode, onProgress?: (done: number, tota
         }
       }
       const rows = parseQuarters(facts).map(q => ({ ...q, ticker: c.ticker, updated_at: now() }));
-      quarterRows += await upsertRows('sec_quarters', rows, 'merge', 'ticker,period_end');
+      quarterRows += await upsertQuarters(rows);
       // Not caught up -> no accession, so the next daily run downloads again until companyfacts has the filing.
       await updateRows('sec_companies', `ticker=eq.${c.ticker}`, { last_accession: caughtUp ? cls.lastAccession : null, facts_fetched_at: now() });
       factsFetched.push(c.ticker);

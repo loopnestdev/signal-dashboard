@@ -415,6 +415,33 @@ export interface LeverageRow {
   history: LeverageQuarter[];
 }
 
+export interface FcfPoint {
+  end: string;
+  label: string | null;
+  fcf: number;
+  operatingCashFlow: number;
+  capex: number | null;
+  cash: number | null;
+}
+
+export interface FcfRow {
+  ticker: string;
+  name: string | null;
+  periodEnd: string;
+  periodLabel: string | null;
+  fcf: number;
+  fcfPrev: number | null;
+  qoq: number | null;
+  yoy: number | null;
+  growing: boolean;
+  streak: number;
+  fcfMargin: number | null;
+  cash: number | null;
+  noCapex: boolean;
+  stale: boolean;
+  history: FcfPoint[];
+}
+
 export interface FundamentalsSync {
   state: 'running' | 'done' | 'failed';
   mode: 'new' | 'daily' | 'full';
@@ -429,6 +456,8 @@ export interface FundamentalsSync {
 
 export interface LeverageResponse {
   rows: LeverageRow[];
+  fcf: FcfRow[] | null;
+  fcfError: string | null;
   today: string;
   skipped: { ticker: string; name: string | null; status: 'eligible' | 'excluded' | 'pending'; reason: string }[];
   unseen: string[];

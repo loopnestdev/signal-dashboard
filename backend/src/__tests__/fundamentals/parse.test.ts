@@ -46,6 +46,52 @@ describe('classifyFiler', () => {
   });
 });
 
+describe('parseQuarters cash flow', () => {
+  // Fiscal year from Jan 1: cash flow facts are year to date (Q1, H1, 9M, FY).
+  const ytd = (end: string, val: number, fp: string, form = '10-Q') => ({ start: '2026-01-01', end, val, fy: 2026, fp, form });
+  const withIncome = (extra: Record<string, F[]>) => facts({
+    NetIncomeLoss: [
+      { start: '2026-01-01', end: '2026-03-31', val: 1, fy: 2026, fp: 'Q1' },
+      { start: '2026-04-01', end: '2026-06-30', val: 1, fy: 2026, fp: 'Q2' },
+      { start: '2026-07-01', end: '2026-09-30', val: 1, fy: 2026, fp: 'Q3' },
+      { start: '2026-10-01', end: '2026-12-31', val: 1, fy: 2026, fp: 'Q4' },
+    ],
+    ...extra,
+  });
+
+  it('turns year-to-date operating cash flow and capex into quarters (Q4 = full year minus nine months)', () => {
+    const rows = parseQuarters(withIncome({
+      NetCashProvidedByUsedInOperatingActivities: [ytd('2026-03-31', 100, 'Q1'), ytd('2026-06-30', 250, 'Q2'), ytd('2026-09-30', 300, 'Q3'), ytd('2026-12-31', 500, 'FY', '10-K')],
+      PaymentsToAcquirePropertyPlantAndEquipment: [ytd('2026-03-31', 10, 'Q1'), ytd('2026-06-30', 30, 'Q2'), ytd('2026-09-30', 60, 'Q3'), ytd('2026-12-31', 100, 'FY', '10-K')],
+    }));
+    expect(rows.map(r => [r.period_end, r.operating_cash_flow, r.capex])).toEqual([
+      ['2026-03-31', 100, 10], ['2026-06-30', 150, 20], ['2026-09-30', 50, 30], ['2026-12-31', 200, 40],
+    ]);
+  });
+
+  it('leaves a quarter empty when the previous year-to-date total is missing', () => {
+    const rows = parseQuarters(withIncome({ NetCashProvidedByUsedInOperatingActivities: [ytd('2026-03-31', 100, 'Q1'), ytd('2026-09-30', 300, 'Q3')] }));
+    expect(rows.map(r => r.operating_cash_flow)).toEqual([100, null, null, null]);
+  });
+
+  it('prefers a reported 3-month period over a subtracted one, and the first tag over a fallback', () => {
+    const rows = parseQuarters(withIncome({
+      NetCashProvidedByUsedInOperatingActivities: [ytd('2026-03-31', 100, 'Q1'), ytd('2026-06-30', 250, 'Q2'), { start: '2026-04-01', end: '2026-06-30', val: 140, fy: 2026, fp: 'Q2' }],
+      NetCashProvidedByUsedInOperatingActivitiesContinuingOperations: [ytd('2026-03-31', 90, 'Q1'), ytd('2026-09-30', 999, 'Q3'), ytd('2026-06-30', 900, 'Q2')],
+      PaymentsToAcquireProductiveAssets: [ytd('2026-03-31', 7, 'Q1')],
+    }));
+    expect(rows.slice(0, 3).map(r => [r.operating_cash_flow, r.capex])).toEqual([[100, 7], [140, null], [99, null]]);
+  });
+
+  it('reads cash and equivalents at each quarter end from balance-sheet instants, latest filing wins', () => {
+    const inst = (end: string, val: number, filed: string) => ({ end, val, form: '10-Q', filed });
+    const f = withIncome({}) as { facts: Record<string, Record<string, { units: Record<string, unknown[]> }>> };
+    f.facts['us-gaap'].CashAndCashEquivalentsAtCarryingValue = { units: { USD: [inst('2026-03-31', 50, '2026-05-01'), inst('2026-03-31', 55, '2026-08-01')] } };
+    f.facts['us-gaap'].CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents = { units: { USD: [inst('2026-03-31', 70, '2026-05-01'), inst('2026-06-30', 60, '2026-08-01')] } };
+    expect(parseQuarters(f).slice(0, 2).map(r => r.cash)).toEqual([55, 60]);
+  });
+});
+
 describe('parseQuarters', () => {
   it('keeps quarter-length periods only and the latest filing value, with fy/fp from the first filing', () => {
     const rows = parseQuarters(facts({

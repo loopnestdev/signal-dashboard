@@ -1,4 +1,4 @@
-// Pure transforms for SEC EDGAR payloads: listing classification and quarterly revenue / operating income.
+// Pure transforms for SEC EDGAR payloads: listing classification, quarterly revenue / operating income and cash flow.
 
 export type ListingStatus = 'eligible' | 'excluded' | 'pending';
 
@@ -63,6 +63,9 @@ export interface QuarterRow {
   op_computed: boolean;
   net_income: number | null;
   diluted_shares: number | null;
+  operating_cash_flow: number | null;
+  capex: number | null;
+  cash: number | null;
   form: string | null;
   filed: string | null;
 }
@@ -118,14 +121,25 @@ export const COST_CONCEPTS = {
   sga: ['SellingGeneralAndAdministrativeExpense'],
   rnd: ['ResearchAndDevelopmentExpense'],
 };
+// Free cash flow inputs, first tag with a value per period wins:
+//   - operating cash flow incl. discontinued operations, else continuing operations only
+//   - capex: PP&E purchases (MSFT, most filers), else productive assets (AMZN: property and equipment incl. software)
+//   - cash: balance-sheet cash and equivalents, else the cash flow statement total that includes restricted cash
+export const OPERATING_CASH_FLOW_CONCEPTS = ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInOperatingActivitiesContinuingOperations'];
+export const CAPEX_CONCEPTS = ['PaymentsToAcquirePropertyPlantAndEquipment', 'PaymentsToAcquireProductiveAssets', 'PaymentsForCapitalImprovements'];
+export const CASH_CONCEPTS = ['CashAndCashEquivalentsAtCarryingValue', 'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents', 'Cash'];
 // Every us-gaap concept the parser reads; the filing-instance fallback extracts only these.
-export const USED_CONCEPTS = [...REVENUE_CONCEPTS, ...OPERATING_INCOME_CONCEPTS, ...NET_INCOME_CONCEPTS, ...Object.values(COST_CONCEPTS).flat()];
+export const USED_CONCEPTS = [
+  ...REVENUE_CONCEPTS, ...OPERATING_INCOME_CONCEPTS, ...NET_INCOME_CONCEPTS, ...Object.values(COST_CONCEPTS).flat(),
+  ...OPERATING_CASH_FLOW_CONCEPTS, ...CAPEX_CONCEPTS, ...CASH_CONCEPTS,
+];
 
 const DAY = 86_400_000;
 export const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
 const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * DAY).toISOString().slice(0, 10);
 
 const isQuarter = (f: Fact) => f.start != null && daysBetween(f.start, f.end) >= 75 && daysBetween(f.start, f.end) <= 105;
+const isYearToDate = (f: Fact) => f.start != null && daysBetween(f.start, f.end) >= 75 && daysBetween(f.start, f.end) <= 390;
 const isAnnual = (f: Fact) => f.start != null && daysBetween(f.start, f.end) >= 340 && daysBetween(f.start, f.end) <= 390;
 
 interface Period {
@@ -217,14 +231,58 @@ function sharesFor(facts: unknown): Map<string, number> {
     for (const p of periodsOf(list, isAnnual).values()) put(p.end, p.val);
   }
   for (const concept of SHARES_INSTANT_CONCEPTS) {
-    // Balance-sheet instants have no start date; the latest filing per period end wins.
-    const latest = new Map<string, Fact>();
-    for (const f of conceptFacts(facts, concept, 'shares')) {
-      if (f.start || !f.form || !QUARTERLY_FORMS.has(f.form)) continue;
-      const cur = latest.get(f.end);
-      if (!cur || (f.filed ?? '') > (cur.filed ?? '')) latest.set(f.end, f);
+    for (const f of instantsOf(conceptFacts(facts, concept, 'shares')).values()) put(f.end, f.val);
+  }
+  return out;
+}
+
+// Balance-sheet instants have no start date; the latest filing per period end wins.
+function instantsOf(list: Fact[]): Map<string, Fact> {
+  const latest = new Map<string, Fact>();
+  for (const f of list) {
+    if (f.start || !f.form || !QUARTERLY_FORMS.has(f.form) || !Number.isFinite(f.val)) continue;
+    const cur = latest.get(f.end);
+    if (!cur || (f.filed ?? '') > (cur.filed ?? '')) latest.set(f.end, f);
+  }
+  return latest;
+}
+
+// First concept with a value for a period end wins.
+function cashFor(facts: unknown): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const concept of CASH_CONCEPTS) {
+    for (const f of instantsOf(conceptFacts(facts, concept)).values()) if (!out.has(f.end)) out.set(f.end, f.val);
+  }
+  return out;
+}
+
+// cashFlowQuartersFor:
+//   - Cash flow statements are filed year to date (Q1, first half, nine months, full year), all starting on the fiscal year's first day
+//   - Each quarter = its year-to-date total minus the previous one with the same start (Q4 = full year minus nine months)
+//   - A filer that reports a plain 3-month period has it used as is, ahead of a subtracted value for the same quarter
+//   - First concept with a value for a period end wins
+function cashFlowQuartersFor(facts: unknown, concepts: string[]): Map<string, Period> {
+  const out = new Map<string, Period>();
+  for (const concept of concepts) {
+    const byStart = new Map<string, Period[]>();
+    for (const p of periodsOf(conceptFacts(facts, concept), isYearToDate).values()) byStart.set(p.start, [...(byStart.get(p.start) ?? []), p]);
+    const found = new Map<string, Period>();
+    for (const periods of byStart.values()) {
+      periods.sort((a, b) => a.end.localeCompare(b.end));
+      periods.forEach((p, i) => {
+        const fp = p.fp === 'FY' ? 'Q4' : p.fp;
+        const prev = periods[i - 1];
+        const days = daysBetween(p.start, p.end);
+        let q: Period | null = null;
+        if (days >= 75 && days <= 105) q = { ...p, fp };
+        else if (prev && daysBetween(prev.end, p.end) >= 75 && daysBetween(prev.end, p.end) <= 105) {
+          q = { ...p, fp, start: addDays(prev.end, 1), val: p.val - prev.val, derived: true };
+        }
+        const cur = q && found.get(q.end);
+        if (q && (!cur || (cur.derived && !q.derived))) found.set(q.end, q);
+      });
     }
-    for (const f of latest.values()) put(f.end, f.val);
+    for (const [end, q] of found) if (!out.has(end)) out.set(end, q);
   }
   return out;
 }
@@ -260,6 +318,9 @@ export function parseQuarters(companyFacts: unknown): QuarterRow[] {
   ) as QuarterMaps;
   const ni = quartersFor(companyFacts, NET_INCOME_CONCEPTS);
   const shares = sharesFor(companyFacts);
+  const ocf = cashFlowQuartersFor(companyFacts, OPERATING_CASH_FLOW_CONCEPTS);
+  const capex = cashFlowQuartersFor(companyFacts, CAPEX_CONCEPTS);
+  const cash = cashFor(companyFacts);
   const ends = [...new Set([...rev.keys(), ...op.keys(), ...ni.keys()])].sort();
   return ends.map(end => {
     const r = rev.get(end);
@@ -278,6 +339,9 @@ export function parseQuarters(companyFacts: unknown): QuarterRow[] {
       op_computed: !reported && o != null,
       net_income: n?.val ?? null,
       diluted_shares: shares.get(end) ?? null,
+      operating_cash_flow: ocf.get(end)?.val ?? null,
+      capex: capex.get(end)?.val ?? null,
+      cash: cash.get(end) ?? null,
       form: base.form,
       filed: [r?.filed, o?.filed, n?.filed].filter(Boolean).sort().pop() ?? null,
     };

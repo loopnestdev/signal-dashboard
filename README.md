@@ -75,6 +75,7 @@ Auto-refreshes every 45 seconds. No brokerage account or paid data subscription 
 | Flow Scanner | Port of Radon's discovery scorer: large options prints + dark pool --> 0-100 score; tradeable names scoring 45+ are added to data collection automatically for 14 days (capped at 12), alongside a permanent core of index ETFs and large caps |
 | Data collection | Scheduled recorder (US trading days, ET) storing dark pool prints, UW options flow alerts, curated flow, GEX levels, Signa signals and option quotes to Supabase for later backtesting; Data Collection view shows job health and Signa API usage vs the daily quota |
 | Fundamentals (operating leverage) | For every US-listed stock researched in moat-finder: latest quarter's operating income, operating margin vs a year ago, revenue growth, incremental margin, degree of operating leverage (DOL) and a leverage rank, from SEC 10-Q/10-K filings. New moat-finder research is added when the page is opened; new filings are picked up daily at 07:00 ET. Non-US listings and ADRs (20-F/40-F filers) are left out |
+| Fundamentals (free cash flow) | Second tab: latest quarter's free cash flow (operating cash flow minus capex) vs the quarter before and a year earlier, how many quarters in a row it has risen, FCF margin and cash & equivalents. Filtered to companies whose FCF grew quarter on quarter (or 2+ / 3+ quarters in a row, or all); every column sorts. Same moat-finder universe and SEC data as the operating leverage tab |
 | LEAPS | Index books IS (SPY) and IQ (QQQ): each always holds one deep ITM LEAPS on its index (30% of the book, rolled yearly, rest in T-bills), compared with that index. Stock books: long-dated calls (15-27 months) on large, profitable US companies, bought only when SPY is in a pullback or correction (`docs/leaps-rules.md`). Daily screen with the contract each strike book would buy (deep ITM / ATM / OTM), its break-even and +100% stock prices (today, in 6 months, at expiry) and the sell-limit price for the half sale; Signa dark pool / flow / LEAPS-print confirmation; three paper books; 10-year backtest on modeled prices compared against SPY |
 | Performance | Saved replays of the three paper books: equity curves vs SPY, win rate, average R, profit factor, drawdown, go-live checklist, trade list, skipped-signal reasons; admins can run a new replay from the page |
 
@@ -134,7 +135,7 @@ signal-dashboard/
 |   |   |   +-- AlertBanner.tsx        # FOMC / VIX spike alerts
 |   |   |   +-- AuthButton.tsx         # Google sign-in / sign-out pill + pending badge
 |   |   |   +-- FundamentalsPanel.tsx  # Valuation/growth/margins section
-|   |   |   +-- FundamentalsView.tsx   # SEC operating leverage table for moat-finder tickers
+|   |   |   +-- FundamentalsView.tsx   # SEC operating leverage + free cash flow tabs for moat-finder tickers
 |   |   |   +-- SectorHeatmap.tsx      # Sectors + accordion sub-sectors
 |   |   |   +-- SignaCard.tsx          # Signa.ai signal card
 |   |   |   +-- Skeleton.tsx           # Loading shimmer skeletons
@@ -416,6 +417,8 @@ Then run [`supabase/migrations/20261021_sec_fundamentals.sql`](supabase/migratio
 Then run [`supabase/migrations/20261025_leaps.sql`](supabase/migrations/20261025_leaps.sql): the **LEAPS** view's tables (`leaps_market`, `leaps_screen`, `leaps_quotes`, `leaps_positions`, `leaps_runs`, `leaps_trades`, `leaps_equity`) plus `net_income` and `diluted_shares` columns on `sec_quarters`, then [`supabase/migrations/20261025_leaps_index_book.sql`](supabase/migrations/20261025_leaps_index_book.sql) (index book, `leaps_interest`, and the `grid` flag for the daily LEAPS research quotes), then [`supabase/migrations/20261025_leaps_split_index_books.sql`](supabase/migrations/20261025_leaps_split_index_books.sql) (index books IS / IQ). The SEC sync now also covers the LEAPS candidate list (`backend/src/leaps/universe.ts`, ~120 large caps), so run `npm run fundamentals -- full` once more to load their history and the new columns. The collector's `leaps` job (close + 45 min) screens the list, records real Cboe LEAPS quotes and runs the paper books; run it by hand with `npm run collect -- leaps`. Backtest: `npm run leaps -- [--from 2016-10-25] [--to YYYY-MM-DD] [--book L1|L2|L3|IS|IQ|all] [--save] [--trades]`, or **Run backtest** on the LEAPS page (admins).
 
 Then run [`supabase/migrations/20261026_dp_ext_hours.sql`](supabase/migrations/20261026_dp_ext_hours.sql): the `is_ext_hours` column on `dp_prints` for Signa's extended-hours flag on dark pool prints.
+
+Then run [`supabase/migrations/20261031_sec_cash_flow.sql`](supabase/migrations/20261031_sec_cash_flow.sql): `operating_cash_flow`, `capex` and `cash` columns on `sec_quarters` for the Fundamentals **Free cash flow** tab, then load them once with `npm run fundamentals -- full` or **Re-download all**. Until the migration runs, the tab says so and the operating leverage tab and daily sync keep working.
 
 Then run [`supabase/migrations/20261007_earnings_calendar.sql`](supabase/migrations/20261007_earnings_calendar.sql): the `earnings_calendar` table, refreshed daily at 08:30 ET from the free Nasdaq earnings calendar.
 
@@ -712,7 +715,7 @@ Flow Scanner results for the latest scanned session (or `?date=YYYY-MM-DD`): eve
 
 ### `GET /api/fundamentals/leverage`
 
-Operating leverage table for the Fundamentals view, read only from the stored `sec_*` tables: one row per eligible moat-finder ticker (latest quarter's operating income, margin now and a year ago, revenue YoY, incremental margin, DOL, rank, last 8 quarters), the tickers left out with a reason, and the current sync job. If moat-finder has tickers never classified yet, the request starts a background sync for just those (the page polls while it runs). Returns 503 when the service role key or the migration is missing.
+Both Fundamentals tabs, read only from the stored `sec_*` tables: `rows` - one operating leverage row per eligible moat-finder ticker (latest quarter's operating income, margin now and a year ago, revenue YoY, incremental margin, DOL, rank, last 8 quarters); `fcf` - one free cash flow row per ticker (latest quarter's FCF, previous quarter, QoQ and YoY change, rising-quarter streak, FCF margin, cash & equivalents, last 8 quarters), or `null` with `fcfError` before migration `20261031_sec_cash_flow.sql`; the tickers left out with a reason, and the current sync job. If moat-finder has tickers never classified yet, the request starts a background sync for just those (the page polls while it runs). Returns 503 when the service role key or the migration is missing.
 
 ### `POST /api/fundamentals/sync` (admin)
 

@@ -11,19 +11,21 @@ const DATE = (tag: string) => new RegExp(`<(?:[\\w-]+:)?${tag}>\\s*([0-9-]{10})\
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 interface Period {
-  start: string;
+  start?: string;
   end: string;
 }
 
 // Contexts with a segment or scenario are dimensional (a business segment, a product line); only entity-wide
-// duration contexts carry the consolidated income statement.
-function consolidatedDurations(xml: string): Map<string, Period> {
+// contexts carry the consolidated statements. Durations feed the income and cash flow statements, instants the balance sheet.
+function consolidatedPeriods(xml: string): Map<string, Period> {
   const out = new Map<string, Period>();
   for (const [, id, body] of xml.matchAll(CONTEXT)) {
     if (/<(?:[\w-]+:)?(segment|scenario)\b/.test(body)) continue;
     const start = body.match(DATE('startDate'))?.[1];
     const end = body.match(DATE('endDate'))?.[1];
+    const instant = body.match(DATE('instant'))?.[1];
     if (start && end) out.set(id, { start, end });
+    else if (instant) out.set(id, { end: instant });
   }
   return out;
 }
@@ -45,12 +47,12 @@ function deiValue(xml: string, name: string): string | null {
 
 // parseInstanceFacts:
 //   - Returns the listed us-gaap concepts in companyfacts shape, so parseQuarters reads them like any other fact
-//   - USD values on consolidated duration contexts only; nil and non-numeric values are skipped
+//   - USD values on consolidated contexts only (instants carry no start); nil and non-numeric values are skipped
 //   - accn / form / filed come from the filing's submissions entry; fy / fp from its dei cover facts
 export function parseInstanceFacts(xml: string, filing: PeriodicFiling, concepts: string[]): CompanyFacts {
   const prefix = xml.match(US_GAAP_NS)?.[1];
   if (!prefix) return { facts: {} };
-  const contexts = consolidatedDurations(xml);
+  const contexts = consolidatedPeriods(xml);
   const usd = usdUnits(xml);
   const fyText = deiValue(xml, 'DocumentFiscalYearFocus');
   const fy = fyText && /^\d{4}$/.test(fyText) ? Number(fyText) : undefined;
@@ -69,7 +71,7 @@ export function parseInstanceFacts(xml: string, filing: PeriodicFiling, concepts
       const key = `${ctx.start}|${ctx.end}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      facts.push({ start: ctx.start, end: ctx.end, val, accn: filing.accession, fy, fp, form: filing.form, filed: filing.filed });
+      facts.push({ ...(ctx.start ? { start: ctx.start } : {}), end: ctx.end, val, accn: filing.accession, fy, fp, form: filing.form, filed: filing.filed });
     }
     if (facts.length) usGaap[concept] = { units: { USD: facts } };
   }

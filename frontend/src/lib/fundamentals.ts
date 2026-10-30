@@ -1,6 +1,7 @@
-import type { LeverageRow } from '../types/market';
+import type { FcfRow, LeverageRow } from '../types/market';
 
 export type LeverageSortKey = 'operatingIncome' | 'ticker' | 'opMargin' | 'marginChange' | 'revYoY' | 'incrementalMargin' | 'dol' | 'rank';
+export type FcfSortKey = 'ticker' | 'fcf' | 'fcfPrev' | 'qoq' | 'yoy' | 'streak' | 'fcfMargin' | 'cash';
 
 // $63.73B / $459.7M / -$3.6M, matching the source table's style.
 export function fmtMoney(n: number): string {
@@ -26,11 +27,11 @@ const sortValue = (r: LeverageRow, key: LeverageSortKey): number | string | null
   }
 };
 
-// Descending by default (rank: best first); missing values always sink to the bottom.
-export function sortLeverage(rows: LeverageRow[], key: LeverageSortKey, asc = false): LeverageRow[] {
+// Descending by default; missing values always sink to the bottom, ties by ticker.
+function sortBy<T extends { ticker: string }>(rows: T[], value: (r: T) => number | string | null, asc: boolean): T[] {
   return [...rows].sort((a, b) => {
-    const va = sortValue(a, key);
-    const vb = sortValue(b, key);
+    const va = value(a);
+    const vb = value(b);
     if (va == null && vb == null) return a.ticker.localeCompare(b.ticker);
     if (va == null) return 1;
     if (vb == null) return -1;
@@ -38,3 +39,11 @@ export function sortLeverage(rows: LeverageRow[], key: LeverageSortKey, asc = fa
     return asc ? cmp : -cmp;
   });
 }
+
+// Rank sorts best first when descending.
+export const sortLeverage = (rows: LeverageRow[], key: LeverageSortKey, asc = false): LeverageRow[] => sortBy(rows, r => sortValue(r, key), asc);
+
+export const sortFcf = (rows: FcfRow[], key: FcfSortKey, asc = false): FcfRow[] => sortBy(rows, r => r[key], asc);
+
+// Growing = latest quarter's FCF above the quarter before; `minStreak` asks for that many rising quarters in a row.
+export const growingFcf = (rows: FcfRow[], minStreak = 1): FcfRow[] => rows.filter(r => r.growing && r.streak >= minStreak);
