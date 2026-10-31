@@ -29,6 +29,21 @@ describe('fcfFor', () => {
     expect(r.noCapex).toBe(false);
     expect(r.stale).toBe(false);
     expect(r.history.map(h => h.fcf)).toEqual([100, 80, 100, 120, 150]);
+    expect(r.ttmFcf).toBe(450);
+    expect(r.marketCap).toBeNull();
+    expect(r.fcfYield).toBeNull();
+  });
+
+  it('divides trailing 12-month FCF by market cap', () => {
+    const r = fcfFor('T', null, quarters, '2026-08-01', 9000)!;
+    expect(r.marketCap).toBe(9000);
+    expect(r.fcfYield).toBeCloseTo(0.05);
+  });
+
+  it('has no TTM FCF or yield without 4 consecutive quarters', () => {
+    const r = fcfFor('T', null, [q('2025-09-30', 120, 40), q('2025-12-31', 140, 40), q('2026-06-30', 200, 50)], '2026-08-01', 9000)!;
+    expect(r.ttmFcf).toBeNull();
+    expect(r.fcfYield).toBeNull();
   });
 
   it('counts as growing with no % when the previous quarter was negative', () => {

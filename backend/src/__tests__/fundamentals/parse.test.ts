@@ -312,4 +312,23 @@ describe('parseQuarters - share count fallbacks', () => {
     const rows = parseQuarters(sharesFacts({ WeightedAverageNumberOfDilutedSharesOutstanding: [{ start: '2026-01-01', end: '2026-03-31', val: 716.4 }] }));
     expect(rows[0].diluted_shares).toBeCloseTo(716.4e6, 0);
   });
+
+  it('scales thousands without a cover count when under 2M (TEM)', () => {
+    const rows = parseQuarters(sharesFacts({ WeightedAverageNumberOfDilutedSharesOutstanding: [{ start: '2026-01-01', end: '2026-03-31', val: 182_397 }] }));
+    expect(rows[0].diluted_shares).toBe(182_397_000);
+  });
+
+  const withCover = (val: number, cover: { end: string; val: number }[]) => {
+    const f = sharesFacts({ WeightedAverageNumberOfDilutedSharesOutstanding: [{ start: '2026-01-01', end: '2026-03-31', val }] }) as { facts: Record<string, unknown> };
+    f.facts.dei = { EntityCommonStockSharesOutstanding: { units: { shares: cover } } };
+    return f;
+  };
+  it('scales thousands to the cover-page share count (VPG 13,310 -> 13.3M; TEM 170,000 -> 170M)', () => {
+    expect(parseQuarters(withCover(13_310, [{ end: '2026-05-01', val: 12_256_197 }]))[0].diluted_shares).toBe(13_310_000);
+    expect(parseQuarters(withCover(170_000, [{ end: '2026-05-01', val: 175e6 }]))[0].diluted_shares).toBe(170e6);
+  });
+  it('keeps real counts and scales millions when a cover count exists, using the nearest cover date', () => {
+    expect(parseQuarters(withCover(5.8e9, [{ end: '2026-05-01', val: 5.9e9 }]))[0].diluted_shares).toBe(5.8e9);
+    expect(parseQuarters(withCover(716.4, [{ end: '2018-05-01', val: 1e3 }, { end: '2026-04-20', val: 712e6 }]))[0].diluted_shares).toBeCloseTo(716.4e6, 0);
+  });
 });

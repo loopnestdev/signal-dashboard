@@ -4,6 +4,7 @@ import { getFromCache, setToCache } from '../lib/cache.js';
 import { toEtClock } from '../lib/marketCalendar.js';
 import { isSupabaseAdminConfigured, selectAll, selectRows } from '../lib/supabaseRest.js';
 import { fcfFor, type FcfRow, type StoredCashQuarter } from '../fundamentals/fcf.js';
+import { marketCaps } from '../fundamentals/marketCap.js';
 import { leverageFor, rankLeverage, type LeverageRow, type StoredQuarter } from '../fundamentals/leverage.js';
 import { REMOVED_REASON } from '../fundamentals/plan.js';
 import { secUserAgent } from '../fundamentals/secClient.js';
@@ -27,8 +28,7 @@ interface CompanyRow {
 interface LeverageTable {
   rows: LeverageRow[];
   stale: { ticker: string; periodEnd: string }[];
-  fcf: FcfRow[] | null;
-  fcfError: string | null;
+  fcf: FcfRow[];
   today: string;
 }
 
@@ -39,27 +39,20 @@ const groupByTicker = <T extends { ticker: string }>(rows: T[]) => {
 };
 
 // fcfTable:
-//   - Queried apart from the leverage columns so the leverage table keeps working before migration 20261031_sec_cash_flow.sql is run
 //   - Companies whose latest quarter with cash flow figures is stale are left out, like the leverage table
-async function fcfTable(companies: CompanyRow[], since: string, today: string): Promise<{ fcf: FcfRow[] | null; fcfError: string | null }> {
-  try {
-    const quarters = await selectAll<StoredCashQuarter>(
-      'sec_quarters',
-      `select=ticker,period_end,fiscal_year,fiscal_period,revenue,operating_cash_flow,capex,cash&period_end=gte.${since}&order=ticker,period_end`,
-    );
-    const byTicker = groupByTicker(quarters);
-    const fcf = companies
-      .filter(c => c.status === 'eligible')
-      .map(c => fcfFor(c.ticker, c.name, byTicker.get(c.ticker) ?? [], today))
-      .filter(r => r !== null && !r.stale) as FcfRow[];
-    return { fcf, fcfError: null };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'query failed';
-    if (message.includes('42703') || message.includes('operating_cash_flow')) {
-      return { fcf: null, fcfError: 'Cash flow columns not found - run supabase/migrations/20261031_sec_cash_flow.sql, then "Re-download all"' };
-    }
-    throw err;
-  }
+//   - Market cap = newest filed share count x the current Yahoo price, cached per ticker for 15 minutes
+async function fcfTable(companies: CompanyRow[], since: string, today: string): Promise<{ fcf: FcfRow[]; caps: Map<string, number | null> }> {
+  const quarters = await selectAll<StoredCashQuarter & { diluted_shares: number | string | null }>(
+    'sec_quarters',
+    `select=ticker,period_end,fiscal_year,fiscal_period,revenue,operating_cash_flow,capex,cash,diluted_shares&period_end=gte.${since}&order=ticker,period_end`,
+  );
+  const eligible = companies.filter(c => c.status === 'eligible');
+  const byTicker = groupByTicker(quarters);
+  const caps = await marketCaps(new Map(eligible.map(c => [c.ticker, byTicker.get(c.ticker) ?? []])));
+  const fcf = eligible
+    .map(c => fcfFor(c.ticker, c.name, byTicker.get(c.ticker) ?? [], today, caps.get(c.ticker) ?? null))
+    .filter(r => r !== null && !r.stale) as FcfRow[];
+  return { fcf, caps };
 }
 
 router.use('/fundamentals', (_req, res, next) => {
@@ -104,7 +97,10 @@ router.get('/fundamentals/leverage', async (_req, res) => {
         .filter(r => r !== null);
       // A stale latest quarter (pre-revenue filer, overdue 10-Q) would be ranked on old numbers, so it is listed as skipped.
       const stale = all.filter(r => r.stale).map(r => ({ ticker: r.ticker, periodEnd: r.periodEnd }));
-      table = { rows: rankLeverage(all.filter(r => !r.stale)), stale, ...(await fcfTable(companies, since, today)), today };
+      const { fcf, caps } = await fcfTable(companies, since, today);
+      const yieldOf = new Map(fcf.map(r => [r.ticker, r.fcfYield]));
+      const rows = all.filter(r => !r.stale).map(r => ({ ...r, marketCap: caps.get(r.ticker) ?? null, fcfYield: yieldOf.get(r.ticker) ?? null }));
+      table = { rows: rankLeverage(rows), stale, fcf, today };
       if (sync?.state !== 'running') setToCache(cacheKey, table, 60);
     }
 
@@ -117,7 +113,6 @@ router.get('/fundamentals/leverage', async (_req, res) => {
     res.json({
       rows: table.rows,
       fcf: table.fcf,
-      fcfError: table.fcfError,
       today: table.today,
       skipped: companies
         .filter(c => c.status !== 'eligible' || !ranked.has(c.ticker))

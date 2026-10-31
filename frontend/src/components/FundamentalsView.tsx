@@ -28,10 +28,12 @@ function Card({ title, tip, right, children }: { title: string; tip?: string; ri
 const COLUMNS: { key: LeverageSortKey; title: string; tip: string; align?: 'right' }[] = [
   { key: 'ticker', title: 'Ticker', tip: 'US-listed moat-finder tickers that file 10-Q/10-K with the SEC. Click a ticker to open it on the Dashboard; click the row for its last 8 quarters.' },
   { key: 'operatingIncome', title: 'Op income', tip: 'Operating income of the latest reported quarter (revenue minus operating costs), from the SEC filing.', align: 'right' },
+  { key: 'marketCap', title: 'Mkt cap', tip: 'Market cap now: the newest share count filed with the SEC (diluted weighted average, adjusted for any split since) times the current share price. Refreshed every 15 minutes.', align: 'right' },
   { key: 'opMargin', title: 'Op margin (yr ago)', tip: 'Operating income as a share of revenue this quarter, and in brackets the same quarter a year earlier.', align: 'right' },
   { key: 'revYoY', title: 'Rev YoY', tip: 'Revenue growth vs the same quarter a year earlier.', align: 'right' },
   { key: 'incrementalMargin', title: 'Incremental margin', tip: 'Of each extra dollar of revenue vs a year ago, how much became operating income. 90% means costs barely grew while sales did. Blank when revenue did not grow.', align: 'right' },
   { key: 'dol', title: 'DOL', tip: 'Degree of operating leverage: % growth in operating income divided by % growth in revenue. 3x = profit grew three times as fast as sales. n/m when last year\'s operating income was a loss or under 1% of revenue, or revenue fell.', align: 'right' },
+  { key: 'fcfYield', title: 'FCF yield', tip: 'Free cash flow yield: the last 4 quarters of free cash flow (operating cash flow minus capex) divided by market cap. 5% means the company generates 5 cents of free cash a year per dollar of share value. Blank without 4 consecutive quarters of cash flow figures.', align: 'right' },
   { key: 'rank', title: 'Leverage rank', tip: 'Rank by incremental margin (ties broken by margin expansion) among companies whose revenue grew. 1 = the most operating leverage in this list.', align: 'right' },
 ];
 
@@ -97,6 +99,8 @@ const FCF_COLUMNS: { key: FcfSortKey; title: string; tip: string; align?: 'right
   { key: 'streak', title: 'Streak', tip: 'How many quarters in a row free cash flow has risen, ending with the latest quarter.', align: 'right' },
   { key: 'fcfMargin', title: 'FCF margin', tip: 'Free cash flow as a share of revenue in the same quarter.', align: 'right' },
   { key: 'cash', title: 'Cash & equiv.', tip: 'Cash and cash equivalents on the balance sheet at the end of the latest quarter (excludes longer-dated marketable securities).', align: 'right' },
+  { key: 'marketCap', title: 'Mkt cap', tip: 'Market cap now: the newest share count filed with the SEC (diluted weighted average, adjusted for any split since) times the current share price. Refreshed every 15 minutes.', align: 'right' },
+  { key: 'fcfYield', title: 'FCF yield', tip: 'Free cash flow yield: the last 4 quarters of free cash flow (operating cash flow minus capex) divided by market cap. 5% means the company generates 5 cents of free cash a year per dollar of share value. Blank without 4 consecutive quarters of cash flow figures.', align: 'right' },
 ];
 
 const FILTERS: { min: number; label: string }[] = [
@@ -126,7 +130,7 @@ function FcfTable({ data, canSync, onAnalyze }: { data: LeverageResponse; canSyn
   const [sort, setSort] = useState<{ key: FcfSortKey; asc: boolean }>({ key: 'qoq', asc: false });
   const [minStreak, setMinStreak] = useState(1);
   const [open, setOpen] = useState<string | null>(null);
-  const all = data.fcf ?? [];
+  const all = data.fcf;
   const rows = useMemo(() => sortFcf(minStreak ? growingFcf(all, minStreak) : all, sort.key, sort.asc), [all, minStreak, sort]);
   const clickSort = (key: FcfSortKey) => setSort(s => (s.key === key ? { key, asc: !s.asc } : { key, asc: key === 'ticker' }));
   const pill = (active: boolean) => ({
@@ -144,9 +148,7 @@ function FcfTable({ data, canSync, onAnalyze }: { data: LeverageResponse; canSyn
         </div>
       }
     >
-      {data.fcfError ? (
-        <div style={{ fontSize: '13px', color: C.warn }}>{data.fcfError}</div>
-      ) : all.length === 0 ? (
+      {all.length === 0 ? (
         <div style={{ fontSize: '13px', color: C.inkSec }}>
           No cash flow figures stored yet.{canSync ? ' Use "Re-download all" once to load them for every company.' : ''}
         </div>
@@ -156,7 +158,7 @@ function FcfTable({ data, canSync, onAnalyze }: { data: LeverageResponse; canSyn
             {rows.length} of {all.length} companies{minStreak ? ` with free cash flow up ${minStreak > 1 ? `${minStreak}+ quarters in a row` : 'vs the previous quarter'}` : ''}
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={th}>#</th>
@@ -187,6 +189,8 @@ function FcfTable({ data, canSync, onAnalyze }: { data: LeverageResponse; canSyn
                       <td className="tnum" style={{ ...td, textAlign: 'right', color: r.streak >= 2 ? C.ink : C.inkSec, fontWeight: r.streak >= 2 ? 700 : 400 }}>{r.streak}</td>
                       <td className="tnum" style={{ ...td, textAlign: 'right' }}>{fmtMargin(r.fcfMargin)}</td>
                       <td className="tnum" style={{ ...td, textAlign: 'right', color: C.ink }}>{r.cash == null ? '-' : fmtMoney(r.cash)}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right' }}>{r.marketCap == null ? '-' : fmtMoney(r.marketCap)}</td>
+                      <td className="tnum" style={{ ...td, textAlign: 'right', color: signColor(r.fcfYield), fontWeight: 600 }} title={r.ttmFcf == null ? undefined : `Last 4 quarters FCF ${fmtMoney(r.ttmFcf)}`}>{fmtMargin(r.fcfYield)}</td>
                       <td className="tnum" style={{ ...td, color: C.inkMute, fontSize: '12px' }}>{r.periodLabel ?? ''}{r.noCapex ? '‡' : ''} · {r.periodEnd}</td>
                     </tr>
                     {open === r.ticker && (
@@ -306,7 +310,7 @@ export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onA
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: 860, borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th style={th}>#</th>
@@ -332,6 +336,7 @@ export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onA
                             </button>
                           </td>
                           <td className="tnum" style={{ ...td, textAlign: 'right', color: signColor(r.operatingIncome) }}>{fmtMoney(r.operatingIncome)}</td>
+                          <td className="tnum" style={{ ...td, textAlign: 'right' }}>{r.marketCap == null ? '-' : fmtMoney(r.marketCap)}</td>
                           <td className="tnum" style={{ ...td, textAlign: 'right' }}>
                             <span style={{ color: C.ink }}>{fmtMargin(r.opMargin)}</span>{' '}
                             <span style={{ color: signColor(change), fontSize: '12px' }}>({fmtMargin(r.opMarginYearAgo)})</span>
@@ -339,6 +344,7 @@ export function FundamentalsView({ canSync, onAnalyze }: { canSync: boolean; onA
                           <td className="tnum" style={{ ...td, textAlign: 'right', color: signColor(r.revYoY) }}>{fmtRatioPct(r.revYoY, true)}</td>
                           <td className="tnum" style={{ ...td, textAlign: 'right', color: C.ink }}>{fmtRatioPct(r.incrementalMargin)}</td>
                           <td className="tnum" style={{ ...td, textAlign: 'right' }}>{r.dol == null ? 'n/m' : `${r.dol.toFixed(1)}x`}</td>
+                          <td className="tnum" style={{ ...td, textAlign: 'right', color: signColor(r.fcfYield) }}>{fmtMargin(r.fcfYield)}</td>
                           <td className="tnum" style={{ ...td, textAlign: 'right', color: top ? C.ink : C.inkSec, fontWeight: top ? 700 : 400 }}>{r.rank ?? '-'}</td>
                           <td className="tnum" style={{ ...td, color: C.inkMute, fontSize: '12px' }}>
                             {r.periodLabel ?? ''}{r.derived ? '*' : ''}{r.opComputed ? '†' : ''} · {r.periodEnd}

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.13.0] - 2026-10-31
+
+### Added - Market cap and FCF yield on both Fundamentals tabs
+
+- **Mkt cap** = newest SEC share count (split-adjusted) x the current Yahoo price, refreshed every 15 minutes. **FCF yield** = the last 4 quarters of free cash flow / market cap. Both columns sort, on the operating leverage and free cash flow tabs.
+- Money values of a trillion or more show as `$1.07T`.
+
+### Fixed
+
+- Share counts tagged in thousands were misread: VPG (13,310 thousand) became 13.3 billion shares, TEM (~180,000 thousand) 180 thousand. Each count is now scaled to the company's cover-page share count; without one, values under 2M are read as thousands. This also corrects market cap in the LEAPS screen. Stored counts update with the next **Re-download all**.
+
+---
+
 ## [1.12.0] - 2026-10-31
 
 ### Added - Fundamentals: Free cash flow tab

@@ -412,6 +412,8 @@ export interface LeverageRow {
   dol: number | null;
   rank: number | null;
   stale: boolean;
+  marketCap: number | null;
+  fcfYield: number | null;
   history: LeverageQuarter[];
 }
 
@@ -437,6 +439,9 @@ export interface FcfRow {
   streak: number;
   fcfMargin: number | null;
   cash: number | null;
+  ttmFcf: number | null;
+  marketCap: number | null;
+  fcfYield: number | null;
   noCapex: boolean;
   stale: boolean;
   history: FcfPoint[];
@@ -456,8 +461,7 @@ export interface FundamentalsSync {
 
 export interface LeverageResponse {
   rows: LeverageRow[];
-  fcf: FcfRow[] | null;
-  fcfError: string | null;
+  fcf: FcfRow[];
   today: string;
   skipped: { ticker: string; name: string | null; status: 'eligible' | 'excluded' | 'pending'; reason: string }[];
   unseen: string[];

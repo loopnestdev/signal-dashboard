@@ -1,12 +1,13 @@
 import type { FcfRow, LeverageRow } from '../types/market';
 
-export type LeverageSortKey = 'operatingIncome' | 'ticker' | 'opMargin' | 'marginChange' | 'revYoY' | 'incrementalMargin' | 'dol' | 'rank';
-export type FcfSortKey = 'ticker' | 'fcf' | 'fcfPrev' | 'qoq' | 'yoy' | 'streak' | 'fcfMargin' | 'cash';
+export type LeverageSortKey = 'operatingIncome' | 'ticker' | 'opMargin' | 'marginChange' | 'revYoY' | 'incrementalMargin' | 'dol' | 'rank' | 'marketCap' | 'fcfYield';
+export type FcfSortKey = 'ticker' | 'fcf' | 'fcfPrev' | 'qoq' | 'yoy' | 'streak' | 'fcfMargin' | 'cash' | 'marketCap' | 'fcfYield';
 
-// $63.73B / $459.7M / -$3.6M, matching the source table's style.
+// $1.07T / $63.73B / $459.7M / -$3.6M, matching the source table's style.
 export function fmtMoney(n: number): string {
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
+  if (abs >= 1e12) return `${sign}$${(abs / 1e12).toFixed(2)}T`;
   if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
   if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;

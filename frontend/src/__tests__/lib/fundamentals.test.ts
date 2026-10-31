@@ -4,12 +4,13 @@ import type { FcfRow, LeverageRow } from '../../types/market';
 
 const row = (ticker: string, extra: Partial<LeverageRow> = {}): LeverageRow => ({
   ticker, name: null, periodEnd: '2026-06-30', periodLabel: null, derived: false, opComputed: false,
-  operatingIncome: 1, revenue: 10, opMargin: 0.1, opMarginYearAgo: 0.05, revYoY: 0.2, incrementalMargin: 0.3, dol: 2, rank: 1, stale: false, history: [],
+  operatingIncome: 1, revenue: 10, opMargin: 0.1, opMarginYearAgo: 0.05, revYoY: 0.2, incrementalMargin: 0.3, dol: 2, rank: 1, stale: false, marketCap: null, fcfYield: null, history: [],
   ...extra,
 });
 
 describe('fmtMoney', () => {
   it('scales to B / M / K and keeps the sign in front', () => {
+    expect(fmtMoney(1067.87e9)).toBe('$1.07T');
     expect(fmtMoney(63.73e9)).toBe('$63.73B');
     expect(fmtMoney(459.7e6)).toBe('$459.7M');
     expect(fmtMoney(-3.6e6)).toBe('-$3.6M');
@@ -69,7 +70,7 @@ describe('sortLeverage', () => {
 
 const fcfRow = (ticker: string, extra: Partial<FcfRow> = {}): FcfRow => ({
   ticker, name: null, periodEnd: '2026-06-30', periodLabel: null, fcf: 100, fcfPrev: 80, qoq: 0.25, yoy: 0.1,
-  growing: true, streak: 1, fcfMargin: 0.2, cash: 1000, noCapex: false, stale: false, history: [],
+  growing: true, streak: 1, fcfMargin: 0.2, cash: 1000, ttmFcf: 400, marketCap: 10000, fcfYield: 0.04, noCapex: false, stale: false, history: [],
   ...extra,
 });
 
@@ -79,6 +80,11 @@ describe('sortFcf', () => {
   it('sorts by QoQ % descending with missing values last', () => {
     expect(sortFcf(rows, 'qoq').map(r => r.ticker)).toEqual(['C', 'B', 'A']);
     expect(sortFcf(rows, 'qoq', true).map(r => r.ticker)).toEqual(['B', 'C', 'A']);
+  });
+
+  it('sorts by FCF yield', () => {
+    const y = [fcfRow('A', { fcfYield: 0.02 }), fcfRow('B', { fcfYield: null }), fcfRow('C', { fcfYield: 0.06 })];
+    expect(sortFcf(y, 'fcfYield').map(r => r.ticker)).toEqual(['C', 'A', 'B']);
   });
 
   it('sorts by cash and by ticker', () => {

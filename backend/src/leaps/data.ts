@@ -13,7 +13,7 @@ export type StoredQuarter = QuarterFacts & { ticker: string };
 const toSeries = (bars: DailyBar[]): Series => ({ dates: bars.map(b => b.date), closes: bars.map(b => b.close) });
 
 // Small parallel batches keep ~120 Yahoo requests quick without looking like a burst.
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -44,7 +44,7 @@ export async function quartersFor(symbols: string[]): Promise<Map<string, Stored
 }
 
 // Market cap at the last close: newest filed share count, scaled for any split since that quarter ended.
-export function marketCapNow(quarters: QuarterFacts[], lastClose: number, splits: Split[]): number | null {
+export function marketCapNow(quarters: Pick<QuarterFacts, 'period_end' | 'diluted_shares'>[], lastClose: number, splits: Split[]): number | null {
   const q = [...quarters].reverse().find(x => x.diluted_shares != null && Number(x.diluted_shares) > 0);
   return q ? Number(q.diluted_shares) * splitFactorSince(splits, q.period_end) * lastClose : null;
 }

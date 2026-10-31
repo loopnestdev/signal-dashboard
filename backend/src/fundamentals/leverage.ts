@@ -37,6 +37,8 @@ export interface LeverageRow {
   dol: number | null;                 // % change in op income / % change in revenue
   rank: number | null;                // 1 = highest incremental margin among growing companies
   stale: boolean;                     // latest quarter ended more than STALE_DAYS before `today`
+  marketCap: number | null;           // filled by the route (live price), as on the free cash flow tab
+  fcfYield: number | null;            // trailing 12 months of FCF / market cap, from the free cash flow row
   history: QuarterPoint[];            // up to the last 8 quarters, oldest first
 }
 
@@ -91,6 +93,8 @@ export function leverageFor(ticker: string, name: string | null, quarters: Store
     dol,
     rank: null,
     stale: daysBetween(latest.q.period_end, today) > STALE_DAYS,
+    marketCap: null,
+    fcfYield: null,
     history: points.slice(-8).map(p => ({
       end: p.q.period_end, label: label(p.q), revenue: p.revenue, operatingIncome: p.op, margin: p.op / p.revenue,
     })),

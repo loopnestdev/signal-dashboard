@@ -110,8 +110,12 @@ export const SHARES_CONCEPTS = [
   'WeightedAverageNumberOfSharesOutstandingBasic',
 ];
 export const SHARES_INSTANT_CONCEPTS = ['CommonStockSharesOutstanding'];
-// A few filers (MCD) tag share counts in millions; no company in the LEAPS list has under 100k shares.
+// Fallback when a filer has no cover-page share count:
+//   - Under 100k = millions (MCD 716.4)
+//   - Under 2M = thousands (TEM ~180,000, whose dual-class cover count is not in companyfacts); the few real sub-2M share counts (Seaboard) file a cover count
 const MILLIONS_BELOW = 100_000;
+const THOUSANDS_BELOW = 2_000_000;
+const SHARE_SCALES = [1, 1e3, 1e6];
 // Fallback inputs for filers without an OperatingIncomeLoss tag (COHR, ETN, CC, Qnity): see computedOperatingIncome.
 export const COST_CONCEPTS = {
   totalCosts: ['CostsAndExpenses'],
@@ -219,12 +223,28 @@ function quartersFor(facts: unknown, concepts: string[]): Map<string, Period> {
   return byEnd;
 }
 
+// shareScale:
+//   - Some filers tag income-statement share counts in thousands (VPG 13,310; TEM ~170,000) or millions (MCD) instead of shares
+//   - The dei cover-page count (EntityCommonStockSharesOutstanding) is filed as an actual count, so each value takes the scale (1, 1e3, 1e6) that lands closest to the cover count nearest in time
+//   - The cover count may cover one share class only (GOOGL); classes differ far less than 1000x, so the scale still comes out right
+function shareScale(facts: unknown): (end: string, val: number) => number {
+  const cover = ((facts as CompanyFacts | null)?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares ?? [])
+    .filter(f => Number.isFinite(f.val) && f.val > 0);
+  return (end, val) => {
+    if (!cover.length) return val < MILLIONS_BELOW ? val * 1e6 : val < THOUSANDS_BELOW ? val * 1e3 : val;
+    const ref = cover.reduce((best, f) => (Math.abs(daysBetween(f.end, end)) < Math.abs(daysBetween(best.end, end)) ? f : best)).val;
+    const gap = (scale: number) => Math.abs(Math.log(val * scale / ref));
+    return val * SHARE_SCALES.reduce((best, scale) => (gap(scale) < gap(best) ? scale : best));
+  };
+}
+
 // sharesFor:
 //   - Share counts are averages, so a Q4 cannot be derived by subtraction; the fiscal-year average stands in for Q4
 //   - First concept with a value for a period wins
 function sharesFor(facts: unknown): Map<string, number> {
   const out = new Map<string, number>();
-  const put = (end: string, val: number) => { if (!out.has(end) && val > 0) out.set(end, val < MILLIONS_BELOW ? val * 1e6 : val); };
+  const scaled = shareScale(facts);
+  const put = (end: string, val: number) => { if (!out.has(end) && val > 0) out.set(end, scaled(end, val)); };
   for (const concept of SHARES_CONCEPTS) {
     const list = conceptFacts(facts, concept, 'shares');
     for (const p of periodsOf(list, isQuarter).values()) put(p.end, p.val);

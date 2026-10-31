@@ -71,7 +71,7 @@ describe('leverageFor', () => {
 describe('rankLeverage', () => {
   const row = (ticker: string, operatingIncome: number, incrementalMargin: number | null, opMargin = 0.2, opMarginYearAgo: number | null = 0.1): LeverageRow => ({
     ticker, name: null, periodEnd: '2026-06-30', periodLabel: null, derived: false, opComputed: false,
-    operatingIncome, revenue: 1, opMargin, opMarginYearAgo, revYoY: 0.1, incrementalMargin, dol: null, rank: null, stale: false, history: [],
+    operatingIncome, revenue: 1, opMargin, opMarginYearAgo, revYoY: 0.1, incrementalMargin, dol: null, rank: null, stale: false, marketCap: null, fcfYield: null, history: [],
   });
 
   it('ranks by incremental margin and orders rows by operating income', () => {

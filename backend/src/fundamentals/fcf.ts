@@ -36,6 +36,9 @@ export interface FcfRow {
   streak: number;                  // consecutive quarters (ending at the latest) each with higher FCF than the one before
   fcfMargin: number | null;        // fcf / revenue of the same quarter
   cash: number | null;             // cash and equivalents at the latest quarter end
+  ttmFcf: number | null;           // sum of the last 4 quarters, when they are consecutive
+  marketCap: number | null;        // latest filed share count x current price
+  fcfYield: number | null;         // ttmFcf / marketCap
   noCapex: boolean;                // the company tags no capex at all: FCF = operating cash flow
   stale: boolean;
   history: FcfPoint[];             // up to the last 8 quarters, oldest first
@@ -49,7 +52,8 @@ const growth = (now: number, before: number | null) => (before != null && before
 // fcfFor:
 //   - FCF = operating cash flow - capex; a company that never tags capex (banks, some software) gets operating cash flow as FCF
 //   - A company that tags capex in other quarters but not this one has no FCF for it, so a missing capex never reads as a jump
-export function fcfFor(ticker: string, name: string | null, quarters: StoredCashQuarter[], today: string): FcfRow | null {
+//   - FCF yield = trailing 12 months of FCF / market cap; a single quarter is too seasonal to annualize
+export function fcfFor(ticker: string, name: string | null, quarters: StoredCashQuarter[], today: string, marketCap: number | null = null): FcfRow | null {
   const tagsCapex = quarters.some(q => num(q.capex) != null);
   const points = quarters
     .map(q => {
@@ -74,6 +78,11 @@ export function fcfFor(ticker: string, name: string | null, quarters: StoredCash
     streak++;
   }
 
+  const last4 = points.slice(-4);
+  const ttmFcf = last4.length === 4 && last4.every((p, i) => i === 0 || isNextQuarter(last4[i - 1].q.period_end, p.q.period_end))
+    ? last4.reduce((s, p) => s + p.fcf, 0)
+    : null;
+
   return {
     ticker,
     name,
@@ -87,6 +96,9 @@ export function fcfFor(ticker: string, name: string | null, quarters: StoredCash
     streak,
     fcfMargin: latest.revenue != null && latest.revenue > 0 ? latest.fcf / latest.revenue : null,
     cash: latest.cash,
+    ttmFcf,
+    marketCap,
+    fcfYield: ttmFcf != null && marketCap != null && marketCap > 0 ? ttmFcf / marketCap : null,
     noCapex: latest.capex == null,
     stale: daysBetween(latest.q.period_end, today) > STALE_DAYS,
     history: points.slice(-8).map(p => ({
