@@ -14,9 +14,12 @@ import backtestRouter from './routes/backtest.js';
 import fundamentalsRouter from './routes/fundamentals.js';
 import leapsRouter from './routes/leaps.js';
 import { startCollector } from './collector/index.js';
+import { requireOriginAuth } from './lib/originAuth.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
+
+app.use(requireOriginAuth);
 
 const allowedOrigins = new Set(
   (process.env.FRONTEND_URL ?? 'http://localhost:5173')

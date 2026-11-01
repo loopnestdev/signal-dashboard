@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.13.1] - 2026-11-01
+
+### Security - Backend reachable only through Cloudflare
+
+- New optional `ORIGIN_AUTH_SECRET`: when set, the backend answers 403 to any request (except `/health`) without a matching `X-Origin-Auth` header, which a Cloudflare Transform Rule adds on `signal-api.ailab.build`. Requests that skip Cloudflare's WAF rules (IP / country blocks) are refused.
+- The frontend CSP allows `https://signal-api.ailab.build`.
+
+---
+
 ## [1.13.0] - 2026-10-31
 
 ### Added - Market cap and FCF yield on both Fundamentals tabs

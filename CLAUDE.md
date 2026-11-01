@@ -161,6 +161,7 @@ signal-dashboard/
 |   |   |   +-- stockScoring.ts        # Stock score + Fibonacci + Moving Averages
 |   |   +-- lib/
 |   |       +-- adminAuth.ts           # requireAdmin: verifies Supabase session + is_admin (loopback bypass off Railway)
+|   |       +-- originAuth.ts          # requireOriginAuth: 403 unless X-Origin-Auth matches ORIGIN_AUTH_SECRET (Cloudflare-only access)
 |   |       +-- apiUsage.ts            # signaFetch() call counter --> signal.api_usage
 |   |       +-- settings.ts            # TradingSettings defaults, validateSettings, riskPerTrade, get/save (signal.app_settings)
 |   |       +-- cache.ts               # NodeCache wrapper (30s TTL)
@@ -223,6 +224,7 @@ The frontend Vite dev proxy routes `/api/*` --> `http://localhost:3001`, so no C
 | `SIGNA_DAILY_LIMIT` | No | `1000` | Signa quota; REST + MCP share it |
 | `SIGNA_RESERVE_CALLS` | No | `200` | Collector skips jobs once usage reaches `limit - reserve` |
 | `SEC_USER_AGENT` | For Fundamentals | - | `<app name> <contact email>` on every SEC EDGAR request; without it no new filings are fetched |
+| `ORIGIN_AUTH_SECRET` | No | - | Requests except `/health` need a matching `X-Origin-Auth` header (set by a Cloudflare Transform Rule on `signal-api.ailab.build`); off when unset |
 
 **`frontend/.env`** (optional - enables Google sign-in and cross-device watchlist sync)
 
@@ -447,7 +449,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 478 tests - one-shot
+cd backend && npm test          # 484 tests - one-shot
 cd frontend && npm test         # 96 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -496,6 +498,7 @@ cd frontend && npm run test:watch  # watch mode
 | `frontend/src/__tests__/lib/leaps.test.ts` | `pctTo` / `fmtLevel`, `fmtCap`, `sortScreen`, `positionReturnPct` (both halves), `positionStatus`, `mergeNamedCurves`, `buyAndHoldRows` (SPY / QQQ from run benchmarks), `indexAction` (buy, ordered, hold until roll date, roll) |
 | `backend/src/__tests__/fundamentals/plan.test.ts` | `planSync` (suffix / non-SEC exclusions, new vs daily modes, re-added and removed tickers, dedupe), `needsFacts` (new filing, never fetched, full resync, excluded) |
 | `frontend/src/__tests__/lib/fundamentals.test.ts` | `fmtMoney`, `fmtRatioPct`, `fmtMargin`, `sortLeverage` (directions, rank order, missing values last, margin change, no mutation), `sortFcf` (QoQ / cash / ticker, missing last, no mutation), `growingFcf` (streak filter), FCF yield sort, `$T` formatting |
+| `backend/src/__tests__/lib/originAuth.test.ts` | `originAuthorized` (off without a secret, exact match, arrays rejected), `requireOriginAuth` (403 without header, pass with secret, `/health` exempt) |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |
 | `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |
 

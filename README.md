@@ -245,6 +245,7 @@ The frontend proxies `/api/*` to `:3001` via Vite's dev proxy - no CORS config n
 | `SIGNA_DAILY_LIMIT` | No | `1000` | Your Signa plan's daily call quota (REST + MCP share it) |
 | `SIGNA_RESERVE_CALLS` | No | `200` | Calls kept free for dashboard browsing; collector jobs are skipped once usage reaches `limit - reserve` |
 | `SEC_USER_AGENT` | For Fundamentals | - | `<app name> <contact email>` sent with every SEC EDGAR request (SEC requires it). Without it the Fundamentals view shows stored quarters but cannot fetch new filings |
+| `ORIGIN_AUTH_SECRET` | No | - | When set, every request except `/health` must carry `X-Origin-Auth` with this value (403 otherwise). A Cloudflare Transform Rule adds the header on the proxied API domain, so requests that skip Cloudflare's WAF are refused |
 | `SCANNER_PROMOTE_SCORE` | No | `45` | Flow Scanner score (0-100) needed to add a symbol to data collection (not a trade signal) |
 | `SCANNER_MAX_PROMOTED` | No | `12` | Cap on scanner-added symbols (each costs ~22 Signa calls per trading day) |
 | `SCANNER_DP_LOOKUPS` | No | `10` | Live dark pool pulls per scanner run for untracked candidates |
@@ -506,6 +507,7 @@ In Railway --> your service --> **Variables**, add:
 | `SUPABASE_SERVICE_ROLE_KEY` | coredb service role key *(data collection)* |
 | `COLLECTOR_ENABLED` | `true` *(only on this one deployment)* |
 | `SEC_USER_AGENT` | `signal-dashboard you@example.com` *(Fundamentals view - your contact email, required by SEC)* |
+| `ORIGIN_AUTH_SECRET` | Same value as the Cloudflare Transform Rule's `X-Origin-Auth` header *(set only after that rule exists - see Cloudflare origin lock below)* |
 
 > `AI_PROVIDER` and `PORT` have sensible defaults - only add them if you want to override.
 
@@ -550,6 +552,17 @@ Copy this - you'll need it for Cloudflare Pages.
 > **Deployed as a Worker (Workers Builds)?** The deploy command is `npx wrangler deploy` and the build variables live under **Settings --> Build --> Variables and secrets**. `frontend/wrangler.jsonc` must stay in the repo: without it, wrangler's auto-setup npm-installs `wrangler` + `@cloudflare/vite-plugin` and fails with `npm error Cannot read properties of null (reading 'edgesOut')` because of the `overrides` block in `frontend/package.json`.
 
 > **Custom domain only.** `wrangler.jsonc` sets `workers_dev: false` and `preview_urls: false` and routes the Worker to `signal.ailab.build`, so the app is never served on a `*.workers.dev` address that would bypass the zone's WAF rules (IP / country blocks). Leave these set: a deploy without them turns the `workers.dev` address back on.
+
+#### Cloudflare origin lock (API domain)
+
+The browser calls the backend at `signal-api.ailab.build`, a proxied Cloudflare record pointing at the Railway service, so the zone's WAF rules (IP / country) cover the API too:
+
+1. **Railway --> service --> Settings --> Networking --> Custom Domain:** `signal-api.ailab.build`; add the CNAME (proxied) and TXT records it shows in Cloudflare DNS. SSL/TLS mode must be Full or Full (strict), never Flexible.
+2. **Cloudflare --> Rules --> Transform Rules --> Modify Request Header:** for `http.host eq "signal-api.ailab.build"`, set `X-Origin-Auth` to a random secret (`openssl rand -hex 32`).
+3. **Railway variable** `ORIGIN_AUTH_SECRET` = the same secret. From then on, requests that reach Railway without passing Cloudflare get 403 (`/health` stays open for Railway's health check).
+4. **Frontend build variable** `VITE_API_URL=https://signal-api.ailab.build`, then remove the Railway-generated `*.up.railway.app` domain.
+
+`frontend/public/_headers` allows `https://signal-api.ailab.build` in `connect-src`.
 
 #### Step 3 - Environment variables
 
