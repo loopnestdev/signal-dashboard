@@ -449,7 +449,7 @@ cd frontend && npm run build
 Run the test suite to catch regressions before committing:
 
 ```bash
-cd backend && npm test          # 484 tests - one-shot
+cd backend && npm test          # 485 tests - one-shot
 cd frontend && npm test         # 96 tests  - one-shot
 
 cd backend && npm run test:watch   # watch mode
@@ -498,7 +498,7 @@ cd frontend && npm run test:watch  # watch mode
 | `frontend/src/__tests__/lib/leaps.test.ts` | `pctTo` / `fmtLevel`, `fmtCap`, `sortScreen`, `positionReturnPct` (both halves), `positionStatus`, `mergeNamedCurves`, `buyAndHoldRows` (SPY / QQQ from run benchmarks), `indexAction` (buy, ordered, hold until roll date, roll) |
 | `backend/src/__tests__/fundamentals/plan.test.ts` | `planSync` (suffix / non-SEC exclusions, new vs daily modes, re-added and removed tickers, dedupe), `needsFacts` (new filing, never fetched, full resync, excluded) |
 | `frontend/src/__tests__/lib/fundamentals.test.ts` | `fmtMoney`, `fmtRatioPct`, `fmtMargin`, `sortLeverage` (directions, rank order, missing values last, margin change, no mutation), `sortFcf` (QoQ / cash / ticker, missing last, no mutation), `growingFcf` (streak filter), FCF yield sort, `$T` formatting |
-| `backend/src/__tests__/lib/originAuth.test.ts` | `originAuthorized` (off without a secret, exact match, arrays rejected), `requireOriginAuth` (403 without header, pass with secret, `/health` exempt) |
+| `backend/src/__tests__/lib/originAuth.test.ts` | `originAuthorized` (off without a secret, exact match, surrounding whitespace ignored, arrays rejected), `requireOriginAuth` (403 without header, pass with secret, `/health` exempt) |
 | `backend/src/__tests__/lib/apiUsage.test.ts` | UTC day key, pending call accumulation per source |
 | `backend/src/__tests__/lib/gexParsing.test.ts` | `parseGexRawResponse`: Signa camelCase vs snake_case field fallback chains (`gammaFlipLevel`/`gamma_flip`/`gammaFlipPoint`, `callWall`/`call_wall`, `putWall`, `regimeAboveFlip`/`above_flip`/`aboveFlip`, `current_price`/`currentPrice`), per-expiry `rawLevels` preservation, cross-expiry strike aggregation, `net_gex` explicit vs sum-all-levels fallback vs null, zero-strike skip, symbol normalisation |
 

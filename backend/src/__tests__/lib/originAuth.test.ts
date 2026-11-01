@@ -15,6 +15,12 @@ describe('originAuthorized', () => {
     expect(originAuthorized(undefined, 's3cret')).toBe(false);
     expect(originAuthorized(['s3cret', 's3cret'], 's3cret')).toBe(false);
   });
+
+  it('ignores surrounding whitespace, e.g. a trailing newline from pbcopy', () => {
+    expect(originAuthorized('s3cret', 's3cret\n')).toBe(true);
+    expect(originAuthorized(' s3cret ', 's3cret')).toBe(true);
+    expect(originAuthorized('anything', '  \n')).toBe(true);
+  });
 });
 
 describe('requireOriginAuth', () => {
