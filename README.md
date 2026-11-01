@@ -549,6 +549,8 @@ Copy this - you'll need it for Cloudflare Pages.
 
 > **Deployed as a Worker (Workers Builds)?** The deploy command is `npx wrangler deploy` and the build variables live under **Settings --> Build --> Variables and secrets**. `frontend/wrangler.jsonc` must stay in the repo: without it, wrangler's auto-setup npm-installs `wrangler` + `@cloudflare/vite-plugin` and fails with `npm error Cannot read properties of null (reading 'edgesOut')` because of the `overrides` block in `frontend/package.json`.
 
+> **Custom domain only.** `wrangler.jsonc` sets `workers_dev: false` and `preview_urls: false` and routes the Worker to `signal.ailab.build`, so the app is never served on a `*.workers.dev` address that would bypass the zone's WAF rules (IP / country blocks). Leave these set: a deploy without them turns the `workers.dev` address back on.
+
 #### Step 3 - Environment variables
 
 In **Settings --> Environment Variables**, add:
